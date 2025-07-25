@@ -1,0 +1,36 @@
+{
+  "defaultPromptTemplate": "default",
+  "defaultTemperature": 0.7,
+  "defaultMaxTokens": 4096,
+  "maxContextLength": 4096,
+  "enableHistory": true,
+  "enableFunctionCalling": false,
+  "enableBroadcast": false,
+  "broadcastPlayers": [],
+  "historyRetentionDays": 30,
+  "logConfig": {
+    "enableLogging": true,
+    "logLevel": "INFO",
+    "enableFileLogging": true,
+    "enableConsoleLogging": true,
+    "logFilePath": "logs/lllmchat.log",
+    "maxLogFileSize": 10485760,
+    "maxLogFiles": 5,
+    "enablePerformanceLogging": false,
+    "enableChatLogging": true,
+    "enableErrorLogging": true
+  },
+  "providers": [
+    {
+      "name": "openai",
+      "apiBaseUrl": "https://api.openai.com/v1",
+      "apiKey": "your-openai-api-key-here",
+      "models": [
+        "gpt-3.5-turbo",
+        "gpt-4"
+      ]
+    }
+  ],
+  "currentProvider": "openai",
+  "currentModel": "gpt-3.5-turbo"
+}

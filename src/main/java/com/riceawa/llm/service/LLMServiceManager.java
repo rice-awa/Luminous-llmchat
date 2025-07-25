@@ -41,6 +41,9 @@ public class LLMServiceManager {
     private void initializeServices() {
         LLMChatConfig config = LLMChatConfig.getInstance();
 
+        // 验证并补齐配置
+        config.validateAndCompleteConfig();
+
         // 初始化并发管理器
         ConcurrencySettings concurrencySettings = config.getConcurrencySettings();
         ConcurrencyManager.ConcurrencyConfig concurrencyConfig = new ConcurrencyManager.ConcurrencyConfig(

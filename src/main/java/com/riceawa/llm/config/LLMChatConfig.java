@@ -10,6 +10,7 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -23,7 +24,11 @@ public class LLMChatConfig {
     private final Gson gson;
     private final Path configFile;
     
+    // 配置版本，用于配置升级
+    private static final String CURRENT_CONFIG_VERSION = "1.5.1";
+
     // 配置项
+    private String configVersion = CURRENT_CONFIG_VERSION;
     private String defaultPromptTemplate = "default";
     private double defaultTemperature = 0.7;
     private int defaultMaxTokens = 8192;
@@ -88,11 +93,26 @@ public class LLMChatConfig {
                 Files.newInputStream(configFile), StandardCharsets.UTF_8)) {
             ConfigData data = gson.fromJson(reader, ConfigData.class);
             if (data != null) {
+                // 检查配置版本并升级
+                boolean needsUpgrade = upgradeConfigIfNeeded(data);
                 applyConfigData(data);
+
+                // 如果配置被升级，保存新配置
+                if (needsUpgrade) {
+                    System.out.println("Configuration upgraded to version " + CURRENT_CONFIG_VERSION);
+                    saveConfig();
+                }
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             System.err.println("Failed to load config: " + e.getMessage());
+            System.err.println("Creating backup and using default configuration...");
+
+            // 备份损坏的配置文件
+            backupCorruptedConfig();
+
             // 使用默认配置
+            createDefaultConfig();
+            saveConfig();
         }
     }
 
@@ -114,6 +134,105 @@ public class LLMChatConfig {
      */
     public void reload() {
         loadConfig();
+    }
+
+    /**
+     * 检查并升级配置版本
+     */
+    private boolean upgradeConfigIfNeeded(ConfigData data) {
+        String loadedVersion = data.configVersion;
+
+        // 如果没有版本信息，说明是旧版本配置
+        if (loadedVersion == null || loadedVersion.isEmpty()) {
+            System.out.println("Upgrading configuration from legacy version to " + CURRENT_CONFIG_VERSION);
+            return upgradeFromLegacy(data);
+        }
+
+        // 检查是否需要升级
+        if (!CURRENT_CONFIG_VERSION.equals(loadedVersion)) {
+            System.out.println("Upgrading configuration from " + loadedVersion + " to " + CURRENT_CONFIG_VERSION);
+            return upgradeFromVersion(data, loadedVersion);
+        }
+
+        return false; // 不需要升级
+    }
+
+    /**
+     * 从旧版本升级配置
+     */
+    private boolean upgradeFromLegacy(ConfigData data) {
+        boolean upgraded = false;
+
+        // 设置配置版本
+        data.configVersion = CURRENT_CONFIG_VERSION;
+        upgraded = true;
+
+        // 添加缺失的并发配置
+        if (data.concurrencySettings == null) {
+            data.concurrencySettings = ConcurrencySettings.createDefault();
+            System.out.println("Added default concurrency settings");
+            upgraded = true;
+        }
+
+        // 确保日志配置存在
+        if (data.logConfig == null) {
+            data.logConfig = LogConfig.createDefault();
+            System.out.println("Added default log configuration");
+            upgraded = true;
+        }
+
+        // 确保providers配置存在
+        if (data.providers == null || data.providers.isEmpty()) {
+            createDefaultProviders();
+            data.providers = this.providers;
+            System.out.println("Added default providers configuration");
+            upgraded = true;
+        }
+
+        return upgraded;
+    }
+
+    /**
+     * 从指定版本升级配置
+     */
+    private boolean upgradeFromVersion(ConfigData data, String fromVersion) {
+        boolean upgraded = false;
+
+        // 设置新版本号
+        data.configVersion = CURRENT_CONFIG_VERSION;
+        upgraded = true;
+
+        // 根据版本进行特定升级
+        switch (fromVersion) {
+            case "1.5.0":
+                // 从1.5.0升级到1.5.1，添加并发配置
+                if (data.concurrencySettings == null) {
+                    data.concurrencySettings = ConcurrencySettings.createDefault();
+                    System.out.println("Added concurrency settings for version 1.5.1");
+                    upgraded = true;
+                }
+                break;
+
+            default:
+                // 对于未知版本，执行完整升级
+                System.out.println("Unknown version " + fromVersion + ", performing full upgrade");
+                return upgradeFromLegacy(data);
+        }
+
+        return upgraded;
+    }
+
+    /**
+     * 备份损坏的配置文件
+     */
+    private void backupCorruptedConfig() {
+        try {
+            Path backupFile = configFile.getParent().resolve("config.json.backup." + System.currentTimeMillis());
+            Files.copy(configFile, backupFile, StandardCopyOption.REPLACE_EXISTING);
+            System.out.println("Corrupted config backed up to: " + backupFile);
+        } catch (IOException e) {
+            System.err.println("Failed to backup corrupted config: " + e.getMessage());
+        }
     }
 
     /**
@@ -183,6 +302,7 @@ public class LLMChatConfig {
      * 应用配置数据
      */
     private void applyConfigData(ConfigData data) {
+        this.configVersion = data.configVersion != null ? data.configVersion : CURRENT_CONFIG_VERSION;
         this.defaultPromptTemplate = data.defaultPromptTemplate != null ? data.defaultPromptTemplate : "default";
         this.defaultTemperature = data.defaultTemperature != null ? data.defaultTemperature : 0.7;
         this.defaultMaxTokens = data.defaultMaxTokens != null ? data.defaultMaxTokens : 8192;
@@ -218,6 +338,7 @@ public class LLMChatConfig {
      */
     private ConfigData createConfigData() {
         ConfigData data = new ConfigData();
+        data.configVersion = this.configVersion;
         data.defaultPromptTemplate = this.defaultPromptTemplate;
         data.defaultTemperature = this.defaultTemperature;
         data.defaultMaxTokens = this.defaultMaxTokens;
@@ -520,9 +641,87 @@ public class LLMChatConfig {
     }
 
     /**
+     * 验证并补齐配置完整性
+     */
+    public boolean validateAndCompleteConfig() {
+        boolean updated = false;
+
+        // 检查并发配置
+        if (concurrencySettings == null) {
+            concurrencySettings = ConcurrencySettings.createDefault();
+            System.out.println("Added missing concurrency settings");
+            updated = true;
+        } else if (!concurrencySettings.isValid()) {
+            System.out.println("Invalid concurrency settings detected, resetting to defaults");
+            concurrencySettings = ConcurrencySettings.createDefault();
+            updated = true;
+        }
+
+        // 检查日志配置
+        if (logConfig == null) {
+            logConfig = LogConfig.createDefault();
+            System.out.println("Added missing log configuration");
+            updated = true;
+        }
+
+        // 检查providers配置
+        if (providers == null || providers.isEmpty()) {
+            createDefaultProviders();
+            System.out.println("Added missing providers configuration");
+            updated = true;
+        }
+
+        // 检查当前provider和model
+        if (currentProvider == null || currentProvider.isEmpty()) {
+            if (!providers.isEmpty()) {
+                currentProvider = providers.get(0).getName();
+                System.out.println("Set default current provider: " + currentProvider);
+                updated = true;
+            }
+        }
+
+        if (currentModel == null || currentModel.isEmpty()) {
+            String defaultModel = getDefaultModelForCurrentProvider();
+            if (!defaultModel.isEmpty()) {
+                currentModel = defaultModel;
+                System.out.println("Set default current model: " + currentModel);
+                updated = true;
+            }
+        }
+
+        // 检查广播玩家列表
+        if (broadcastPlayers == null) {
+            broadcastPlayers = new HashSet<>();
+            updated = true;
+        }
+
+        // 更新配置版本
+        if (!CURRENT_CONFIG_VERSION.equals(configVersion)) {
+            configVersion = CURRENT_CONFIG_VERSION;
+            updated = true;
+        }
+
+        // 如果有更新，保存配置
+        if (updated) {
+            saveConfig();
+            System.out.println("Configuration completed and saved");
+        }
+
+        return updated;
+    }
+
+    /**
+     * 获取配置版本
+     */
+    public String getConfigVersion() {
+        return configVersion;
+    }
+
+    /**
      * 配置数据类
      */
     private static class ConfigData {
+        String configVersion;
         String defaultPromptTemplate;
         Double defaultTemperature;
         Integer defaultMaxTokens;
