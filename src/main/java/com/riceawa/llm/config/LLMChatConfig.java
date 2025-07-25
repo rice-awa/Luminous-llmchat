@@ -21,8 +21,8 @@ public class LLMChatConfig {
     // 配置项
     private String defaultPromptTemplate = "default";
     private double defaultTemperature = 0.7;
-    private int defaultMaxTokens = 2048;
-    private int maxContextLength = 4000;
+    private int defaultMaxTokens = 8192;
+    private int maxContextLength = 8192;
     private boolean enableHistory = true;
     private boolean enableFunctionCalling = false;
     private int historyRetentionDays = 30;
