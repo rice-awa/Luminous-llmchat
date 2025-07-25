@@ -124,12 +124,34 @@ public class FunctionRegistry {
     }
 
     /**
-     * 为LLM配置生成函数定义
+     * 为LLM配置生成工具定义（新的OpenAI API格式）
      */
+    public List<LLMConfig.ToolDefinition> generateToolDefinitions(PlayerEntity player) {
+        Collection<LLMFunction> availableFunctions = getAvailableFunctions(player);
+        List<LLMConfig.ToolDefinition> definitions = new ArrayList<>();
+
+        for (LLMFunction function : availableFunctions) {
+            LLMConfig.FunctionDefinition functionDef = new LLMConfig.FunctionDefinition(
+                    function.getName(),
+                    function.getDescription(),
+                    function.getParametersSchema()
+            );
+            LLMConfig.ToolDefinition toolDef = new LLMConfig.ToolDefinition(functionDef);
+            definitions.add(toolDef);
+        }
+
+        return definitions;
+    }
+
+    /**
+     * 为LLM配置生成函数定义（保持向后兼容）
+     * @deprecated 使用 generateToolDefinitions 替代
+     */
+    @Deprecated
     public List<LLMConfig.FunctionDefinition> generateFunctionDefinitions(PlayerEntity player) {
         Collection<LLMFunction> availableFunctions = getAvailableFunctions(player);
         List<LLMConfig.FunctionDefinition> definitions = new ArrayList<>();
-        
+
         for (LLMFunction function : availableFunctions) {
             LLMConfig.FunctionDefinition definition = new LLMConfig.FunctionDefinition(
                     function.getName(),
@@ -138,7 +160,7 @@ public class FunctionRegistry {
             );
             definitions.add(definition);
         }
-        
+
         return definitions;
     }
 
@@ -171,10 +193,19 @@ public class FunctionRegistry {
      * 注册默认函数
      */
     private void registerDefaultFunctions() {
-        // 注册一些基础的示例函数
+        // 注册基础信息函数
         registerFunction(new GetTimeFunction());
         registerFunction(new GetPlayerInfoFunction());
         registerFunction(new GetWeatherFunction());
+
+        // 注册新的扩展函数
+        registerFunction(new com.riceawa.llm.function.impl.WorldInfoFunction());
+        registerFunction(new com.riceawa.llm.function.impl.PlayerStatsFunction());
+        registerFunction(new com.riceawa.llm.function.impl.InventoryFunction());
+        registerFunction(new com.riceawa.llm.function.impl.ServerInfoFunction());
+        registerFunction(new com.riceawa.llm.function.impl.NearbyEntitiesFunction());
+        registerFunction(new com.riceawa.llm.function.impl.SendMessageFunction());
+        registerFunction(new com.riceawa.llm.function.impl.PlayerEffectsFunction());
     }
 
     /**

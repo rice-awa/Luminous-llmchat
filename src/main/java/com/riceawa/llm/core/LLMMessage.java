@@ -21,10 +21,24 @@ public class LLMMessage {
     private final LocalDateTime timestamp;
     
     @SerializedName("metadata")
-    private final MessageMetadata metadata;
+    private MessageMetadata metadata;
+
+    @SerializedName("name")
+    private String name;
+
+    @SerializedName("tool_call_id")
+    private String toolCallId;
 
     public LLMMessage(MessageRole role, String content) {
         this(UUID.randomUUID().toString(), role, content, LocalDateTime.now(), new MessageMetadata());
+    }
+
+    public LLMMessage(String id, MessageRole role, String content, LocalDateTime timestamp, MessageMetadata metadata) {
+        this.id = id;
+        this.role = role;
+        this.content = content;
+        this.timestamp = timestamp;
+        this.metadata = metadata;
     }
 
     public LLMMessage(String id, MessageRole role, String content, LocalDateTime timestamp, MessageMetadata metadata) {
@@ -55,6 +69,26 @@ public class LLMMessage {
         return metadata;
     }
 
+    public void setMetadata(MessageMetadata metadata) {
+        this.metadata = metadata;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getToolCallId() {
+        return toolCallId;
+    }
+
+    public void setToolCallId(String toolCallId) {
+        this.toolCallId = toolCallId;
+    }
+
     /**
      * 消息角色枚举
      */
@@ -69,7 +103,10 @@ public class LLMMessage {
         ASSISTANT("assistant"),
         
         @SerializedName("function")
-        FUNCTION("function");
+        FUNCTION("function"),
+
+        @SerializedName("tool")
+        TOOL("tool");
 
         private final String value;
 
@@ -128,15 +165,24 @@ public class LLMMessage {
     public static class FunctionCall {
         @SerializedName("name")
         private String name;
-        
+
         @SerializedName("arguments")
         private String arguments;
+
+        @SerializedName("tool_call_id")
+        private String toolCallId;
 
         public FunctionCall() {}
 
         public FunctionCall(String name, String arguments) {
             this.name = name;
             this.arguments = arguments;
+        }
+
+        public FunctionCall(String name, String arguments, String toolCallId) {
+            this.name = name;
+            this.arguments = arguments;
+            this.toolCallId = toolCallId;
         }
 
         public String getName() {
@@ -153,6 +199,14 @@ public class LLMMessage {
 
         public void setArguments(String arguments) {
             this.arguments = arguments;
+        }
+
+        public String getToolCallId() {
+            return toolCallId;
+        }
+
+        public void setToolCallId(String toolCallId) {
+            this.toolCallId = toolCallId;
         }
     }
 }
