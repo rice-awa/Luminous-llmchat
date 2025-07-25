@@ -1,0 +1,22 @@
+{
+  "openaiApiKey": "your-openai-api-key-here",
+  "openaiBaseUrl": "https://api.openai.com/v1",
+  "defaultModel": "gpt-3.5-turbo",
+  "defaultService": "openai",
+  "defaultPromptTemplate": "default",
+  "defaultTemperature": 0.7,
+  "defaultMaxTokens": 2048,
+  "maxContextLength": 4000,
+  "enableHistory": true,
+  "enableFunctionCalling": false,
+  "historyRetentionDays": 30,
+  "customApiKeys": {
+    "claude": "your-claude-api-key-here",
+    "gemini": "your-gemini-api-key-here"
+  },
+  "customBaseUrls": {
+    "openai": "https://api.openai.com/v1",
+    "claude": "https://api.anthropic.com",
+    "custom": "https://your-custom-api-endpoint.com/v1"
+  }
+}

@@ -1,0 +1,44 @@
+{
+	"schemaVersion": 1,
+	"id": "lllmchat",
+	"version": "${version}",
+	"name": "lllmchat",
+	"description": "一个简单的llm调用mod",
+	"authors": [
+		"rice_awa"
+	],
+	"contact": {
+		"homepage": "https://fabricmc.net/",
+		"sources": "https://github.com/FabricMC/fabric-example-mod"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/lllmchat/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.riceawa.Lllmchat"
+		],
+		"client": [
+			"com.riceawa.LllmchatClient"
+		],
+		"fabric-datagen": [
+			"com.riceawa.LllmchatDataGenerator"
+		]
+	},
+	"mixins": [
+		"lllmchat.mixins.json",
+		{
+			"config": "lllmchat.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.16.14",
+		"minecraft": "~1.21.7",
+		"java": ">=21",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"another-mod": "*"
+	}
+}
