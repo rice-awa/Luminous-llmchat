@@ -132,6 +132,15 @@ public class PromptTemplateManager {
         );
         templates.put("default", defaultTemplate);
 
+        // 猫猫模板
+        PromptTemplate meowTemplate = new PromptTemplate(
+                "meow",
+                "猫猫",
+                "可爱的猫猫",
+                "请你扮演一只可爱的猫猫，在Minecraft游戏中为玩家提供帮助。请用中文回答问题，适当添加颜文字，始终保持友好和有帮助的态度。"
+        );
+        templates.put("default", defaultTemplate);
+
         // 创造模式助手
         PromptTemplate creativeTemplate = new PromptTemplate(
                 "creative",

@@ -1,11 +1,11 @@
-# LLM Chat Mod for Minecraft Fabric 1.21.7
+# Luminous LLM Chat Mod for Minecraft Fabric 1.21.7
 
-一个功能强大的Minecraft Fabric模组，集成了LLM（大语言模型）聊天功能，支持多种AI服务和自定义功能。
+一个让人眼前一亮的Minecraft Fabric模组，集成了LLM（大语言模型）聊天功能，支持多种AI服务和自定义功能。
 
 ## 功能特性
 
 ### 🤖 LLM集成
-- 支持OpenAI GPT系列模型
+- 支持 OpenAI 请求格式
 - 可扩展的服务架构，易于添加其他LLM服务（Claude、Gemini等）
 - 异步请求处理，不阻塞游戏运行
 
@@ -31,8 +31,10 @@
 
 ### ⚙️ 配置管理
 - 完整的配置文件系统
-- 支持多服务API密钥管理
-- 运行时配置更新
+- 支持多Provider配置和管理
+- 配置文件热重载（/llmchat reload）
+- 游戏内切换Provider和模型
+- 支持OpenRouter、DeepSeek、OpenAI等多种API服务
 
 ## 安装和配置
 
@@ -40,25 +42,56 @@
 将编译好的jar文件放入Minecraft的`mods`文件夹中。
 
 ### 2. 配置API密钥
-首次运行后，在`config/lllmchat/config.json`中配置你的API密钥：
+首次运行后，在`config/lllmchat/config.json`中配置你的API密钥。
+
+支持多个API提供商的配置：
 
 ```json
 {
-  "openaiApiKey": "your-openai-api-key-here",
-  "openaiBaseUrl": "https://api.openai.com/v1",
-  "defaultModel": "gpt-3.5-turbo",
-  "defaultService": "openai",
   "defaultPromptTemplate": "default",
   "defaultTemperature": 0.7,
   "defaultMaxTokens": 2048,
   "maxContextLength": 4000,
   "enableHistory": true,
   "enableFunctionCalling": false,
-  "historyRetentionDays": 30
+  "historyRetentionDays": 30,
+  "currentProvider": "openrouter",
+  "currentModel": "anthropic/claude-3.5-sonnet",
+  "providers": [
+    {
+      "name": "openrouter",
+      "apiBaseUrl": "https://openrouter.ai/api/v1/chat/completions",
+      "apiKey": "sk-xxx",
+      "models": [
+        "google/gemini-2.5-pro-preview",
+        "anthropic/claude-sonnet-4",
+        "anthropic/claude-3.5-sonnet",
+        "anthropic/claude-3.7-sonnet:thinking"
+      ]
+    },
+    {
+      "name": "deepseek",
+      "apiBaseUrl": "https://api.deepseek.com/chat/completions",
+      "apiKey": "sk-xxx",
+      "models": ["deepseek-chat", "deepseek-reasoner"]
+    },
+    {
+      "name": "openai",
+      "apiBaseUrl": "https://api.openai.com/v1/chat/completions",
+      "apiKey": "sk-xxx",
+      "models": ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo", "gpt-4o"]
+    }
+  ]
 }
 ```
 
 ## 使用方法
+
+### 初次配置
+1. 编辑 `config/lllmchat/config.json`
+2. 配置至少一个Provider
+3. 设置 `currentProvider` 和 `currentModel`
+4. 使用 `/llmchat reload` 重载配置
 
 ### 基本聊天
 ```
@@ -70,8 +103,12 @@
 /llmchat clear                          # 清空聊天历史
 /llmchat template list                  # 列出所有可用模板
 /llmchat template set creative          # 切换到创造模式助手模板
-/llmchat config model gpt-4            # 设置默认模型
-/llmchat config service openai         # 设置默认服务
+/llmchat provider list                  # 列出所有配置的providers
+/llmchat provider switch openrouter    # 切换到指定的provider
+/llmchat model list                     # 列出当前provider支持的模型
+/llmchat model list deepseek           # 列出指定provider支持的模型
+/llmchat model set deepseek-chat       # 设置当前使用的模型
+/llmchat reload                         # 热重载配置文件
 /llmchat help                          # 显示帮助信息
 ```
 
@@ -184,6 +221,15 @@ src/main/java/com/riceawa/
 4. Function Calling功能默认关闭，需要手动启用
 
 ## 更新日志
+
+### v1.1.0
+- 🔥 新增多Provider配置支持
+- 🔥 支持配置文件热重载（/llmchat reload）
+- 🔥 游戏内切换Provider和模型
+- 🔥 支持OpenRouter、DeepSeek等多种API服务
+- ✨ 向后兼容旧版配置格式
+- ✨ 新增Provider管理命令
+- ✨ 新增模型管理命令
 
 ### v1.0.0
 - 初始版本发布

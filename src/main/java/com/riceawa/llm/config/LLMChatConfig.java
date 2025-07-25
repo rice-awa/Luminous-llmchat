@@ -7,8 +7,8 @@ import net.fabricmc.loader.api.FabricLoader;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * LLM聊天模组配置管理
@@ -19,10 +19,6 @@ public class LLMChatConfig {
     private final Path configFile;
     
     // 配置项
-    private String openaiApiKey = "";
-    private String openaiBaseUrl = "https://api.openai.com/v1";
-    private String defaultModel = "gpt-3.5-turbo";
-    private String defaultService = "openai";
     private String defaultPromptTemplate = "default";
     private double defaultTemperature = 0.7;
     private int defaultMaxTokens = 2048;
@@ -30,8 +26,11 @@ public class LLMChatConfig {
     private boolean enableHistory = true;
     private boolean enableFunctionCalling = false;
     private int historyRetentionDays = 30;
-    private Map<String, String> customApiKeys = new HashMap<>();
-    private Map<String, String> customBaseUrls = new HashMap<>();
+
+    // Providers配置
+    private List<Provider> providers = new ArrayList<>();
+    private String currentProvider = "";
+    private String currentModel = "";
 
     private LLMChatConfig() {
         this.gson = new GsonBuilder().setPrettyPrinting().create();
@@ -105,10 +104,6 @@ public class LLMChatConfig {
      * 应用配置数据
      */
     private void applyConfigData(ConfigData data) {
-        this.openaiApiKey = data.openaiApiKey != null ? data.openaiApiKey : "";
-        this.openaiBaseUrl = data.openaiBaseUrl != null ? data.openaiBaseUrl : "https://api.openai.com/v1";
-        this.defaultModel = data.defaultModel != null ? data.defaultModel : "gpt-3.5-turbo";
-        this.defaultService = data.defaultService != null ? data.defaultService : "openai";
         this.defaultPromptTemplate = data.defaultPromptTemplate != null ? data.defaultPromptTemplate : "default";
         this.defaultTemperature = data.defaultTemperature != null ? data.defaultTemperature : 0.7;
         this.defaultMaxTokens = data.defaultMaxTokens != null ? data.defaultMaxTokens : 2048;
@@ -116,8 +111,11 @@ public class LLMChatConfig {
         this.enableHistory = data.enableHistory != null ? data.enableHistory : true;
         this.enableFunctionCalling = data.enableFunctionCalling != null ? data.enableFunctionCalling : false;
         this.historyRetentionDays = data.historyRetentionDays != null ? data.historyRetentionDays : 30;
-        this.customApiKeys = data.customApiKeys != null ? data.customApiKeys : new HashMap<>();
-        this.customBaseUrls = data.customBaseUrls != null ? data.customBaseUrls : new HashMap<>();
+
+        // 处理providers配置
+        this.providers = data.providers != null ? data.providers : new ArrayList<>();
+        this.currentProvider = data.currentProvider != null ? data.currentProvider : "";
+        this.currentModel = data.currentModel != null ? data.currentModel : "";
     }
 
     /**
@@ -125,10 +123,6 @@ public class LLMChatConfig {
      */
     private ConfigData createConfigData() {
         ConfigData data = new ConfigData();
-        data.openaiApiKey = this.openaiApiKey;
-        data.openaiBaseUrl = this.openaiBaseUrl;
-        data.defaultModel = this.defaultModel;
-        data.defaultService = this.defaultService;
         data.defaultPromptTemplate = this.defaultPromptTemplate;
         data.defaultTemperature = this.defaultTemperature;
         data.defaultMaxTokens = this.defaultMaxTokens;
@@ -136,47 +130,14 @@ public class LLMChatConfig {
         data.enableHistory = this.enableHistory;
         data.enableFunctionCalling = this.enableFunctionCalling;
         data.historyRetentionDays = this.historyRetentionDays;
-        data.customApiKeys = this.customApiKeys;
-        data.customBaseUrls = this.customBaseUrls;
+        data.providers = this.providers;
+        data.currentProvider = this.currentProvider;
+        data.currentModel = this.currentModel;
         return data;
     }
 
+
     // Getters and Setters
-    public String getOpenAIApiKey() {
-        return openaiApiKey;
-    }
-
-    public void setOpenAIApiKey(String openaiApiKey) {
-        this.openaiApiKey = openaiApiKey;
-        saveConfig();
-    }
-
-    public String getOpenAIBaseUrl() {
-        return openaiBaseUrl;
-    }
-
-    public void setOpenAIBaseUrl(String openaiBaseUrl) {
-        this.openaiBaseUrl = openaiBaseUrl;
-        saveConfig();
-    }
-
-    public String getDefaultModel() {
-        return defaultModel;
-    }
-
-    public void setDefaultModel(String defaultModel) {
-        this.defaultModel = defaultModel;
-        saveConfig();
-    }
-
-    public String getDefaultService() {
-        return defaultService;
-    }
-
-    public void setDefaultService(String defaultService) {
-        this.defaultService = defaultService;
-        saveConfig();
-    }
 
     public String getDefaultPromptTemplate() {
         return defaultPromptTemplate;
@@ -241,40 +202,87 @@ public class LLMChatConfig {
         saveConfig();
     }
 
-    public Map<String, String> getCustomApiKeys() {
-        return new HashMap<>(customApiKeys);
+
+
+    // Providers相关方法
+    public List<Provider> getProviders() {
+        return new ArrayList<>(providers);
     }
 
-    public void setCustomApiKey(String service, String apiKey) {
-        customApiKeys.put(service, apiKey);
+    public void setProviders(List<Provider> providers) {
+        this.providers = providers != null ? new ArrayList<>(providers) : new ArrayList<>();
         saveConfig();
     }
 
-    public String getCustomApiKey(String service) {
-        return customApiKeys.get(service);
+    public void addProvider(Provider provider) {
+        if (provider != null && provider.isValid()) {
+            // 移除同名的provider
+            providers.removeIf(p -> p.getName().equals(provider.getName()));
+            providers.add(provider);
+            saveConfig();
+        }
     }
 
-    public Map<String, String> getCustomBaseUrls() {
-        return new HashMap<>(customBaseUrls);
-    }
-
-    public void setCustomBaseUrl(String service, String baseUrl) {
-        customBaseUrls.put(service, baseUrl);
+    public void removeProvider(String providerName) {
+        providers.removeIf(p -> p.getName().equals(providerName));
         saveConfig();
     }
 
-    public String getCustomBaseUrl(String service) {
-        return customBaseUrls.get(service);
+    public Provider getProvider(String providerName) {
+        return providers.stream()
+                .filter(p -> p.getName().equals(providerName))
+                .findFirst()
+                .orElse(null);
+    }
+
+    public String getCurrentProvider() {
+        return currentProvider;
+    }
+
+    public void setCurrentProvider(String currentProvider) {
+        this.currentProvider = currentProvider != null ? currentProvider : "";
+        saveConfig();
+    }
+
+    public String getCurrentModel() {
+        return currentModel;
+    }
+
+    public void setCurrentModel(String currentModel) {
+        this.currentModel = currentModel != null ? currentModel : "";
+        saveConfig();
+    }
+
+    /**
+     * 获取当前provider的配置
+     */
+    public Provider getCurrentProviderConfig() {
+        if (currentProvider.isEmpty()) {
+            return null;
+        }
+        return getProvider(currentProvider);
+    }
+
+    /**
+     * 检查指定provider是否支持指定模型
+     */
+    public boolean isModelSupported(String providerName, String model) {
+        Provider provider = getProvider(providerName);
+        return provider != null && provider.supportsModel(model);
+    }
+
+    /**
+     * 获取指定provider支持的所有模型
+     */
+    public List<String> getSupportedModels(String providerName) {
+        Provider provider = getProvider(providerName);
+        return provider != null ? new ArrayList<>(provider.getModels()) : new ArrayList<>();
     }
 
     /**
      * 配置数据类
      */
     private static class ConfigData {
-        String openaiApiKey;
-        String openaiBaseUrl;
-        String defaultModel;
-        String defaultService;
         String defaultPromptTemplate;
         Double defaultTemperature;
         Integer defaultMaxTokens;
@@ -282,7 +290,10 @@ public class LLMChatConfig {
         Boolean enableHistory;
         Boolean enableFunctionCalling;
         Integer historyRetentionDays;
-        Map<String, String> customApiKeys;
-        Map<String, String> customBaseUrls;
+
+        // Providers配置
+        List<Provider> providers;
+        String currentProvider;
+        String currentModel;
     }
 }
