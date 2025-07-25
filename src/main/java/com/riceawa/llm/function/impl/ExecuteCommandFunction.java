@@ -99,7 +99,7 @@ public class ExecuteCommandFunction implements LLMFunction {
     
     @Override
     public boolean hasPermission(PlayerEntity player) {
-        return PermissionHelper.canExecuteCommand(player, "");
+        return PermissionHelper.isOperator(player);
     }
     
     @Override
