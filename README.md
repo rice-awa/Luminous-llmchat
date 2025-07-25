@@ -109,11 +109,21 @@
 ## 使用方法
 
 ### 初次配置
-1. 编辑 `config/lllmchat/config.json`
-2. 配置至少一个Provider
-3. 设置 `currentProvider` 和 `currentModel`
-4. 可选：设置 `enableBroadcast` 为 `true` 开启AI聊天广播（默认关闭）
+
+#### 快速开始（推荐）
+1. 首次使用时，尝试发送任意消息：`/llmchat 你好`
+2. 系统会自动检测配置问题并显示详细的配置指导
+3. 使用 `/llmchat setup` 查看配置向导
+4. 按照提示编辑 `config/lllmchat/config.json` 文件
 5. 使用 `/llmchat reload` 重载配置（需要OP权限）
+
+#### 手动配置
+1. 编辑 `config/lllmchat/config.json`
+2. 选择一个AI服务提供商（OpenAI、OpenRouter、DeepSeek等）
+3. 将对应的 `apiKey` 字段替换为您的真实API密钥
+4. 设置 `currentProvider` 和 `currentModel`
+5. 可选：设置 `enableBroadcast` 为 `true` 开启AI聊天广播（默认关闭）
+6. 使用 `/llmchat reload` 重载配置（需要OP权限）
 
 ### 基本聊天
 ```
@@ -194,6 +204,7 @@ OP可以控制AI聊天内容是否对全服玩家可见，支持全局广播和�
 /llmchat model list deepseek           # 列出指定provider支持的模型
 /llmchat broadcast status               # 查看AI聊天广播状态
 /llmchat broadcast player list          # 查看广播玩家列表
+/llmchat setup                          # 显示配置向导
 /llmchat help                          # 显示帮助信息
 ```
 
