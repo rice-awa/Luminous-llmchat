@@ -31,6 +31,11 @@ public class ConcurrencyManager {
     private final AtomicLong totalRequests = new AtomicLong(0);
     private final AtomicLong completedRequests = new AtomicLong(0);
     private final AtomicLong failedRequests = new AtomicLong(0);
+
+    // Token统计信息
+    private final AtomicLong totalPromptTokens = new AtomicLong(0);
+    private final AtomicLong totalCompletionTokens = new AtomicLong(0);
+    private final AtomicLong totalTokens = new AtomicLong(0);
     
     private ConcurrencyManager(ConcurrencyConfig config) {
         this.maxConcurrentRequests = config.maxConcurrentRequests;
@@ -62,7 +67,8 @@ public class ConcurrencyManager {
         // 创建信号量来控制并发请求数
         this.requestSemaphore = new Semaphore(maxConcurrentRequests, true);
         
-        LogManager.getInstance().info("ConcurrencyManager initialized with config: " +
+        LogManager.getInstance().log(com.riceawa.llm.logging.LogLevel.INFO, "system",
+            "ConcurrencyManager initialized with config: " +
             "maxConcurrent=" + maxConcurrentRequests +
             ", queueCapacity=" + queueCapacity +
             ", corePoolSize=" + corePoolSize +
@@ -100,7 +106,8 @@ public class ConcurrencyManager {
         if (!requestSemaphore.tryAcquire()) {
             // 如果无法立即获取信号量，说明已达到最大并发数
             queuedRequests.incrementAndGet();
-            LogManager.getInstance().debug("Request queued due to concurrency limit: " + requestId);
+            LogManager.getInstance().log(com.riceawa.llm.logging.LogLevel.DEBUG, "system",
+                "Request queued due to concurrency limit: " + requestId);
         }
         
         try {
@@ -117,7 +124,8 @@ public class ConcurrencyManager {
                     activeRequests.incrementAndGet();
                     queuedRequests.decrementAndGet();
                     
-                    LogManager.getInstance().debug("Starting LLM request: " + requestId + 
+                    LogManager.getInstance().log(com.riceawa.llm.logging.LogLevel.DEBUG, "system",
+                        "Starting LLM request: " + requestId +
                         " (active: " + activeRequests.get() + "/" + maxConcurrentRequests + ")");
                     
                     // 执行实际任务
@@ -153,6 +161,21 @@ public class ConcurrencyManager {
     }
     
     /**
+     * 记录token使用情况
+     */
+    public void recordTokenUsage(int promptTokens, int completionTokens, int totalTokensUsed) {
+        if (promptTokens > 0) {
+            totalPromptTokens.addAndGet(promptTokens);
+        }
+        if (completionTokens > 0) {
+            totalCompletionTokens.addAndGet(completionTokens);
+        }
+        if (totalTokensUsed > 0) {
+            totalTokens.addAndGet(totalTokensUsed);
+        }
+    }
+
+    /**
      * 获取当前统计信息
      */
     public ConcurrencyStats getStats() {
@@ -164,7 +187,10 @@ public class ConcurrencyManager {
             failedRequests.get(),
             executorService.getPoolSize(),
             executorService.getActiveCount(),
-            executorService.getQueue().size()
+            executorService.getQueue().size(),
+            totalPromptTokens.get(),
+            totalCompletionTokens.get(),
+            totalTokens.get()
         );
     }
     
@@ -181,7 +207,8 @@ public class ConcurrencyManager {
      * 关闭并发管理器
      */
     public void shutdown() {
-        LogManager.getInstance().info("Shutting down ConcurrencyManager...");
+        LogManager.getInstance().log(com.riceawa.llm.logging.LogLevel.INFO, "system",
+            "Shutting down ConcurrencyManager...");
         executorService.shutdown();
         try {
             if (!executorService.awaitTermination(30, TimeUnit.SECONDS)) {
@@ -238,10 +265,16 @@ public class ConcurrencyManager {
         public final int poolSize;
         public final int activeThreads;
         public final int queueSize;
-        
+
+        // Token统计
+        public final long totalPromptTokens;
+        public final long totalCompletionTokens;
+        public final long totalTokens;
+
         public ConcurrencyStats(int activeRequests, int queuedRequests, long totalRequests,
                               long completedRequests, long failedRequests, int poolSize,
-                              int activeThreads, int queueSize) {
+                              int activeThreads, int queueSize, long totalPromptTokens,
+                              long totalCompletionTokens, long totalTokens) {
             this.activeRequests = activeRequests;
             this.queuedRequests = queuedRequests;
             this.totalRequests = totalRequests;
@@ -250,6 +283,9 @@ public class ConcurrencyManager {
             this.poolSize = poolSize;
             this.activeThreads = activeThreads;
             this.queueSize = queueSize;
+            this.totalPromptTokens = totalPromptTokens;
+            this.totalCompletionTokens = totalCompletionTokens;
+            this.totalTokens = totalTokens;
         }
         
         public double getSuccessRate() {
@@ -258,6 +294,22 @@ public class ConcurrencyManager {
         
         public double getFailureRate() {
             return totalRequests > 0 ? (double) failedRequests / totalRequests : 0.0;
+        }
+
+        public double getAveragePromptTokensPerRequest() {
+            return completedRequests > 0 ? (double) totalPromptTokens / completedRequests : 0.0;
+        }
+
+        public double getAverageCompletionTokensPerRequest() {
+            return completedRequests > 0 ? (double) totalCompletionTokens / completedRequests : 0.0;
+        }
+
+        public double getAverageTotalTokensPerRequest() {
+            return completedRequests > 0 ? (double) totalTokens / completedRequests : 0.0;
+        }
+
+        public double getTokenEfficiency() {
+            return totalPromptTokens > 0 ? (double) totalCompletionTokens / totalPromptTokens : 0.0;
         }
     }
 }

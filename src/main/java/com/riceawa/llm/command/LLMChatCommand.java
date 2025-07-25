@@ -306,6 +306,20 @@ public class LLMChatCommand {
             player.sendMessage(Text.literal("  成功率: " + String.format("%.1f%%", stats.getSuccessRate() * 100)).formatted(Formatting.YELLOW), false);
             player.sendMessage(Text.literal(""), false);
 
+            // Token统计
+            player.sendMessage(Text.literal("🎯 Token统计:").formatted(Formatting.AQUA), false);
+            player.sendMessage(Text.literal("  总输入Token: " + String.format("%,d", stats.totalPromptTokens)).formatted(Formatting.WHITE), false);
+            player.sendMessage(Text.literal("  总输出Token: " + String.format("%,d", stats.totalCompletionTokens)).formatted(Formatting.WHITE), false);
+            player.sendMessage(Text.literal("  总Token数: " + String.format("%,d", stats.totalTokens)).formatted(Formatting.WHITE), false);
+
+            if (stats.completedRequests > 0) {
+                player.sendMessage(Text.literal("  平均输入Token/请求: " + String.format("%.1f", stats.getAveragePromptTokensPerRequest())).formatted(Formatting.GRAY), false);
+                player.sendMessage(Text.literal("  平均输出Token/请求: " + String.format("%.1f", stats.getAverageCompletionTokensPerRequest())).formatted(Formatting.GRAY), false);
+                player.sendMessage(Text.literal("  平均总Token/请求: " + String.format("%.1f", stats.getAverageTotalTokensPerRequest())).formatted(Formatting.GRAY), false);
+                player.sendMessage(Text.literal("  Token效率比: " + String.format("%.2f", stats.getTokenEfficiency())).formatted(Formatting.YELLOW), false);
+            }
+            player.sendMessage(Text.literal(""), false);
+
             // 并发状态
             player.sendMessage(Text.literal("🔄 当前状态:").formatted(Formatting.AQUA), false);
             player.sendMessage(Text.literal("  活跃请求: " + stats.activeRequests).formatted(Formatting.WHITE), false);

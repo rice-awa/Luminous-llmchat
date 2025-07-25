@@ -129,7 +129,19 @@ public class OpenAIService implements LLMService {
                 return errorResponse;
             }
 
-            return parseResponse(responseBody);
+            LLMResponse llmResponse = parseResponse(responseBody);
+
+            // 记录token使用情况
+            if (llmResponse.isSuccess() && llmResponse.getUsage() != null) {
+                LLMResponse.Usage usage = llmResponse.getUsage();
+                ConcurrencyManager.getInstance().recordTokenUsage(
+                    usage.getPromptTokens(),
+                    usage.getCompletionTokens(),
+                    usage.getTotalTokens()
+                );
+            }
+
+            return llmResponse;
         }
     }
 
