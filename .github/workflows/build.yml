@@ -9,22 +9,71 @@ on: [pull_request, push]
 jobs:
   build:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
     steps:
       - name: checkout repository
         uses: actions/checkout@v4
+
       - name: validate gradle wrapper
         uses: gradle/actions/wrapper-validation@v4
+
       - name: setup jdk
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'microsoft'
+
       - name: make gradle wrapper executable
         run: chmod +x ./gradlew
-      - name: build
-        run: ./gradlew build
-      - name: capture build artifacts
-        uses: actions/upload-artifact@v4
+
+      - name: setup gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
-          name: Artifacts
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: run tests
+        run: ./gradlew test --continue
+
+      - name: publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: |
+            build/test-results/**/*.xml
+          check_name: "Test Results"
+          comment_title: "Test Results"
+          fail_on: "test failures"
+
+      - name: build project
+        run: ./gradlew build
+
+      - name: upload test reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports
+          path: |
+            build/reports/tests/
+            build/test-results/
+          retention-days: 30
+
+      - name: upload build artifacts
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: mod-jars
+          path: |
+            build/libs/*.jar
+            !build/libs/*-sources.jar
+          retention-days: 90
+
+      - name: upload all artifacts (including sources)
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: all-artifacts
           path: build/libs/
+          retention-days: 30
