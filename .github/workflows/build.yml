@@ -4,7 +4,21 @@
 # against bad commits.
 
 name: build
-on: [pull_request, push]
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+    inputs:
+      debug_enabled:
+        description: 'Enable debug mode'
+        required: false
+        default: false
+        type: boolean
+      test_only:
+        description: 'Run tests only (skip build)'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   build:
@@ -35,7 +49,12 @@ jobs:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
       - name: run tests
-        run: ./gradlew test --continue
+        run: |
+          if [ "${{ inputs.debug_enabled }}" == "true" ]; then
+            ./gradlew test --continue --info --stacktrace
+          else
+            ./gradlew test --continue
+          fi
 
       - name: publish test results
         uses: EnricoMi/publish-unit-test-result-action@v2
@@ -48,7 +67,13 @@ jobs:
           fail_on: "test failures"
 
       - name: build project
-        run: ./gradlew build
+        if: ${{ inputs.test_only != 'true' }}
+        run: |
+          if [ "${{ inputs.debug_enabled }}" == "true" ]; then
+            ./gradlew build --info --stacktrace
+          else
+            ./gradlew build
+          fi
 
       - name: upload test reports
         uses: actions/upload-artifact@v4
