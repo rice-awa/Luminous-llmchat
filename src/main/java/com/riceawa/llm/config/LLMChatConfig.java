@@ -9,7 +9,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * LLM聊天模组配置管理
@@ -27,6 +29,7 @@ public class LLMChatConfig {
     private boolean enableHistory = true;
     private boolean enableFunctionCalling = false;
     private boolean enableBroadcast = false;
+    private Set<String> broadcastPlayers = new HashSet<>();
     private int historyRetentionDays = 30;
 
     // Providers配置
@@ -179,6 +182,7 @@ public class LLMChatConfig {
         this.enableHistory = data.enableHistory != null ? data.enableHistory : true;
         this.enableFunctionCalling = data.enableFunctionCalling != null ? data.enableFunctionCalling : true;
         this.enableBroadcast = data.enableBroadcast != null ? data.enableBroadcast : false;
+        this.broadcastPlayers = data.broadcastPlayers != null ? new HashSet<>(data.broadcastPlayers) : new HashSet<>();
         this.historyRetentionDays = data.historyRetentionDays != null ? data.historyRetentionDays : 30;
 
         // 处理providers配置 - 如果为null或空，创建默认配置
@@ -207,6 +211,7 @@ public class LLMChatConfig {
         data.enableHistory = this.enableHistory;
         data.enableFunctionCalling = this.enableFunctionCalling;
         data.enableBroadcast = this.enableBroadcast;
+        data.broadcastPlayers = new HashSet<>(this.broadcastPlayers);
         data.historyRetentionDays = this.historyRetentionDays;
         data.providers = this.providers;
         data.currentProvider = this.currentProvider;
@@ -277,6 +282,38 @@ public class LLMChatConfig {
 
     public void setEnableBroadcast(boolean enableBroadcast) {
         this.enableBroadcast = enableBroadcast;
+        saveConfig();
+    }
+
+    public Set<String> getBroadcastPlayers() {
+        return new HashSet<>(broadcastPlayers);
+    }
+
+    public void setBroadcastPlayers(Set<String> broadcastPlayers) {
+        this.broadcastPlayers = broadcastPlayers != null ? new HashSet<>(broadcastPlayers) : new HashSet<>();
+        saveConfig();
+    }
+
+    public void addBroadcastPlayer(String playerName) {
+        if (playerName != null && !playerName.trim().isEmpty()) {
+            this.broadcastPlayers.add(playerName.trim());
+            saveConfig();
+        }
+    }
+
+    public void removeBroadcastPlayer(String playerName) {
+        if (playerName != null) {
+            this.broadcastPlayers.remove(playerName.trim());
+            saveConfig();
+        }
+    }
+
+    public boolean isBroadcastPlayer(String playerName) {
+        return playerName != null && this.broadcastPlayers.contains(playerName.trim());
+    }
+
+    public void clearBroadcastPlayers() {
+        this.broadcastPlayers.clear();
         saveConfig();
     }
 
@@ -377,6 +414,7 @@ public class LLMChatConfig {
         Boolean enableHistory;
         Boolean enableFunctionCalling;
         Boolean enableBroadcast;
+        Set<String> broadcastPlayers;
         Integer historyRetentionDays;
 
         // Providers配置

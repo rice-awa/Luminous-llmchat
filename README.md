@@ -138,7 +138,7 @@
 ```
 
 ### AI聊天广播功能
-OP可以控制AI聊天内容是否对全服玩家可见：
+OP可以控制AI聊天内容是否对全服玩家可见，支持全局广播和特定玩家广播两种模式：
 
 #### 开启广播模式
 ```
@@ -170,6 +170,18 @@ OP可以控制AI聊天内容是否对全服玩家可见：
 # 显示当前广播开启/关闭状态
 ```
 
+#### 管理广播玩家列表（仅OP）
+```
+/llmchat broadcast player add <玩家名>     # 添加玩家到广播列表
+/llmchat broadcast player remove <玩家名>  # 从广播列表移除玩家
+/llmchat broadcast player list            # 查看广播玩家列表
+/llmchat broadcast player clear           # 清空广播玩家列表
+```
+
+**广播模式说明：**
+- 当广播列表为空时：广播所有玩家的AI对话（全局模式）
+- 当广播列表不为空时：只广播列表中玩家的AI对话（特定玩家模式）
+
 ### 管理命令
 
 #### 基础命令（所有玩家可用）
@@ -181,6 +193,7 @@ OP可以控制AI聊天内容是否对全服玩家可见：
 /llmchat model list                     # 列出当前provider支持的模型
 /llmchat model list deepseek           # 列出指定provider支持的模型
 /llmchat broadcast status               # 查看AI聊天广播状态
+/llmchat broadcast player list          # 查看广播玩家列表
 /llmchat help                          # 显示帮助信息
 ```
 
@@ -190,6 +203,9 @@ OP可以控制AI聊天内容是否对全服玩家可见：
 /llmchat model set deepseek-chat       # 设置当前使用的模型
 /llmchat broadcast enable               # 开启AI聊天广播
 /llmchat broadcast disable              # 关闭AI聊天广播
+/llmchat broadcast player add <玩家>     # 添加玩家到广播列表
+/llmchat broadcast player remove <玩家>  # 从广播列表移除玩家
+/llmchat broadcast player clear         # 清空广播玩家列表
 /llmchat reload                         # 热重载配置文件
 ```
 
