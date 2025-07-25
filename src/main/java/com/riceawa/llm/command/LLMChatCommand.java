@@ -188,6 +188,12 @@ public class LLMChatCommand {
             return 0;
         }
 
+        // 检查OP权限
+        if (!source.hasPermissionLevel(2)) {
+            player.sendMessage(Text.literal("只有OP可以重载配置").formatted(Formatting.RED), false);
+            return 0;
+        }
+
         try {
             // 重新加载配置
             LLMChatConfig config = LLMChatConfig.getInstance();
@@ -230,13 +236,13 @@ public class LLMChatCommand {
         player.sendMessage(Text.literal("/llmchat template set <模板> - 设置提示词模板").formatted(Formatting.WHITE), false);
 
         player.sendMessage(Text.literal("/llmchat provider list - 列出所有providers").formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("/llmchat provider switch <provider> - 切换provider").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("/llmchat provider switch <provider> - 切换provider (仅OP)").formatted(Formatting.WHITE), false);
         player.sendMessage(Text.literal("/llmchat model list [provider] - 列出模型").formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("/llmchat model set <model> - 设置当前模型").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("/llmchat model set <model> - 设置当前模型 (仅OP)").formatted(Formatting.WHITE), false);
         player.sendMessage(Text.literal("/llmchat broadcast enable - 开启AI聊天广播 (仅OP)").formatted(Formatting.WHITE), false);
         player.sendMessage(Text.literal("/llmchat broadcast disable - 关闭AI聊天广播 (仅OP)").formatted(Formatting.WHITE), false);
         player.sendMessage(Text.literal("/llmchat broadcast status - 查看广播状态").formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("/llmchat reload - 重新加载配置文件").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("/llmchat reload - 重新加载配置文件 (仅OP)").formatted(Formatting.WHITE), false);
         player.sendMessage(Text.literal("/llmchat help - 显示此帮助").formatted(Formatting.WHITE), false);
         
         return 1;
@@ -577,6 +583,12 @@ public class LLMChatCommand {
             return 0;
         }
 
+        // 检查OP权限
+        if (!source.hasPermissionLevel(2)) {
+            player.sendMessage(Text.literal("只有OP可以切换API提供商").formatted(Formatting.RED), false);
+            return 0;
+        }
+
         String providerName = StringArgumentType.getString(context, "provider");
         LLMServiceManager serviceManager = LLMServiceManager.getInstance();
 
@@ -663,6 +675,12 @@ public class LLMChatCommand {
 
         if (player == null) {
             source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        // 检查OP权限
+        if (!source.hasPermissionLevel(2)) {
+            player.sendMessage(Text.literal("只有OP可以设置模型").formatted(Formatting.RED), false);
             return 0;
         }
 

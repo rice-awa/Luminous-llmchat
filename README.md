@@ -38,6 +38,13 @@
 - 游戏内切换Provider和模型
 - 支持OpenRouter、DeepSeek、OpenAI等多种API服务
 
+### 📢 AI聊天广播
+- **智能广播控制** - OP可控制AI聊天内容是否对全服可见
+- **权限管理** - 只有OP可以开启/关闭广播功能
+- **实时切换** - 支持游戏内动态开启/关闭广播
+- **清晰标识** - 广播消息明确标识发起者和AI回复对象
+- **隐私保护** - 默认关闭，保护玩家隐私
+
 ### 🧪 测试框架
 - **全面的单元测试** - 6个测试类，49+个测试方法
 - **集成测试支持** - 端到端功能验证
@@ -63,6 +70,7 @@
   "maxContextLength": 8192,
   "enableHistory": true,
   "enableFunctionCalling": true,
+  "enableBroadcast": false,
   "historyRetentionDays": 30,
   "currentProvider": "openai",
   "currentModel": "gpt-3.5-turbo",
@@ -104,7 +112,8 @@
 1. 编辑 `config/lllmchat/config.json`
 2. 配置至少一个Provider
 3. 设置 `currentProvider` 和 `currentModel`
-4. 使用 `/llmchat reload` 重载配置
+4. 可选：设置 `enableBroadcast` 为 `true` 开启AI聊天广播（默认关闭）
+5. 使用 `/llmchat reload` 重载配置（需要OP权限）
 
 ### 基本聊天
 ```
@@ -128,18 +137,60 @@
 # AI会调用send_message函数发送广播消息（需要OP权限）
 ```
 
+### AI聊天广播功能
+OP可以控制AI聊天内容是否对全服玩家可见：
+
+#### 开启广播模式
+```
+/llmchat broadcast enable
+# 开启后，所有玩家的AI对话将对全服可见
+```
+
+#### 广播效果示例
+当广播开启时：
+```
+# 玩家Steve发送消息
+/llmchat 你好，AI助手
+
+# 全服看到：
+[Steve 问AI] 你好，AI助手
+[AI正在为 Steve 思考...]
+[AI回复给 Steve] 你好！我是AI助手，有什么可以帮助你的吗？
+```
+
+#### 关闭广播模式
+```
+/llmchat broadcast disable
+# 关闭后，AI对话只对发起者可见（默认模式）
+```
+
+#### 查看广播状态
+```
+/llmchat broadcast status
+# 显示当前广播开启/关闭状态
+```
+
 ### 管理命令
+
+#### 基础命令（所有玩家可用）
 ```
 /llmchat clear                          # 清空聊天历史
 /llmchat template list                  # 列出所有可用模板
 /llmchat template set creative          # 切换到创造模式助手模板
 /llmchat provider list                  # 列出所有配置的providers
-/llmchat provider switch openrouter    # 切换到指定的provider
 /llmchat model list                     # 列出当前provider支持的模型
 /llmchat model list deepseek           # 列出指定provider支持的模型
-/llmchat model set deepseek-chat       # 设置当前使用的模型
-/llmchat reload                         # 热重载配置文件
+/llmchat broadcast status               # 查看AI聊天广播状态
 /llmchat help                          # 显示帮助信息
+```
+
+#### 管理员命令（仅OP可用）
+```
+/llmchat provider switch openrouter    # 切换到指定的provider
+/llmchat model set deepseek-chat       # 设置当前使用的模型
+/llmchat broadcast enable               # 开启AI聊天广播
+/llmchat broadcast disable              # 关闭AI聊天广播
+/llmchat reload                         # 热重载配置文件
 ```
 
 ### 提示词模板
@@ -381,9 +432,21 @@ src/main/java/com/riceawa/
 3. 建议在生产环境中启用适当的权限控制
 4. Function Calling功能已完善，建议启用以获得更好的交互体验
 5. 某些Function Calling功能需要OP权限，请合理分配权限
-6. 建议运行测试以验证功能正确性：`./gradlew test`
+6. **AI聊天广播默认关闭**，OP可根据需要开启以保护玩家隐私
+7. **配置管理命令需要OP权限**，包括provider切换、模型设置、配置重载
+8. 广播功能会增加聊天频道消息量，建议在合适时机使用
+9. 建议运行测试以验证功能正确性：`./gradlew test`
 
 ## 更新日志
+
+### v1.3.0 (2025-07-25)
+- 🔥 **AI聊天广播功能** - OP可控制AI对话是否对全服可见
+- 🔥 **权限管理优化** - 配置管理命令现在需要OP权限
+- ✨ 新增广播控制命令：enable/disable/status
+- ✨ 智能广播消息格式，清晰标识发起者和回复对象
+- ✨ 配置文件自动生成默认providers，解决空配置问题
+- 🛡️ 增强安全性：provider切换、模型设置、配置重载需要OP权限
+- 📝 完善帮助文档和权限说明
 
 ### v1.2.0 (2025-07-25)
 - 🔥 **Function Calling功能完善** - 符合OpenAI最新API标准
@@ -392,8 +455,6 @@ src/main/java/com/riceawa/
 - 🔥 **智能权限控制** - 基于玩家权限的细粒度访问控制
 - ✨ 支持实时游戏状态查询和交互
 - ✨ 完善的错误处理和参数验证
-- ✨ API格式更新：tools/tool_calls替代functions/function_call
-- ✨ 向后兼容性支持，确保现有代码正常工作
 - 🧪 全面的质量保证：76.7%代码质量得分
 
 ### v1.1.0
