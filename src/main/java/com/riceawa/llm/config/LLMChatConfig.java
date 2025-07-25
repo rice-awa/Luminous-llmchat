@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -72,7 +73,8 @@ public class LLMChatConfig {
             return;
         }
 
-        try (FileReader reader = new FileReader(configFile.toFile())) {
+        try (InputStreamReader reader = new InputStreamReader(
+                Files.newInputStream(configFile), StandardCharsets.UTF_8)) {
             ConfigData data = gson.fromJson(reader, ConfigData.class);
             if (data != null) {
                 applyConfigData(data);
@@ -87,7 +89,8 @@ public class LLMChatConfig {
      * 保存配置
      */
     public void saveConfig() {
-        try (FileWriter writer = new FileWriter(configFile.toFile())) {
+        try (OutputStreamWriter writer = new OutputStreamWriter(
+                Files.newOutputStream(configFile), StandardCharsets.UTF_8)) {
             ConfigData data = createConfigData();
             gson.toJson(data, writer);
         } catch (IOException e) {
