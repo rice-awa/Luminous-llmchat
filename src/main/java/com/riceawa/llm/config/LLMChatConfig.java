@@ -66,6 +66,7 @@ public class LLMChatConfig {
     private void loadConfig() {
         if (!Files.exists(configFile)) {
             // 创建默认配置文件
+            createDefaultConfig();
             saveConfig();
             return;
         }
@@ -98,6 +99,46 @@ public class LLMChatConfig {
      */
     public void reload() {
         loadConfig();
+    }
+
+    /**
+     * 创建默认配置
+     */
+    private void createDefaultConfig() {
+        // 创建默认的providers配置
+        List<Provider> defaultProviders = new ArrayList<>();
+
+        // OpenAI Provider示例
+        Provider openaiProvider = new Provider();
+        openaiProvider.setName("openai");
+        openaiProvider.setApiBaseUrl("https://api.openai.com/v1/chat/completions");
+        openaiProvider.setApiKey("your-openai-api-key-here");
+        openaiProvider.setModels(List.of("gpt-3.5-turbo", "gpt-4", "gpt-4-turbo", "gpt-4o"));
+        defaultProviders.add(openaiProvider);
+
+        // OpenRouter Provider示例
+        Provider openrouterProvider = new Provider();
+        openrouterProvider.setName("openrouter");
+        openrouterProvider.setApiBaseUrl("https://openrouter.ai/api/v1/chat/completions");
+        openrouterProvider.setApiKey("your-openrouter-api-key-here");
+        openrouterProvider.setModels(List.of(
+            "anthropic/claude-3.5-sonnet",
+            "google/gemini-2.5-pro-preview",
+            "anthropic/claude-sonnet-4"
+        ));
+        defaultProviders.add(openrouterProvider);
+
+        // DeepSeek Provider示例
+        Provider deepseekProvider = new Provider();
+        deepseekProvider.setName("deepseek");
+        deepseekProvider.setApiBaseUrl("https://api.deepseek.com/chat/completions");
+        deepseekProvider.setApiKey("your-deepseek-api-key-here");
+        deepseekProvider.setModels(List.of("deepseek-chat", "deepseek-reasoner"));
+        defaultProviders.add(deepseekProvider);
+
+        this.providers = defaultProviders;
+        this.currentProvider = "openai"; // 默认使用OpenAI
+        this.currentModel = "gpt-3.5-turbo"; // 默认模型
     }
 
     /**

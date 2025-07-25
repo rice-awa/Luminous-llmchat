@@ -50,36 +50,40 @@
 {
   "defaultPromptTemplate": "default",
   "defaultTemperature": 0.7,
-  "defaultMaxTokens": 2048,
-  "maxContextLength": 4000,
+  "defaultMaxTokens": 8192,
+  "maxContextLength": 8192,
   "enableHistory": true,
   "enableFunctionCalling": false,
   "historyRetentionDays": 30,
-  "currentProvider": "openrouter",
-  "currentModel": "anthropic/claude-3.5-sonnet",
+  "currentProvider": "openai",
+  "currentModel": "gpt-3.5-turbo",
   "providers": [
+    {
+      "name": "openai",
+      "apiBaseUrl": "https://api.openai.com/v1/chat/completions",
+      "apiKey": "your-openai-api-key-here",
+      "models": [
+        "gpt-3.5-turbo",
+        "gpt-4",
+        "gpt-4-turbo",
+        "gpt-4o"
+      ]
+    },
     {
       "name": "openrouter",
       "apiBaseUrl": "https://openrouter.ai/api/v1/chat/completions",
-      "apiKey": "sk-xxx",
+      "apiKey": "your-openrouter-api-key-here",
       "models": [
-        "google/gemini-2.5-pro-preview",
-        "anthropic/claude-sonnet-4",
         "anthropic/claude-3.5-sonnet",
-        "anthropic/claude-3.7-sonnet:thinking"
+        "google/gemini-2.5-pro-preview",
+        "anthropic/claude-sonnet-4"
       ]
     },
     {
       "name": "deepseek",
       "apiBaseUrl": "https://api.deepseek.com/chat/completions",
-      "apiKey": "sk-xxx",
+      "apiKey": "your-deepseek-api-key-here",
       "models": ["deepseek-chat", "deepseek-reasoner"]
-    },
-    {
-      "name": "openai",
-      "apiBaseUrl": "https://api.openai.com/v1/chat/completions",
-      "apiKey": "sk-xxx",
-      "models": ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo", "gpt-4o"]
     }
   ]
 }
