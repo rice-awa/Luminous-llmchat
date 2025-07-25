@@ -20,6 +20,7 @@ import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 
@@ -235,19 +236,25 @@ public class LLMChatCommand {
      * 处理聊天消息的核心逻辑
      */
     private static void processChatMessage(PlayerEntity player, String message) {
+        // 确保player是ServerPlayerEntity类型
+        if (!(player instanceof ServerPlayerEntity)) {
+            player.sendMessage(Text.literal("此功能只能由服务器玩家使用").formatted(Formatting.RED), false);
+            return;
+        }
+        ServerPlayerEntity serverPlayer = (ServerPlayerEntity) player;
         // 获取配置和服务
         LLMChatConfig config = LLMChatConfig.getInstance();
         LLMServiceManager serviceManager = LLMServiceManager.getInstance();
         LLMService llmService = serviceManager.getDefaultService();
-        
+
         if (llmService == null || !llmService.isAvailable()) {
-            player.sendMessage(Text.literal("LLM服务不可用，请检查配置").formatted(Formatting.RED), false);
+            serverPlayer.sendMessage(Text.literal("LLM服务不可用，请检查配置").formatted(Formatting.RED), false);
             return;
         }
 
         // 获取聊天上下文
         ChatContextManager contextManager = ChatContextManager.getInstance();
-        ChatContext chatContext = contextManager.getContext(player);
+        ChatContext chatContext = contextManager.getContext(serverPlayer);
         
         // 获取提示词模板
         PromptTemplateManager templateManager = PromptTemplateManager.getInstance();
@@ -275,18 +282,18 @@ public class LLMChatCommand {
         // 使用当前设置的模型
         String currentModel = config.getCurrentModel();
         if (currentModel.isEmpty()) {
-            player.sendMessage(Text.literal("请先设置要使用的模型: /llmchat model set <模型名>").formatted(Formatting.RED), false);
+            serverPlayer.sendMessage(Text.literal("请先设置要使用的模型: /llmchat model set <模型名>").formatted(Formatting.RED), false);
             return;
         }
 
         llmConfig.setModel(currentModel);
         llmConfig.setTemperature(config.getDefaultTemperature());
         llmConfig.setMaxTokens(config.getDefaultMaxTokens());
-        
+
         // 如果启用了Function Calling，添加工具定义
         if (config.isEnableFunctionCalling()) {
             FunctionRegistry functionRegistry = FunctionRegistry.getInstance();
-            List<LLMConfig.ToolDefinition> tools = functionRegistry.generateToolDefinitions(player);
+            List<LLMConfig.ToolDefinition> tools = functionRegistry.generateToolDefinitions(serverPlayer);
             if (!tools.isEmpty()) {
                 llmConfig.setTools(tools);
                 llmConfig.setToolChoice("auto");
@@ -294,18 +301,18 @@ public class LLMChatCommand {
         }
 
         // 发送请求
-        player.sendMessage(Text.literal("正在思考...").formatted(Formatting.GRAY), false);
+        serverPlayer.sendMessage(Text.literal("正在思考...").formatted(Formatting.GRAY), false);
         
         llmService.chat(chatContext.getMessages(), llmConfig)
                 .thenAccept(response -> {
                     if (response.isSuccess()) {
-                        handleLLMResponse(response, player, chatContext, config);
+                        handleLLMResponse(response, serverPlayer, chatContext, config);
                     } else {
-                        player.sendMessage(Text.literal("AI响应错误: " + response.getError()).formatted(Formatting.RED), false);
+                        serverPlayer.sendMessage(Text.literal("AI响应错误: " + response.getError()).formatted(Formatting.RED), false);
                     }
                 })
                 .exceptionally(throwable -> {
-                    player.sendMessage(Text.literal("请求失败: " + throwable.getMessage()).formatted(Formatting.RED), false);
+                    serverPlayer.sendMessage(Text.literal("请求失败: " + throwable.getMessage()).formatted(Formatting.RED), false);
                     return null;
                 });
     }
@@ -313,7 +320,7 @@ public class LLMChatCommand {
     /**
      * 处理LLM响应，包括function calling
      */
-    private void handleLLMResponse(LLMResponse response, ServerPlayerEntity player,
+    private static void handleLLMResponse(LLMResponse response, ServerPlayerEntity player,
                                  ChatContext chatContext, LLMChatConfig config) {
         if (response.getChoices() == null || response.getChoices().isEmpty()) {
             player.sendMessage(Text.literal("AI没有返回有效响应").formatted(Formatting.RED), false);
@@ -351,7 +358,7 @@ public class LLMChatCommand {
     /**
      * 处理function call（新的OpenAI API格式）
      */
-    private void handleFunctionCall(LLMMessage.FunctionCall functionCall, ServerPlayerEntity player,
+    private static void handleFunctionCall(LLMMessage.FunctionCall functionCall, ServerPlayerEntity player,
                                   ChatContext chatContext, LLMChatConfig config) {
         try {
             String functionName = functionCall.getName();
@@ -406,10 +413,10 @@ public class LLMChatCommand {
     /**
      * 使用函数结果再次调用LLM
      */
-    private void callLLMWithFunctionResult(ServerPlayerEntity player, ChatContext chatContext, LLMChatConfig config) {
+    private static void callLLMWithFunctionResult(ServerPlayerEntity player, ChatContext chatContext, LLMChatConfig config) {
         try {
             LLMServiceManager serviceManager = LLMServiceManager.getInstance();
-            LLMService llmService = serviceManager.getCurrentService();
+            LLMService llmService = serviceManager.getDefaultService();
 
             if (llmService == null) {
                 player.sendMessage(Text.literal("LLM服务不可用").formatted(Formatting.RED), false);
@@ -453,7 +460,7 @@ public class LLMChatCommand {
     /**
      * 处理旧格式的函数调用（向后兼容）
      */
-    private void handleLegacyFunctionCall(LLMFunction.FunctionResult result, String functionName,
+    private static void handleLegacyFunctionCall(LLMFunction.FunctionResult result, String functionName,
                                         ServerPlayerEntity player, ChatContext chatContext, LLMChatConfig config) {
         if (result.isSuccess()) {
             String resultMessage = result.getResult();

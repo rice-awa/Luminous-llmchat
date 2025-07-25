@@ -105,13 +105,20 @@ public class LLMChatConfig {
      * 创建默认配置
      */
     private void createDefaultConfig() {
+        createDefaultProviders();
+    }
+
+    /**
+     * 创建默认的providers配置
+     */
+    private void createDefaultProviders() {
         // 创建默认的providers配置
         List<Provider> defaultProviders = new ArrayList<>();
 
         // OpenAI Provider示例
         Provider openaiProvider = new Provider();
         openaiProvider.setName("openai");
-        openaiProvider.setApiBaseUrl("https://api.openai.com/v1/chat/completions");
+        openaiProvider.setApiBaseUrl("https://api.openai.com/v1");
         openaiProvider.setApiKey("your-openai-api-key-here");
         openaiProvider.setModels(List.of("gpt-3.5-turbo", "gpt-4", "gpt-4-turbo", "gpt-4o"));
         defaultProviders.add(openaiProvider);
@@ -119,7 +126,7 @@ public class LLMChatConfig {
         // OpenRouter Provider示例
         Provider openrouterProvider = new Provider();
         openrouterProvider.setName("openrouter");
-        openrouterProvider.setApiBaseUrl("https://openrouter.ai/api/v1/chat/completions");
+        openrouterProvider.setApiBaseUrl("https://openrouter.ai/api/v1");
         openrouterProvider.setApiKey("your-openrouter-api-key-here");
         openrouterProvider.setModels(List.of(
             "anthropic/claude-3.5-sonnet",
@@ -131,7 +138,7 @@ public class LLMChatConfig {
         // DeepSeek Provider示例
         Provider deepseekProvider = new Provider();
         deepseekProvider.setName("deepseek");
-        deepseekProvider.setApiBaseUrl("https://api.deepseek.com/chat/completions");
+        deepseekProvider.setApiBaseUrl("https://api.deepseek.com/v1");
         deepseekProvider.setApiKey("your-deepseek-api-key-here");
         deepseekProvider.setModels(List.of("deepseek-chat", "deepseek-reasoner"));
         defaultProviders.add(deepseekProvider);
@@ -142,21 +149,45 @@ public class LLMChatConfig {
     }
 
     /**
+     * 获取当前provider的默认模型
+     */
+    private String getDefaultModelForCurrentProvider() {
+        if (currentProvider == null || currentProvider.isEmpty()) {
+            return "";
+        }
+
+        Provider provider = getProvider(currentProvider);
+        if (provider != null && provider.getModels() != null && !provider.getModels().isEmpty()) {
+            return provider.getModels().get(0);
+        }
+
+        return "";
+    }
+
+    /**
      * 应用配置数据
      */
     private void applyConfigData(ConfigData data) {
         this.defaultPromptTemplate = data.defaultPromptTemplate != null ? data.defaultPromptTemplate : "default";
         this.defaultTemperature = data.defaultTemperature != null ? data.defaultTemperature : 0.7;
-        this.defaultMaxTokens = data.defaultMaxTokens != null ? data.defaultMaxTokens : 2048;
-        this.maxContextLength = data.maxContextLength != null ? data.maxContextLength : 4000;
+        this.defaultMaxTokens = data.defaultMaxTokens != null ? data.defaultMaxTokens : 8192;
+        this.maxContextLength = data.maxContextLength != null ? data.maxContextLength : 8192;
         this.enableHistory = data.enableHistory != null ? data.enableHistory : true;
-        this.enableFunctionCalling = data.enableFunctionCalling != null ? data.enableFunctionCalling : false;
+        this.enableFunctionCalling = data.enableFunctionCalling != null ? data.enableFunctionCalling : true;
         this.historyRetentionDays = data.historyRetentionDays != null ? data.historyRetentionDays : 30;
 
-        // 处理providers配置
-        this.providers = data.providers != null ? data.providers : new ArrayList<>();
-        this.currentProvider = data.currentProvider != null ? data.currentProvider : "";
-        this.currentModel = data.currentModel != null ? data.currentModel : "";
+        // 处理providers配置 - 如果为null或空，创建默认配置
+        if (data.providers == null || data.providers.isEmpty()) {
+            createDefaultProviders();
+        } else {
+            this.providers = data.providers;
+        }
+
+        // 处理当前provider和model配置
+        this.currentProvider = data.currentProvider != null && !data.currentProvider.isEmpty() ?
+            data.currentProvider : (this.providers.isEmpty() ? "" : this.providers.get(0).getName());
+        this.currentModel = data.currentModel != null && !data.currentModel.isEmpty() ?
+            data.currentModel : getDefaultModelForCurrentProvider();
     }
 
     /**

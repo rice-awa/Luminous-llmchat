@@ -84,7 +84,7 @@ public class InventoryFunction implements LLMFunction {
                            .append(itemName).append(" x").append(stack.getCount());
                     
                     // 如果有附魔或其他特殊属性
-                    if (stack.hasNbt()) {
+                    if (stack.hasEnchantments()) {
                         inventory.append(" (有特殊属性)");
                     }
                     inventory.append("\n");
@@ -98,12 +98,12 @@ public class InventoryFunction implements LLMFunction {
             inventory.append("\n--- 装备栏 ---\n");
             String[] equipmentSlots = {"头盔", "胸甲", "护腿", "靴子"};
             for (int i = 0; i < 4; i++) {
-                ItemStack stack = targetPlayer.getInventory().armor.get(i);
+                ItemStack stack = targetPlayer.getInventory().getStack(36 + i);
                 inventory.append(equipmentSlots[i]).append(": ");
                 if (!stack.isEmpty()) {
                     String itemName = getItemDisplayName(stack);
                     inventory.append(itemName);
-                    if (stack.hasNbt()) {
+                    if (stack.hasEnchantments()) {
                         inventory.append(" (有特殊属性)");
                     }
                 } else {
@@ -113,12 +113,12 @@ public class InventoryFunction implements LLMFunction {
             }
             
             // 副手
-            ItemStack offhandStack = targetPlayer.getInventory().offHand.get(0);
+            ItemStack offhandStack = targetPlayer.getInventory().getStack(40);
             inventory.append("副手: ");
             if (!offhandStack.isEmpty()) {
                 String itemName = getItemDisplayName(offhandStack);
                 inventory.append(itemName).append(" x").append(offhandStack.getCount());
-                if (offhandStack.hasNbt()) {
+                if (offhandStack.hasEnchantments()) {
                     inventory.append(" (有特殊属性)");
                 }
             } else {

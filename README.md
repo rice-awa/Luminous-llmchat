@@ -69,7 +69,7 @@
   "providers": [
     {
       "name": "openai",
-      "apiBaseUrl": "https://api.openai.com/v1/chat/completions",
+      "apiBaseUrl": "https://api.openai.com/v1",
       "apiKey": "your-openai-api-key-here",
       "models": [
         "gpt-3.5-turbo",
@@ -80,7 +80,7 @@
     },
     {
       "name": "openrouter",
-      "apiBaseUrl": "https://openrouter.ai/api/v1/chat/completions",
+      "apiBaseUrl": "https://openrouter.ai/api/v1",
       "apiKey": "your-openrouter-api-key-here",
       "models": [
         "anthropic/claude-3.5-sonnet",
@@ -90,7 +90,7 @@
     },
     {
       "name": "deepseek",
-      "apiBaseUrl": "https://api.deepseek.com/chat/completions",
+      "apiBaseUrl": "https://api.deepseek.com/v1",
       "apiKey": "your-deepseek-api-key-here",
       "models": ["deepseek-chat", "deepseek-reasoner"]
     }
@@ -368,7 +368,7 @@ src/main/java/com/riceawa/
 
 ## 许可证
 
-本项目采用 CC0-1.0 许可证。
+本项目采用 MIT 许可证。
 
 ## 贡献
 

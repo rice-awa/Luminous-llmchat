@@ -55,7 +55,7 @@ public class WorldInfoFunction implements LLMFunction {
             info.append("=== 世界信息 ===\n");
             info.append("维度: ").append(getDimensionName(world)).append("\n");
             info.append("难度: ").append(world.getDifficulty().getName()).append("\n");
-            info.append("游戏模式: ").append(server.getDefaultGameMode().getName()).append("\n");
+            info.append("游戏模式: ").append(server.getDefaultGameMode().getTranslatableName().getString()).append("\n");
             info.append("是否硬核: ").append(server.isHardcore() ? "是" : "否").append("\n");
             
             // 时间信息
@@ -96,7 +96,7 @@ public class WorldInfoFunction implements LLMFunction {
                     .append(world.getSpawnPos().getZ()).append("\n");
                 info.append("海平面高度: ").append(world.getSeaLevel()).append("\n");
                 info.append("最低建筑高度: ").append(world.getBottomY()).append("\n");
-                info.append("最高建筑高度: ").append(world.getTopY()).append("\n");
+                info.append("最高建筑高度: ").append(world.getTopY(null, pos)).append("\n");
             }
             
             return FunctionResult.success(info.toString());

@@ -5,6 +5,7 @@ import com.riceawa.llm.function.LLMFunction;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
 
 /**
  * 获取服务器信息的函数
@@ -52,7 +53,7 @@ public class ServerInfoFunction implements LLMFunction {
             info.append("Minecraft版本: ").append(server.getServerModName()).append("\n");
             info.append("是否单人游戏: ").append(server.isSingleplayer() ? "是" : "否").append("\n");
             info.append("是否硬核模式: ").append(server.isHardcore() ? "是" : "否").append("\n");
-            info.append("默认游戏模式: ").append(server.getDefaultGameMode().getName()).append("\n");
+            info.append("默认游戏模式: ").append(server.getDefaultGameMode().getTranslatableName().getString()).append("\n");
             info.append("难度: ").append(server.getOverworld().getDifficulty().getName()).append("\n");
             info.append("是否允许PvP: ").append(server.isPvpEnabled() ? "是" : "否").append("\n");
             
@@ -77,7 +78,11 @@ public class ServerInfoFunction implements LLMFunction {
             
             // 世界信息
             info.append("\n=== 世界信息 ===\n");
-            info.append("已加载世界数: ").append(server.getWorlds().size()).append("\n");
+            int worldCount = 0;
+            for (ServerWorld world : server.getWorlds()) {
+                worldCount++;
+            }
+            info.append("已加载世界数: ").append(worldCount).append("\n");
             
             // 运行时间
             long uptimeMillis = System.currentTimeMillis() - server.getTimeReference();
@@ -94,16 +99,8 @@ public class ServerInfoFunction implements LLMFunction {
                 if (isOp) {
                     info.append("\n=== 性能信息 ===\n");
                     
-                    // TPS信息
-                    double[] tps = server.lastTickLengths;
-                    if (tps.length > 0) {
-                        double avgTps = 0;
-                        for (double tickTime : tps) {
-                            avgTps += Math.min(1000.0 / tickTime, 20.0);
-                        }
-                        avgTps /= tps.length;
-                        info.append("平均TPS: ").append(String.format("%.2f", avgTps)).append("\n");
-                    }
+                    // TPS信息 (简化版本，因为lastTickLengths在新版本中不可用)
+                    info.append("TPS: 无法获取 (需要更新API)\n");
                     
                     // 内存使用情况
                     Runtime runtime = Runtime.getRuntime();

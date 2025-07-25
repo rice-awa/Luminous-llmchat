@@ -41,14 +41,6 @@ public class LLMMessage {
         this.metadata = metadata;
     }
 
-    public LLMMessage(String id, MessageRole role, String content, LocalDateTime timestamp, MessageMetadata metadata) {
-        this.id = id;
-        this.role = role;
-        this.content = content;
-        this.timestamp = timestamp;
-        this.metadata = metadata;
-    }
-
     public String getId() {
         return id;
     }

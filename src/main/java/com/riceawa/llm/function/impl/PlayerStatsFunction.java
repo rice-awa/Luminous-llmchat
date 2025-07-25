@@ -85,7 +85,7 @@ public class PlayerStatsFunction implements LLMFunction {
             stats.append("维度: ").append(getDimensionName(targetPlayer.getWorld().getRegistryKey().getValue().toString())).append("\n");
             
             // 游戏模式
-            stats.append("游戏模式: ").append(targetPlayer.interactionManager.getGameMode().getName()).append("\n");
+            stats.append("游戏模式: ").append(targetPlayer.interactionManager.getGameMode().getTranslatableName().getString()).append("\n");
             
             // 移动状态
             stats.append("是否在地面: ").append(targetPlayer.isOnGround() ? "是" : "否").append("\n");
