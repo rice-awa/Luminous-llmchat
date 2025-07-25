@@ -31,11 +31,11 @@ public class LLMConfig {
     @SerializedName("stream")
     private Boolean stream;
     
-    @SerializedName("functions")
-    private List<FunctionDefinition> functions;
-    
-    @SerializedName("function_call")
-    private String functionCall;
+    @SerializedName("tools")
+    private List<ToolDefinition> tools;
+
+    @SerializedName("tool_choice")
+    private String toolChoice;
 
     public LLMConfig() {
         // 默认配置
@@ -108,20 +108,53 @@ public class LLMConfig {
         this.stream = stream;
     }
 
-    public List<FunctionDefinition> getFunctions() {
-        return functions;
+    public List<ToolDefinition> getTools() {
+        return tools;
     }
 
-    public void setFunctions(List<FunctionDefinition> functions) {
-        this.functions = functions;
+    public void setTools(List<ToolDefinition> tools) {
+        this.tools = tools;
     }
 
-    public String getFunctionCall() {
-        return functionCall;
+    public String getToolChoice() {
+        return toolChoice;
     }
 
-    public void setFunctionCall(String functionCall) {
-        this.functionCall = functionCall;
+    public void setToolChoice(String toolChoice) {
+        this.toolChoice = toolChoice;
+    }
+
+    /**
+     * Tool定义（新的OpenAI API格式）
+     */
+    public static class ToolDefinition {
+        @SerializedName("type")
+        private String type = "function";
+
+        @SerializedName("function")
+        private FunctionDefinition function;
+
+        public ToolDefinition() {}
+
+        public ToolDefinition(FunctionDefinition function) {
+            this.function = function;
+        }
+
+        public String getType() {
+            return type;
+        }
+
+        public void setType(String type) {
+            this.type = type;
+        }
+
+        public FunctionDefinition getFunction() {
+            return function;
+        }
+
+        public void setFunction(FunctionDefinition function) {
+            this.function = function;
+        }
     }
 
     /**

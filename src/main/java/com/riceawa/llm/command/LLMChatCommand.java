@@ -9,6 +9,9 @@ import com.riceawa.llm.context.ChatContext;
 import com.riceawa.llm.context.ChatContextManager;
 import com.riceawa.llm.core.*;
 import com.riceawa.llm.function.FunctionRegistry;
+import com.riceawa.llm.function.LLMFunction;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import com.riceawa.llm.history.ChatHistory;
 import com.riceawa.llm.service.LLMServiceManager;
 import com.riceawa.llm.template.PromptTemplate;
@@ -27,7 +30,8 @@ import java.util.concurrent.CompletableFuture;
  * LLM聊天命令处理器
  */
 public class LLMChatCommand {
-    
+    private static final Gson gson = new Gson();
+
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess registryAccess) {
         dispatcher.register(CommandManager.literal("llmchat")
                 .then(CommandManager.argument("message", StringArgumentType.greedyString())
@@ -279,13 +283,13 @@ public class LLMChatCommand {
         llmConfig.setTemperature(config.getDefaultTemperature());
         llmConfig.setMaxTokens(config.getDefaultMaxTokens());
         
-        // 如果启用了Function Calling，添加函数定义
+        // 如果启用了Function Calling，添加工具定义
         if (config.isEnableFunctionCalling()) {
             FunctionRegistry functionRegistry = FunctionRegistry.getInstance();
-            List<LLMConfig.FunctionDefinition> functions = functionRegistry.generateFunctionDefinitions(player);
-            if (!functions.isEmpty()) {
-                llmConfig.setFunctions(functions);
-                llmConfig.setFunctionCall("auto");
+            List<LLMConfig.ToolDefinition> tools = functionRegistry.generateToolDefinitions(player);
+            if (!tools.isEmpty()) {
+                llmConfig.setTools(tools);
+                llmConfig.setToolChoice("auto");
             }
         }
 
@@ -295,18 +299,7 @@ public class LLMChatCommand {
         llmService.chat(chatContext.getMessages(), llmConfig)
                 .thenAccept(response -> {
                     if (response.isSuccess()) {
-                        String content = response.getContent();
-                        if (content != null && !content.trim().isEmpty()) {
-                            chatContext.addAssistantMessage(content);
-                            player.sendMessage(Text.literal("[AI] " + content).formatted(Formatting.AQUA), false);
-
-                            // 保存会话历史
-                            if (config.isEnableHistory()) {
-                                ChatHistory.getInstance().saveSession(chatContext);
-                            }
-                        } else {
-                            player.sendMessage(Text.literal("AI没有返回有效响应").formatted(Formatting.RED), false);
-                        }
+                        handleLLMResponse(response, player, chatContext, config);
                     } else {
                         player.sendMessage(Text.literal("AI响应错误: " + response.getError()).formatted(Formatting.RED), false);
                     }
@@ -315,6 +308,168 @@ public class LLMChatCommand {
                     player.sendMessage(Text.literal("请求失败: " + throwable.getMessage()).formatted(Formatting.RED), false);
                     return null;
                 });
+    }
+
+    /**
+     * 处理LLM响应，包括function calling
+     */
+    private void handleLLMResponse(LLMResponse response, ServerPlayerEntity player,
+                                 ChatContext chatContext, LLMChatConfig config) {
+        if (response.getChoices() == null || response.getChoices().isEmpty()) {
+            player.sendMessage(Text.literal("AI没有返回有效响应").formatted(Formatting.RED), false);
+            return;
+        }
+
+        LLMResponse.Choice firstChoice = response.getChoices().get(0);
+        LLMMessage message = firstChoice.getMessage();
+
+        if (message == null) {
+            player.sendMessage(Text.literal("AI没有返回有效消息").formatted(Formatting.RED), false);
+            return;
+        }
+
+        // 检查是否有function call
+        if (message.getMetadata() != null && message.getMetadata().getFunctionCall() != null) {
+            handleFunctionCall(message.getMetadata().getFunctionCall(), player, chatContext, config);
+        } else {
+            // 普通文本响应
+            String content = message.getContent();
+            if (content != null && !content.trim().isEmpty()) {
+                chatContext.addAssistantMessage(content);
+                player.sendMessage(Text.literal("[AI] " + content).formatted(Formatting.AQUA), false);
+
+                // 保存会话历史
+                if (config.isEnableHistory()) {
+                    ChatHistory.getInstance().saveSession(chatContext);
+                }
+            } else {
+                player.sendMessage(Text.literal("AI没有返回有效内容").formatted(Formatting.RED), false);
+            }
+        }
+    }
+
+    /**
+     * 处理function call（新的OpenAI API格式）
+     */
+    private void handleFunctionCall(LLMMessage.FunctionCall functionCall, ServerPlayerEntity player,
+                                  ChatContext chatContext, LLMChatConfig config) {
+        try {
+            String functionName = functionCall.getName();
+            String argumentsStr = functionCall.getArguments();
+            String toolCallId = functionCall.getToolCallId();
+
+            player.sendMessage(Text.literal("正在执行函数: " + functionName).formatted(Formatting.YELLOW), false);
+
+            // 解析参数
+            JsonObject arguments = new JsonObject();
+            if (argumentsStr != null && !argumentsStr.trim().isEmpty()) {
+                try {
+                    arguments = gson.fromJson(argumentsStr, JsonObject.class);
+                } catch (Exception e) {
+                    player.sendMessage(Text.literal("函数参数解析失败: " + e.getMessage()).formatted(Formatting.RED), false);
+                    return;
+                }
+            }
+
+            // 执行函数
+            FunctionRegistry functionRegistry = FunctionRegistry.getInstance();
+            LLMFunction.FunctionResult result = functionRegistry.executeFunction(functionName, player, arguments);
+
+            // 根据OpenAI新API格式，需要将函数结果添加到消息列表并再次调用LLM
+            if (toolCallId != null) {
+                // 添加工具调用消息到上下文
+                LLMMessage toolCallMessage = new LLMMessage(LLMMessage.MessageRole.ASSISTANT, null);
+                LLMMessage.MessageMetadata metadata = new LLMMessage.MessageMetadata();
+                metadata.setFunctionCall(functionCall);
+                toolCallMessage.setMetadata(metadata);
+                chatContext.addMessage(toolCallMessage);
+
+                // 添加工具响应消息
+                String resultContent = result.isSuccess() ? result.getResult() : "错误: " + result.getError();
+                LLMMessage toolResponseMessage = new LLMMessage(LLMMessage.MessageRole.TOOL, resultContent);
+                toolResponseMessage.setName(functionName);
+                toolResponseMessage.setToolCallId(toolCallId);
+                chatContext.addMessage(toolResponseMessage);
+
+                // 再次调用LLM获取基于函数结果的响应
+                callLLMWithFunctionResult(player, chatContext, config);
+            } else {
+                // 兼容旧格式的处理方式
+                handleLegacyFunctionCall(result, functionName, player, chatContext, config);
+            }
+
+        } catch (Exception e) {
+            player.sendMessage(Text.literal("函数调用处理失败: " + e.getMessage()).formatted(Formatting.RED), false);
+        }
+    }
+
+    /**
+     * 使用函数结果再次调用LLM
+     */
+    private void callLLMWithFunctionResult(ServerPlayerEntity player, ChatContext chatContext, LLMChatConfig config) {
+        try {
+            LLMServiceManager serviceManager = LLMServiceManager.getInstance();
+            LLMService llmService = serviceManager.getCurrentService();
+
+            if (llmService == null) {
+                player.sendMessage(Text.literal("LLM服务不可用").formatted(Formatting.RED), false);
+                return;
+            }
+
+            // 构建配置
+            LLMConfig llmConfig = new LLMConfig();
+            llmConfig.setModel(config.getCurrentModel());
+            llmConfig.setTemperature(config.getDefaultTemperature());
+            llmConfig.setMaxTokens(config.getDefaultMaxTokens());
+
+            // 发送请求获取最终响应
+            llmService.chat(chatContext.getMessages(), llmConfig)
+                    .thenAccept(response -> {
+                        if (response.isSuccess()) {
+                            String content = response.getContent();
+                            if (content != null && !content.trim().isEmpty()) {
+                                chatContext.addAssistantMessage(content);
+                                player.sendMessage(Text.literal("[AI] " + content).formatted(Formatting.AQUA), false);
+
+                                // 保存会话历史
+                                if (config.isEnableHistory()) {
+                                    ChatHistory.getInstance().saveSession(chatContext);
+                                }
+                            }
+                        } else {
+                            player.sendMessage(Text.literal("AI响应错误: " + response.getError()).formatted(Formatting.RED), false);
+                        }
+                    })
+                    .exceptionally(throwable -> {
+                        player.sendMessage(Text.literal("请求失败: " + throwable.getMessage()).formatted(Formatting.RED), false);
+                        return null;
+                    });
+
+        } catch (Exception e) {
+            player.sendMessage(Text.literal("调用LLM失败: " + e.getMessage()).formatted(Formatting.RED), false);
+        }
+    }
+
+    /**
+     * 处理旧格式的函数调用（向后兼容）
+     */
+    private void handleLegacyFunctionCall(LLMFunction.FunctionResult result, String functionName,
+                                        ServerPlayerEntity player, ChatContext chatContext, LLMChatConfig config) {
+        if (result.isSuccess()) {
+            String resultMessage = result.getResult();
+            player.sendMessage(Text.literal("[函数执行] " + resultMessage).formatted(Formatting.GREEN), false);
+
+            // 将函数调用和结果添加到上下文中
+            chatContext.addAssistantMessage("调用了函数 " + functionName + "，结果：" + resultMessage);
+
+            // 保存会话历史
+            if (config.isEnableHistory()) {
+                ChatHistory.getInstance().saveSession(chatContext);
+            }
+        } else {
+            String errorMessage = result.getError();
+            player.sendMessage(Text.literal("[函数错误] " + errorMessage).formatted(Formatting.RED), false);
+        }
     }
 
     /**
