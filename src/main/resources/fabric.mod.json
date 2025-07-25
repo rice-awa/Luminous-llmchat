@@ -2,16 +2,16 @@
 	"schemaVersion": 1,
 	"id": "lllmchat",
 	"version": "${version}",
-	"name": "lllmchat",
-	"description": "一个简单的llm调用mod",
+	"name": "Luminous LLM Chat",
+	"description": "一个让人眼前一亮LLMchat模组，集成了LLM（大语言模型）聊天功能，支持多种AI服务和自定义功能。",
 	"authors": [
 		"rice_awa"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"homepage": "https://rice-awa.top",
+		"sources": "https://github.com/rice-awa/Luminous-llmchat"
 	},
-	"license": "CC0-1.0",
+	"license": "MIT",
 	"icon": "assets/lllmchat/icon.png",
 	"environment": "*",
 	"entrypoints": {
