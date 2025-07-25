@@ -129,12 +129,7 @@ public class LLMChatCommand {
         LogManager.getInstance().chat("Chat request from player: " + player.getName().getString() +
                 ", message: " + message);
 
-        // 检查配置是否有效
-        LLMChatConfig config = LLMChatConfig.getInstance();
-        if (!config.isConfigurationValid()) {
-            handleConfigurationIssues(player, config);
-            return 0;
-        }
+
 
         // 异步处理聊天请求
         CompletableFuture.runAsync(() -> {
@@ -981,17 +976,9 @@ public class LLMChatCommand {
         player.sendMessage(Text.literal(""), false);
 
         // 显示当前配置状态
-        if (config.isConfigurationValid()) {
-            player.sendMessage(Text.literal("✅ 当前配置状态: 正常").formatted(Formatting.GREEN), false);
-            player.sendMessage(Text.literal("当前服务提供商: " + config.getCurrentProvider()).formatted(Formatting.WHITE), false);
-            player.sendMessage(Text.literal("当前模型: " + config.getCurrentModel()).formatted(Formatting.WHITE), false);
-        } else {
-            player.sendMessage(Text.literal("❌ 当前配置状态: 需要配置").formatted(Formatting.RED), false);
-            List<String> issues = config.getConfigurationIssues();
-            for (String issue : issues) {
-                player.sendMessage(Text.literal("• " + issue).formatted(Formatting.YELLOW), false);
-            }
-        }
+        player.sendMessage(Text.literal("📊 当前配置状态:").formatted(Formatting.AQUA), false);
+        player.sendMessage(Text.literal("当前服务提供商: " + config.getCurrentProvider()).formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("当前模型: " + config.getCurrentModel()).formatted(Formatting.WHITE), false);
 
         player.sendMessage(Text.literal(""), false);
         player.sendMessage(Text.literal("📋 配置文件位置:").formatted(Formatting.AQUA), false);
@@ -1019,46 +1006,7 @@ public class LLMChatCommand {
         return 1;
     }
 
-    /**
-     * 处理配置问题，向用户显示友好的引导信息
-     */
-    private static void handleConfigurationIssues(PlayerEntity player, LLMChatConfig config) {
-        if (config.isFirstTimeSetup()) {
-            // 首次使用的欢迎信息
-            player.sendMessage(Text.literal("=== 欢迎使用 LLM Chat! ===").formatted(Formatting.GOLD), false);
-            player.sendMessage(Text.literal("看起来这是您第一次使用AI聊天功能。").formatted(Formatting.YELLOW), false);
-            player.sendMessage(Text.literal("在开始使用之前，需要配置AI服务提供商的API密钥。").formatted(Formatting.WHITE), false);
-            player.sendMessage(Text.literal(""), false);
 
-            player.sendMessage(Text.literal("📋 配置步骤：").formatted(Formatting.AQUA), false);
-            player.sendMessage(Text.literal("1. 打开配置文件: config/lllmchat/config.json").formatted(Formatting.WHITE), false);
-            player.sendMessage(Text.literal("2. 选择一个AI服务提供商（OpenAI、OpenRouter、DeepSeek等）").formatted(Formatting.WHITE), false);
-            player.sendMessage(Text.literal("3. 将对应的 'apiKey' 字段替换为您的真实API密钥").formatted(Formatting.WHITE), false);
-            player.sendMessage(Text.literal("4. 使用 /llmchat reload 重新加载配置").formatted(Formatting.WHITE), false);
-            player.sendMessage(Text.literal(""), false);
-
-            player.sendMessage(Text.literal("💡 提示：").formatted(Formatting.GREEN), false);
-            player.sendMessage(Text.literal("- 使用 /llmchat provider list 查看所有可用的服务提供商").formatted(Formatting.GRAY), false);
-            player.sendMessage(Text.literal("- 使用 /llmchat help 查看所有可用命令").formatted(Formatting.GRAY), false);
-        } else {
-            // 配置有问题的情况
-            player.sendMessage(Text.literal("❌ AI聊天配置有问题").formatted(Formatting.RED), false);
-            player.sendMessage(Text.literal(""), false);
-
-            List<String> issues = config.getConfigurationIssues();
-            player.sendMessage(Text.literal("发现的问题：").formatted(Formatting.YELLOW), false);
-            for (String issue : issues) {
-                player.sendMessage(Text.literal("• " + issue).formatted(Formatting.WHITE), false);
-            }
-            player.sendMessage(Text.literal(""), false);
-
-            player.sendMessage(Text.literal("🔧 解决方案：").formatted(Formatting.AQUA), false);
-            player.sendMessage(Text.literal("1. 检查配置文件: config/lllmchat/config.json").formatted(Formatting.WHITE), false);
-            player.sendMessage(Text.literal("2. 确保API密钥正确设置").formatted(Formatting.WHITE), false);
-            player.sendMessage(Text.literal("3. 使用 /llmchat reload 重新加载配置").formatted(Formatting.WHITE), false);
-            player.sendMessage(Text.literal("4. 使用 /llmchat provider list 查看可用的服务提供商").formatted(Formatting.WHITE), false);
-        }
-    }
 
     /**
      * 处理添加广播玩家命令
