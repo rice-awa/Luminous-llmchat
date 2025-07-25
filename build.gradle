@@ -7,7 +7,7 @@ version = project.mod_version
 group = project.maven_group
 
 base {
-	archivesName = project.archives_base_name
+	archivesName = "luminousLLMChat-fabric"
 }
 
 repositories {
@@ -47,12 +47,19 @@ dependencies {
 
 	// HTTP client for LLM API calls
 	implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+	include 'com.squareup.okhttp3:okhttp:4.12.0'
+
+	// Okio dependency (required by OkHttp)
+	implementation 'com.squareup.okio:okio:3.6.0'
+	include 'com.squareup.okio:okio:3.6.0'
 
 	// JSON processing
 	implementation 'com.google.code.gson:gson:2.10.1'
+	include 'com.google.code.gson:gson:2.10.1'
 
 	// Configuration management
 	implementation 'com.typesafe:config:1.4.3'
+	include 'com.typesafe:config:1.4.3'
 
 	// Test dependencies
 	testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
@@ -89,12 +96,27 @@ java {
 	targetCompatibility = JavaVersion.VERSION_21
 }
 
+// Configure sources jar naming
+tasks.named('sourcesJar') {
+	archiveFileName = "luminousLLMChat-fabric-${project.minecraft_version}-${project.mod_version}-sources.jar"
+}
+
 jar {
 	inputs.property "archivesName", project.base.archivesName
+	archiveFileName = "luminousLLMChat-fabric-${project.minecraft_version}-${project.mod_version}.jar"
 
 	from("LICENSE") {
 		rename { "${it}_${inputs.properties.archivesName}"}
 	}
+}
+
+// Configure remapped jar naming
+tasks.named('remapJar') {
+	archiveFileName = "luminousLLMChat-fabric-${project.minecraft_version}-${project.mod_version}.jar"
+}
+
+tasks.named('remapSourcesJar') {
+	archiveFileName = "luminousLLMChat-fabric-${project.minecraft_version}-${project.mod_version}-sources.jar"
 }
 
 // configure the maven publication

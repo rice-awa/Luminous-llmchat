@@ -2,6 +2,7 @@ package com.riceawa.llm.function.impl;
 
 import com.google.gson.JsonObject;
 import com.riceawa.llm.function.LLMFunction;
+import com.riceawa.llm.function.PermissionHelper;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -53,8 +54,8 @@ public class PlayerStatsFunction implements LLMFunction {
                 }
                 
                 // 检查权限：只有OP或查询自己才能查看其他玩家信息
-                if (!foundPlayer.equals(player) && !server.getPlayerManager().isOperator(player.getGameProfile())) {
-                    return FunctionResult.error("没有权限查看其他玩家的信息");
+                if (!PermissionHelper.canViewOtherPlayerInfo(player, foundPlayer)) {
+                    return FunctionResult.error(PermissionHelper.getPermissionErrorMessage("查看其他玩家的信息"));
                 }
                 
                 targetPlayer = foundPlayer;

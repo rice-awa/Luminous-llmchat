@@ -2,6 +2,7 @@ package com.riceawa.llm.function.impl;
 
 import com.google.gson.JsonObject;
 import com.riceawa.llm.function.LLMFunction;
+import com.riceawa.llm.function.PermissionHelper;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -79,8 +80,8 @@ public class SendMessageFunction implements LLMFunction {
             
             if (target == null || target.trim().isEmpty()) {
                 // 发送给所有玩家 - 需要OP权限
-                if (!server.getPlayerManager().isOperator(player.getGameProfile())) {
-                    return FunctionResult.error("向所有玩家发送消息需要OP权限");
+                if (!PermissionHelper.canSendBroadcast(player)) {
+                    return FunctionResult.error(PermissionHelper.getPermissionErrorMessage("向所有玩家发送消息"));
                 }
                 
                 // 发送给所有在线玩家

@@ -2,6 +2,7 @@ package com.riceawa.llm.function.impl;
 
 import com.google.gson.JsonObject;
 import com.riceawa.llm.function.LLMFunction;
+import com.riceawa.llm.function.PermissionHelper;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -95,7 +96,7 @@ public class ServerInfoFunction implements LLMFunction {
             
             if (includePerformance) {
                 // 性能信息（需要OP权限才能查看详细性能）
-                boolean isOp = server.getPlayerManager().isOperator(player.getGameProfile());
+                boolean isOp = PermissionHelper.isOperator(player);
                 if (isOp) {
                     info.append("\n=== 性能信息 ===\n");
                     

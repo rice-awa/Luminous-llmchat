@@ -198,14 +198,24 @@ public class FunctionRegistry {
         registerFunction(new GetPlayerInfoFunction());
         registerFunction(new GetWeatherFunction());
 
-        // 注册新的扩展函数
+        // 注册信息查询函数
         registerFunction(new com.riceawa.llm.function.impl.WorldInfoFunction());
         registerFunction(new com.riceawa.llm.function.impl.PlayerStatsFunction());
         registerFunction(new com.riceawa.llm.function.impl.InventoryFunction());
         registerFunction(new com.riceawa.llm.function.impl.ServerInfoFunction());
         registerFunction(new com.riceawa.llm.function.impl.NearbyEntitiesFunction());
-        registerFunction(new com.riceawa.llm.function.impl.SendMessageFunction());
         registerFunction(new com.riceawa.llm.function.impl.PlayerEffectsFunction());
+
+        // 注册交互功能函数
+        registerFunction(new com.riceawa.llm.function.impl.SendMessageFunction());
+        registerFunction(new com.riceawa.llm.function.impl.TeleportPlayerFunction());
+
+        // 注册管理员功能函数（需要OP权限）
+        registerFunction(new com.riceawa.llm.function.impl.ExecuteCommandFunction());
+        registerFunction(new com.riceawa.llm.function.impl.SetBlockFunction());
+        registerFunction(new com.riceawa.llm.function.impl.SummonEntityFunction());
+        registerFunction(new com.riceawa.llm.function.impl.WeatherControlFunction());
+        registerFunction(new com.riceawa.llm.function.impl.TimeControlFunction());
     }
 
     /**
