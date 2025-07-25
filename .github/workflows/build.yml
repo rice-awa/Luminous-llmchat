@@ -87,7 +87,7 @@ jobs:
 
       - name: upload build artifacts
         uses: actions/upload-artifact@v4
-        if: success()
+        if: ${{ success() && inputs.test_only != 'true' }}
         with:
           name: mod-jars
           path: |
@@ -97,7 +97,7 @@ jobs:
 
       - name: upload all artifacts (including sources)
         uses: actions/upload-artifact@v4
-        if: success()
+        if: ${{ success() && inputs.test_only != 'true' }}
         with:
           name: all-artifacts
           path: build/libs/
