@@ -2,6 +2,8 @@ package com.riceawa.llm.config;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.riceawa.llm.logging.LogConfig;
+import com.riceawa.llm.logging.LogLevel;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.*;
@@ -31,6 +33,9 @@ public class LLMChatConfig {
     private boolean enableBroadcast = false;
     private Set<String> broadcastPlayers = new HashSet<>();
     private int historyRetentionDays = 30;
+
+    // 日志配置
+    private LogConfig logConfig = LogConfig.createDefault();
 
     // Providers配置
     private List<Provider> providers = new ArrayList<>();
@@ -185,6 +190,9 @@ public class LLMChatConfig {
         this.broadcastPlayers = data.broadcastPlayers != null ? new HashSet<>(data.broadcastPlayers) : new HashSet<>();
         this.historyRetentionDays = data.historyRetentionDays != null ? data.historyRetentionDays : 30;
 
+        // 处理日志配置
+        this.logConfig = data.logConfig != null ? data.logConfig : LogConfig.createDefault();
+
         // 处理providers配置 - 如果为null或空，创建默认配置
         if (data.providers == null || data.providers.isEmpty()) {
             createDefaultProviders();
@@ -213,6 +221,7 @@ public class LLMChatConfig {
         data.enableBroadcast = this.enableBroadcast;
         data.broadcastPlayers = new HashSet<>(this.broadcastPlayers);
         data.historyRetentionDays = this.historyRetentionDays;
+        data.logConfig = this.logConfig;
         data.providers = this.providers;
         data.currentProvider = this.currentProvider;
         data.currentModel = this.currentModel;
@@ -326,7 +335,15 @@ public class LLMChatConfig {
         saveConfig();
     }
 
+    // 日志配置相关方法
+    public LogConfig getLogConfig() {
+        return logConfig;
+    }
 
+    public void setLogConfig(LogConfig logConfig) {
+        this.logConfig = logConfig != null ? logConfig : LogConfig.createDefault();
+        saveConfig();
+    }
 
     // Providers相关方法
     public List<Provider> getProviders() {
@@ -498,6 +515,9 @@ public class LLMChatConfig {
         Boolean enableBroadcast;
         Set<String> broadcastPlayers;
         Integer historyRetentionDays;
+
+        // 日志配置
+        LogConfig logConfig;
 
         // Providers配置
         List<Provider> providers;

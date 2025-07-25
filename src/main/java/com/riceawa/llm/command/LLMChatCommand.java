@@ -13,6 +13,7 @@ import com.riceawa.llm.function.LLMFunction;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.riceawa.llm.history.ChatHistory;
+import com.riceawa.llm.logging.LogManager;
 import com.riceawa.llm.service.LLMServiceManager;
 import com.riceawa.llm.template.PromptTemplate;
 import com.riceawa.llm.template.PromptTemplateManager;
@@ -49,6 +50,11 @@ public class LLMChatCommand {
     }
 
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess registryAccess) {
+        // 注册日志管理命令
+        LogCommand.register(dispatcher, registryAccess);
+
+        // 注册历史记录管理命令
+        HistoryCommand.register(dispatcher, registryAccess);
         dispatcher.register(CommandManager.literal("llmchat")
                 .then(CommandManager.argument("message", StringArgumentType.greedyString())
                         .executes(LLMChatCommand::handleChatMessage))
@@ -116,6 +122,10 @@ public class LLMChatCommand {
 
         String message = StringArgumentType.getString(context, "message");
 
+        // 记录聊天请求
+        LogManager.getInstance().chat("Chat request from player: " + player.getName().getString() +
+                ", message: " + message);
+
         // 检查配置是否有效
         LLMChatConfig config = LLMChatConfig.getInstance();
         if (!config.isConfigurationValid()) {
@@ -128,6 +138,8 @@ public class LLMChatCommand {
             try {
                 processChatMessage(player, message);
             } catch (Exception e) {
+                LogManager.getInstance().error("Error processing chat message from " +
+                        player.getName().getString(), e);
                 player.sendMessage(Text.literal("处理消息时发生错误: " + e.getMessage()).formatted(Formatting.RED), false);
             }
         });
@@ -306,6 +318,8 @@ public class LLMChatCommand {
      * 处理聊天消息的核心逻辑
      */
     private static void processChatMessage(PlayerEntity player, String message) {
+        long startTime = System.currentTimeMillis();
+
         // 确保player是ServerPlayerEntity类型
         if (!(player instanceof ServerPlayerEntity)) {
             player.sendMessage(Text.literal("此功能只能由服务器玩家使用").formatted(Formatting.RED), false);
@@ -392,14 +406,34 @@ public class LLMChatCommand {
         
         llmService.chat(chatContext.getMessages(), llmConfig)
                 .thenAccept(response -> {
+                    long endTime = System.currentTimeMillis();
                     if (response.isSuccess()) {
                         handleLLMResponse(response, serverPlayer, chatContext, config);
+                        // 记录成功的性能日志
+                        LogManager.getInstance().performance("Chat processing completed successfully",
+                                java.util.Map.of(
+                                        "player", serverPlayer.getName().getString(),
+                                        "total_time_ms", endTime - startTime,
+                                        "context_messages", chatContext.getMessageCount()
+                                ));
                     } else {
                         serverPlayer.sendMessage(Text.literal("AI响应错误: " + response.getError()).formatted(Formatting.RED), false);
+                        LogManager.getInstance().error("AI response error for player " +
+                                serverPlayer.getName().getString() + ": " + response.getError());
                     }
                 })
                 .exceptionally(throwable -> {
+                    long endTime = System.currentTimeMillis();
                     serverPlayer.sendMessage(Text.literal("请求失败: " + throwable.getMessage()).formatted(Formatting.RED), false);
+                    LogManager.getInstance().error("Chat request failed for player " +
+                            serverPlayer.getName().getString(), throwable);
+                    // 记录失败的性能日志
+                    LogManager.getInstance().performance("Chat processing failed",
+                            java.util.Map.of(
+                                    "player", serverPlayer.getName().getString(),
+                                    "total_time_ms", endTime - startTime,
+                                    "error", throwable.getMessage()
+                            ));
                     return null;
                 });
     }
@@ -448,6 +482,8 @@ public class LLMChatCommand {
                 }
             } else {
                 player.sendMessage(Text.literal("AI没有返回有效内容").formatted(Formatting.RED), false);
+                LogManager.getInstance().error("AI returned no valid content for player " +
+                        player.getName().getString());
             }
         }
     }

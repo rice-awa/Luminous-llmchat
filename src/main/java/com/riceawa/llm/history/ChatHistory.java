@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import com.riceawa.llm.core.LLMMessage;
 import com.riceawa.llm.context.ChatContext;
+import com.riceawa.llm.logging.LogManager;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.*;
@@ -85,6 +86,11 @@ public class ChatHistory {
 
         // 保存到文件
         saveToFile(playerId, sessions);
+
+        // 记录聊天日志
+        LogManager.getInstance().chat("Chat session saved for player " + playerId +
+                ", session: " + context.getSessionId() +
+                ", messages: " + context.getMessages().size());
     }
 
     /**
@@ -157,7 +163,7 @@ public class ChatHistory {
             gson.toJson(sessions, writer);
         } catch (IOException e) {
             // 记录错误但不抛出异常
-            System.err.println("Failed to save chat history for player " + playerId + ": " + e.getMessage());
+            LogManager.getInstance().error("Failed to save chat history for player " + playerId, e);
         }
     }
 
@@ -174,7 +180,7 @@ public class ChatHistory {
             Type listType = new TypeToken<List<ChatSession>>(){}.getType();
             return gson.fromJson(reader, listType);
         } catch (IOException e) {
-            System.err.println("Failed to load chat history for player " + playerId + ": " + e.getMessage());
+            LogManager.getInstance().error("Failed to load chat history for player " + playerId, e);
             return null;
         }
     }

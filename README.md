@@ -21,8 +21,18 @@
 
 ### 📚 历史记录管理
 - 持久化存储聊天记录
-- 支持历史记录搜索
+- 支持历史记录搜索和统计分析
+- 多格式导出（JSON、CSV、TXT、HTML）
+- 详细的使用统计和性能监控
 - 自动清理过期记录
+
+### 📊 完善的日志系统
+- **多级别日志** - DEBUG、INFO、WARN、ERROR四个级别
+- **分类日志** - 系统、聊天、错误、性能、审计五大类别
+- **文件轮转** - 自动按大小和时间轮转，压缩存储
+- **异步处理** - 不阻塞游戏运行的高性能日志系统
+- **JSON格式** - 结构化日志便于分析和监控
+- **管理命令** - 完整的日志管理和配置命令
 
 ### 🔧 Function Calling
 - **完善的函数调用框架** - 符合OpenAI最新API标准
@@ -218,6 +228,23 @@ OP可以控制AI聊天内容是否对全服玩家可见，支持全局广播和�
 /llmchat broadcast player remove <玩家>  # 从广播列表移除玩家
 /llmchat broadcast player clear         # 清空广播玩家列表
 /llmchat reload                         # 热重载配置文件
+```
+
+#### 日志管理命令（仅OP可用）
+```
+/llmlog level INFO                      # 设置日志级别
+/llmlog status                          # 显示日志系统状态
+/llmlog enable chat                     # 启用聊天日志
+/llmlog disable performance             # 禁用性能日志
+/llmlog test                            # 生成测试日志
+```
+
+#### 历史记录管理命令（仅OP可用）
+```
+/llmhistory stats [player]              # 显示玩家统计信息
+/llmhistory export player json          # 导出玩家历史记录
+/llmhistory search player keyword       # 搜索历史记录
+/llmhistory clear player                # 清除玩家历史记录
 ```
 
 ### 提示词模板
@@ -465,6 +492,17 @@ src/main/java/com/riceawa/
 9. 建议运行测试以验证功能正确性：`./gradlew test`
 
 ## 更新日志
+
+### v1.4.0 (2025-07-25)
+- 🔥 **完善的日志系统** - 多级别、分类、异步日志记录
+- 🔥 **增强的历史记录管理** - 统计分析、多格式导出、高级搜索
+- 🔥 **性能监控** - 详细的API响应时间和资源使用监控
+- ✨ 新增日志管理命令：级别设置、类别控制、状态查看
+- ✨ 新增历史记录命令：统计分析、导出、搜索、清理
+- ✨ 支持JSON、CSV、TXT、HTML多种导出格式
+- 🛡️ 文件轮转和压缩存储，防止日志文件过大
+- 📊 详细的使用统计和活跃度分析
+- 📝 完整的日志和历史记录文档
 
 ### v1.3.0 (2025-07-25)
 - 🔥 **AI聊天广播功能** - OP可控制AI对话是否对全服可见或广播特定玩家列表

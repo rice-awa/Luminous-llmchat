@@ -13,6 +13,7 @@ import com.riceawa.llm.template.PromptTemplateManager;
 import com.riceawa.llm.function.FunctionRegistry;
 import com.riceawa.llm.service.LLMServiceManager;
 import com.riceawa.llm.context.ChatContextManager;
+import com.riceawa.llm.logging.LogManager;
 
 public class Lllmchat implements ModInitializer {
 	public static final String MOD_ID = "lllmchat";
@@ -47,24 +48,33 @@ public class Lllmchat implements ModInitializer {
 	 */
 	private void initializeComponents() {
 		// 初始化配置管理器
-		LLMChatConfig.getInstance();
+		LLMChatConfig config = LLMChatConfig.getInstance();
 		LOGGER.info("Configuration manager initialized");
+
+		// 初始化日志管理器
+		LogManager.getInstance(config.getLogConfig());
+		LOGGER.info("Log manager initialized");
+		LogManager.getInstance().system("LLMChat mod starting up...");
 
 		// 初始化提示词模板管理器
 		PromptTemplateManager.getInstance();
 		LOGGER.info("Prompt template manager initialized");
+		LogManager.getInstance().system("Prompt template manager initialized");
 
 		// 初始化函数注册表
 		FunctionRegistry.getInstance();
 		LOGGER.info("Function registry initialized");
+		LogManager.getInstance().system("Function registry initialized");
 
 		// 初始化服务管理器
 		LLMServiceManager.getInstance();
 		LOGGER.info("LLM service manager initialized");
+		LogManager.getInstance().system("LLM service manager initialized");
 
 		// 初始化上下文管理器
 		ChatContextManager.getInstance();
 		LOGGER.info("Chat context manager initialized");
+		LogManager.getInstance().system("Chat context manager initialized");
 	}
 
 	/**
@@ -84,7 +94,9 @@ public class Lllmchat implements ModInitializer {
 		// 服务器停止时的清理工作
 		ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
 			LOGGER.info("Server stopping, cleaning up LLM Chat resources...");
+			LogManager.getInstance().system("Server stopping, cleaning up resources...");
 			ChatContextManager.getInstance().shutdown();
+			LogManager.getInstance().shutdown();
 		});
 	}
 }
