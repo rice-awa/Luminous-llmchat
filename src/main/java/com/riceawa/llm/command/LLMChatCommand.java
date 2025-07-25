@@ -60,6 +60,13 @@ public class LLMChatCommand {
                         .then(CommandManager.literal("set")
                                 .then(CommandManager.argument("model", StringArgumentType.word())
                                         .executes(LLMChatCommand::handleSetCurrentModel))))
+                .then(CommandManager.literal("broadcast")
+                        .then(CommandManager.literal("enable")
+                                .executes(LLMChatCommand::handleEnableBroadcast))
+                        .then(CommandManager.literal("disable")
+                                .executes(LLMChatCommand::handleDisableBroadcast))
+                        .then(CommandManager.literal("status")
+                                .executes(LLMChatCommand::handleBroadcastStatus)))
                 .then(CommandManager.literal("reload")
                         .executes(LLMChatCommand::handleReload))
                 .then(CommandManager.literal("help")
@@ -226,6 +233,9 @@ public class LLMChatCommand {
         player.sendMessage(Text.literal("/llmchat provider switch <provider> - 切换provider").formatted(Formatting.WHITE), false);
         player.sendMessage(Text.literal("/llmchat model list [provider] - 列出模型").formatted(Formatting.WHITE), false);
         player.sendMessage(Text.literal("/llmchat model set <model> - 设置当前模型").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("/llmchat broadcast enable - 开启AI聊天广播 (仅OP)").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("/llmchat broadcast disable - 关闭AI聊天广播 (仅OP)").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("/llmchat broadcast status - 查看广播状态").formatted(Formatting.WHITE), false);
         player.sendMessage(Text.literal("/llmchat reload - 重新加载配置文件").formatted(Formatting.WHITE), false);
         player.sendMessage(Text.literal("/llmchat help - 显示此帮助").formatted(Formatting.WHITE), false);
         
@@ -300,8 +310,25 @@ public class LLMChatCommand {
             }
         }
 
+        // 广播用户消息（如果开启了广播）
+        if (config.isEnableBroadcast()) {
+            serverPlayer.getServer().getPlayerManager().broadcast(
+                Text.literal("[" + serverPlayer.getName().getString() + " 问AI] " + message)
+                    .formatted(Formatting.LIGHT_PURPLE),
+                false
+            );
+        }
+
         // 发送请求
-        serverPlayer.sendMessage(Text.literal("正在思考...").formatted(Formatting.GRAY), false);
+        if (config.isEnableBroadcast()) {
+            serverPlayer.getServer().getPlayerManager().broadcast(
+                Text.literal("[AI正在为 " + serverPlayer.getName().getString() + " 思考...]")
+                    .formatted(Formatting.GRAY),
+                false
+            );
+        } else {
+            serverPlayer.sendMessage(Text.literal("正在思考...").formatted(Formatting.GRAY), false);
+        }
         
         llmService.chat(chatContext.getMessages(), llmConfig)
                 .thenAccept(response -> {
@@ -343,7 +370,17 @@ public class LLMChatCommand {
             String content = message.getContent();
             if (content != null && !content.trim().isEmpty()) {
                 chatContext.addAssistantMessage(content);
-                player.sendMessage(Text.literal("[AI] " + content).formatted(Formatting.AQUA), false);
+
+                // 根据广播设置发送AI回复
+                if (config.isEnableBroadcast()) {
+                    player.getServer().getPlayerManager().broadcast(
+                        Text.literal("[AI回复给 " + player.getName().getString() + "] " + content)
+                            .formatted(Formatting.AQUA),
+                        false
+                    );
+                } else {
+                    player.sendMessage(Text.literal("[AI] " + content).formatted(Formatting.AQUA), false);
+                }
 
                 // 保存会话历史
                 if (config.isEnableHistory()) {
@@ -436,7 +473,17 @@ public class LLMChatCommand {
                             String content = response.getContent();
                             if (content != null && !content.trim().isEmpty()) {
                                 chatContext.addAssistantMessage(content);
-                                player.sendMessage(Text.literal("[AI] " + content).formatted(Formatting.AQUA), false);
+
+                                // 根据广播设置发送AI回复
+                                if (config.isEnableBroadcast()) {
+                                    player.getServer().getPlayerManager().broadcast(
+                                        Text.literal("[AI回复给 " + player.getName().getString() + "] " + content)
+                                            .formatted(Formatting.AQUA),
+                                        false
+                                    );
+                                } else {
+                                    player.sendMessage(Text.literal("[AI] " + content).formatted(Formatting.AQUA), false);
+                                }
 
                                 // 保存会话历史
                                 if (config.isEnableHistory()) {
@@ -635,6 +682,95 @@ public class LLMChatCommand {
 
         config.setCurrentModel(model);
         player.sendMessage(Text.literal("已设置当前模型: " + model).formatted(Formatting.GREEN), false);
+
+        return 1;
+    }
+
+    /**
+     * 处理开启广播命令
+     */
+    private static int handleEnableBroadcast(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        // 检查OP权限
+        if (!source.hasPermissionLevel(2)) {
+            player.sendMessage(Text.literal("只有OP可以控制广播功能").formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        LLMChatConfig config = LLMChatConfig.getInstance();
+        config.setEnableBroadcast(true);
+
+        // 向所有玩家广播此消息
+        source.getServer().getPlayerManager().broadcast(
+            Text.literal("AI聊天广播已开启，所有玩家的AI对话将对全服可见").formatted(Formatting.YELLOW),
+            false
+        );
+
+        return 1;
+    }
+
+    /**
+     * 处理关闭广播命令
+     */
+    private static int handleDisableBroadcast(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        // 检查OP权限
+        if (!source.hasPermissionLevel(2)) {
+            player.sendMessage(Text.literal("只有OP可以控制广播功能").formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        LLMChatConfig config = LLMChatConfig.getInstance();
+        config.setEnableBroadcast(false);
+
+        // 向所有玩家广播此消息
+        source.getServer().getPlayerManager().broadcast(
+            Text.literal("AI聊天广播已关闭，AI对话将只对发起者可见").formatted(Formatting.YELLOW),
+            false
+        );
+
+        return 1;
+    }
+
+    /**
+     * 处理查看广播状态命令
+     */
+    private static int handleBroadcastStatus(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        LLMChatConfig config = LLMChatConfig.getInstance();
+        boolean isEnabled = config.isEnableBroadcast();
+
+        String status = isEnabled ? "开启" : "关闭";
+        Formatting color = isEnabled ? Formatting.GREEN : Formatting.RED;
+
+        player.sendMessage(Text.literal("AI聊天广播状态: " + status).formatted(color), false);
+
+        if (isEnabled) {
+            player.sendMessage(Text.literal("所有玩家的AI对话将对全服可见").formatted(Formatting.GRAY), false);
+        } else {
+            player.sendMessage(Text.literal("AI对话只对发起者可见").formatted(Formatting.GRAY), false);
+        }
 
         return 1;
     }

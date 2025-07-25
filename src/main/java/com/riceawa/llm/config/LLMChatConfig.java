@@ -25,6 +25,7 @@ public class LLMChatConfig {
     private int maxContextLength = 8192;
     private boolean enableHistory = true;
     private boolean enableFunctionCalling = false;
+    private boolean enableBroadcast = false;
     private int historyRetentionDays = 30;
 
     // Providers配置
@@ -174,6 +175,7 @@ public class LLMChatConfig {
         this.maxContextLength = data.maxContextLength != null ? data.maxContextLength : 8192;
         this.enableHistory = data.enableHistory != null ? data.enableHistory : true;
         this.enableFunctionCalling = data.enableFunctionCalling != null ? data.enableFunctionCalling : true;
+        this.enableBroadcast = data.enableBroadcast != null ? data.enableBroadcast : false;
         this.historyRetentionDays = data.historyRetentionDays != null ? data.historyRetentionDays : 30;
 
         // 处理providers配置 - 如果为null或空，创建默认配置
@@ -201,6 +203,7 @@ public class LLMChatConfig {
         data.maxContextLength = this.maxContextLength;
         data.enableHistory = this.enableHistory;
         data.enableFunctionCalling = this.enableFunctionCalling;
+        data.enableBroadcast = this.enableBroadcast;
         data.historyRetentionDays = this.historyRetentionDays;
         data.providers = this.providers;
         data.currentProvider = this.currentProvider;
@@ -262,6 +265,15 @@ public class LLMChatConfig {
 
     public void setEnableFunctionCalling(boolean enableFunctionCalling) {
         this.enableFunctionCalling = enableFunctionCalling;
+        saveConfig();
+    }
+
+    public boolean isEnableBroadcast() {
+        return enableBroadcast;
+    }
+
+    public void setEnableBroadcast(boolean enableBroadcast) {
+        this.enableBroadcast = enableBroadcast;
         saveConfig();
     }
 
@@ -361,6 +373,7 @@ public class LLMChatConfig {
         Integer maxContextLength;
         Boolean enableHistory;
         Boolean enableFunctionCalling;
+        Boolean enableBroadcast;
         Integer historyRetentionDays;
 
         // Providers配置
