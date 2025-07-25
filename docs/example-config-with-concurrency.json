@@ -1,0 +1,77 @@
+{
+  "defaultPromptTemplate": "default",
+  "defaultTemperature": 0.7,
+  "defaultMaxTokens": 8192,
+  "maxContextLength": 8192,
+  "enableHistory": true,
+  "enableFunctionCalling": true,
+  "enableBroadcast": false,
+  "broadcastPlayers": [],
+  "historyRetentionDays": 30,
+  "concurrencySettings": {
+    "maxIdleConnections": 20,
+    "keepAliveDurationMs": 300000,
+    "connectTimeoutMs": 30000,
+    "readTimeoutMs": 60000,
+    "writeTimeoutMs": 60000,
+    "maxConcurrentRequests": 10,
+    "queueCapacity": 50,
+    "requestTimeoutMs": 30000,
+    "corePoolSize": 5,
+    "maximumPoolSize": 20,
+    "keepAliveTimeMs": 60000,
+    "enableRetry": true,
+    "maxRetryAttempts": 3,
+    "retryDelayMs": 1000,
+    "retryBackoffMultiplier": 2.0,
+    "enableRateLimit": false,
+    "requestsPerMinute": 60,
+    "requestsPerHour": 1000
+  },
+  "logConfig": {
+    "enableLogging": true,
+    "logLevel": "INFO",
+    "enableFileLogging": true,
+    "enableConsoleLogging": true,
+    "logFilePath": "logs/lllmchat.log",
+    "maxLogFileSize": 10485760,
+    "maxLogFiles": 5,
+    "enablePerformanceLogging": true,
+    "enableChatLogging": true,
+    "enableErrorLogging": true
+  },
+  "providers": [
+    {
+      "name": "openai",
+      "apiBaseUrl": "https://api.openai.com/v1",
+      "apiKey": "your-openai-api-key-here",
+      "models": [
+        "gpt-3.5-turbo",
+        "gpt-4",
+        "gpt-4-turbo",
+        "gpt-4o"
+      ]
+    },
+    {
+      "name": "openrouter",
+      "apiBaseUrl": "https://openrouter.ai/api/v1",
+      "apiKey": "your-openrouter-api-key-here",
+      "models": [
+        "anthropic/claude-3.5-sonnet",
+        "google/gemini-2.5-pro-preview",
+        "anthropic/claude-sonnet-4"
+      ]
+    },
+    {
+      "name": "deepseek",
+      "apiBaseUrl": "https://api.deepseek.com/v1",
+      "apiKey": "your-deepseek-api-key-here",
+      "models": [
+        "deepseek-chat",
+        "deepseek-reasoner"
+      ]
+    }
+  ],
+  "currentProvider": "openai",
+  "currentModel": "gpt-3.5-turbo"
+}

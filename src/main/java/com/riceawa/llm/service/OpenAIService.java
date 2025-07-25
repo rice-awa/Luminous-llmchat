@@ -5,12 +5,16 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.riceawa.llm.core.*;
+import com.riceawa.llm.config.ConcurrencySettings;
+import com.riceawa.llm.config.LLMChatConfig;
 import okhttp3.*;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.UUID;
 
 /**
  * OpenAI API服务实现
@@ -28,43 +32,125 @@ public class OpenAIService implements LLMService {
     public OpenAIService(String apiKey, String baseUrl) {
         this.apiKey = apiKey;
         this.baseUrl = baseUrl;
-        this.httpClient = new OkHttpClient.Builder()
-                .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-                .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
-                .build();
+        this.httpClient = createOptimizedHttpClient();
         this.gson = new Gson();
+    }
+
+    /**
+     * 创建优化的HTTP客户端
+     */
+    private OkHttpClient createOptimizedHttpClient() {
+        ConcurrencySettings settings = LLMChatConfig.getInstance().getConcurrencySettings();
+
+        // 创建连接池
+        ConnectionPool connectionPool = new ConnectionPool(
+            settings.getMaxIdleConnections(),
+            settings.getKeepAliveDurationMs(),
+            TimeUnit.MILLISECONDS
+        );
+
+        return new OkHttpClient.Builder()
+                .connectTimeout(settings.getConnectTimeoutMs(), TimeUnit.MILLISECONDS)
+                .readTimeout(settings.getReadTimeoutMs(), TimeUnit.MILLISECONDS)
+                .writeTimeout(settings.getWriteTimeoutMs(), TimeUnit.MILLISECONDS)
+                .connectionPool(connectionPool)
+                .retryOnConnectionFailure(settings.isEnableRetry())
+                .build();
     }
 
     @Override
     public CompletableFuture<LLMResponse> chat(List<LLMMessage> messages, LLMConfig config) {
-        return CompletableFuture.supplyAsync(() -> {
+        String requestId = UUID.randomUUID().toString().substring(0, 8);
+
+        return ConcurrencyManager.getInstance().submitRequest(() -> {
+            ConcurrencySettings settings = LLMChatConfig.getInstance().getConcurrencySettings();
+
             try {
-                JsonObject requestBody = buildRequestBody(messages, config);
-                
-                Request request = new Request.Builder()
-                        .url(baseUrl + "/chat/completions")
-                        .header("Authorization", "Bearer " + apiKey)
-                        .header("Content-Type", "application/json")
-                        .post(RequestBody.create(requestBody.toString(), MediaType.get("application/json")))
-                        .build();
-
-                try (Response response = httpClient.newCall(request).execute()) {
-                    String responseBody = response.body().string();
-                    
-                    if (!response.isSuccessful()) {
-                        LLMResponse errorResponse = new LLMResponse();
-                        errorResponse.setError("HTTP " + response.code() + ": " + responseBody);
-                        return errorResponse;
-                    }
-
-                    return parseResponse(responseBody);
-                }
-            } catch (IOException e) {
+                return executeRequestWithRetry(messages, config, settings, requestId);
+            } catch (Exception e) {
                 LLMResponse errorResponse = new LLMResponse();
-                errorResponse.setError("Network error: " + e.getMessage());
+                errorResponse.setError("Request failed: " + e.getMessage());
                 return errorResponse;
             }
-        });
+        }, requestId);
+    }
+
+    /**
+     * 执行带重试的请求
+     */
+    private LLMResponse executeRequestWithRetry(List<LLMMessage> messages, LLMConfig config,
+                                              ConcurrencySettings settings, String requestId) throws Exception {
+        Exception lastException = null;
+        int maxAttempts = settings.isEnableRetry() ? settings.getMaxRetryAttempts() + 1 : 1;
+
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                return executeRequest(messages, config, requestId);
+            } catch (Exception e) {
+                lastException = e;
+
+                if (attempt < maxAttempts && shouldRetry(e)) {
+                    long delay = (long) (settings.getRetryDelayMs() * Math.pow(settings.getRetryBackoffMultiplier(), attempt - 1));
+                    try {
+                        Thread.sleep(delay);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException("Request interrupted", ie);
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+
+        throw lastException;
+    }
+
+    /**
+     * 执行单次请求
+     */
+    private LLMResponse executeRequest(List<LLMMessage> messages, LLMConfig config, String requestId) throws IOException {
+        JsonObject requestBody = buildRequestBody(messages, config);
+
+        Request request = new Request.Builder()
+                .url(baseUrl + "/chat/completions")
+                .header("Authorization", "Bearer " + apiKey)
+                .header("Content-Type", "application/json")
+                .header("X-Request-ID", requestId)
+                .post(RequestBody.create(requestBody.toString(), MediaType.get("application/json")))
+                .build();
+
+        try (Response response = httpClient.newCall(request).execute()) {
+            String responseBody = response.body().string();
+
+            if (!response.isSuccessful()) {
+                LLMResponse errorResponse = new LLMResponse();
+                errorResponse.setError("HTTP " + response.code() + ": " + responseBody);
+                return errorResponse;
+            }
+
+            return parseResponse(responseBody);
+        }
+    }
+
+    /**
+     * 判断是否应该重试
+     */
+    private boolean shouldRetry(Exception e) {
+        if (e instanceof IOException) {
+            return true; // 网络错误通常可以重试
+        }
+
+        String message = e.getMessage();
+        if (message != null) {
+            // 检查是否是可重试的HTTP错误
+            return message.contains("HTTP 429") || // 速率限制
+                   message.contains("HTTP 502") || // 网关错误
+                   message.contains("HTTP 503") || // 服务不可用
+                   message.contains("HTTP 504");   // 网关超时
+        }
+
+        return false;
     }
 
     @Override

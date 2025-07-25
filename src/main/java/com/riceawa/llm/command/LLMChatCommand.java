@@ -103,6 +103,8 @@ public class LLMChatCommand {
                         .executes(LLMChatCommand::handleReload))
                 .then(CommandManager.literal("setup")
                         .executes(LLMChatCommand::handleSetup))
+                .then(CommandManager.literal("stats")
+                        .executes(LLMChatCommand::handleStats))
                 .then(CommandManager.literal("help")
                         .executes(LLMChatCommand::handleHelp))
         );
@@ -279,6 +281,59 @@ public class LLMChatCommand {
     }
 
     /**
+     * 处理统计信息命令
+     */
+    private static int handleStats(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        try {
+            ConcurrencyManager.ConcurrencyStats stats = ConcurrencyManager.getInstance().getStats();
+
+            player.sendMessage(Text.literal("=== LLM Chat 并发统计 ===").formatted(Formatting.GOLD), false);
+            player.sendMessage(Text.literal(""), false);
+
+            // 请求统计
+            player.sendMessage(Text.literal("📊 请求统计:").formatted(Formatting.AQUA), false);
+            player.sendMessage(Text.literal("  总请求数: " + stats.totalRequests).formatted(Formatting.WHITE), false);
+            player.sendMessage(Text.literal("  已完成: " + stats.completedRequests).formatted(Formatting.GREEN), false);
+            player.sendMessage(Text.literal("  失败数: " + stats.failedRequests).formatted(Formatting.RED), false);
+            player.sendMessage(Text.literal("  成功率: " + String.format("%.1f%%", stats.getSuccessRate() * 100)).formatted(Formatting.YELLOW), false);
+            player.sendMessage(Text.literal(""), false);
+
+            // 并发状态
+            player.sendMessage(Text.literal("🔄 当前状态:").formatted(Formatting.AQUA), false);
+            player.sendMessage(Text.literal("  活跃请求: " + stats.activeRequests).formatted(Formatting.WHITE), false);
+            player.sendMessage(Text.literal("  排队请求: " + stats.queuedRequests).formatted(Formatting.WHITE), false);
+            player.sendMessage(Text.literal(""), false);
+
+            // 线程池状态
+            player.sendMessage(Text.literal("🧵 线程池状态:").formatted(Formatting.AQUA), false);
+            player.sendMessage(Text.literal("  线程池大小: " + stats.poolSize).formatted(Formatting.WHITE), false);
+            player.sendMessage(Text.literal("  活跃线程: " + stats.activeThreads).formatted(Formatting.WHITE), false);
+            player.sendMessage(Text.literal("  队列大小: " + stats.queueSize).formatted(Formatting.WHITE), false);
+            player.sendMessage(Text.literal(""), false);
+
+            // 健康状态
+            boolean isHealthy = ConcurrencyManager.getInstance().isHealthy();
+            String healthStatus = isHealthy ? "健康" : "异常";
+            Formatting healthColor = isHealthy ? Formatting.GREEN : Formatting.RED;
+            player.sendMessage(Text.literal("💚 系统状态: " + healthStatus).formatted(healthColor), false);
+
+        } catch (Exception e) {
+            player.sendMessage(Text.literal("获取统计信息失败: " + e.getMessage()).formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        return 1;
+    }
+
+    /**
      * 处理帮助命令
      */
     private static int handleHelp(CommandContext<ServerCommandSource> context) {
@@ -309,6 +364,7 @@ public class LLMChatCommand {
         player.sendMessage(Text.literal("/llmchat broadcast player clear - 清空广播玩家列表 (仅OP)").formatted(Formatting.WHITE), false);
         player.sendMessage(Text.literal("/llmchat reload - 重新加载配置文件 (仅OP)").formatted(Formatting.WHITE), false);
         player.sendMessage(Text.literal("/llmchat setup - 显示配置向导").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("/llmchat stats - 显示并发统计信息").formatted(Formatting.WHITE), false);
         player.sendMessage(Text.literal("/llmchat help - 显示此帮助").formatted(Formatting.WHITE), false);
         
         return 1;

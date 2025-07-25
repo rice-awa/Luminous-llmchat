@@ -1,8 +1,10 @@
 package com.riceawa.llm.service;
 
 import com.riceawa.llm.core.LLMService;
+import com.riceawa.llm.core.ConcurrencyManager;
 import com.riceawa.llm.config.LLMChatConfig;
 import com.riceawa.llm.config.Provider;
+import com.riceawa.llm.config.ConcurrencySettings;
 
 import java.util.HashMap;
 import java.util.List;
@@ -38,6 +40,18 @@ public class LLMServiceManager {
      */
     private void initializeServices() {
         LLMChatConfig config = LLMChatConfig.getInstance();
+
+        // 初始化并发管理器
+        ConcurrencySettings concurrencySettings = config.getConcurrencySettings();
+        ConcurrencyManager.ConcurrencyConfig concurrencyConfig = new ConcurrencyManager.ConcurrencyConfig(
+            concurrencySettings.getMaxConcurrentRequests(),
+            concurrencySettings.getQueueCapacity(),
+            concurrencySettings.getRequestTimeoutMs(),
+            concurrencySettings.getCorePoolSize(),
+            concurrencySettings.getMaximumPoolSize(),
+            concurrencySettings.getKeepAliveTimeMs()
+        );
+        ConcurrencyManager.initialize(concurrencyConfig);
 
         // 从providers配置中加载服务
         List<Provider> providers = config.getProviders();
@@ -153,6 +167,9 @@ public class LLMServiceManager {
      * 重新加载服务
      */
     public void reload() {
+        // 关闭旧的并发管理器
+        ConcurrencyManager.getInstance().shutdown();
+
         services.clear();
         initializeServices();
     }

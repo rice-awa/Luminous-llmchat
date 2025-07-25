@@ -34,6 +34,9 @@ public class LLMChatConfig {
     private Set<String> broadcastPlayers = new HashSet<>();
     private int historyRetentionDays = 30;
 
+    // 并发配置
+    private ConcurrencySettings concurrencySettings = ConcurrencySettings.createDefault();
+
     // 日志配置
     private LogConfig logConfig = LogConfig.createDefault();
 
@@ -190,6 +193,9 @@ public class LLMChatConfig {
         this.broadcastPlayers = data.broadcastPlayers != null ? new HashSet<>(data.broadcastPlayers) : new HashSet<>();
         this.historyRetentionDays = data.historyRetentionDays != null ? data.historyRetentionDays : 30;
 
+        // 处理并发配置
+        this.concurrencySettings = data.concurrencySettings != null ? data.concurrencySettings : ConcurrencySettings.createDefault();
+
         // 处理日志配置
         this.logConfig = data.logConfig != null ? data.logConfig : LogConfig.createDefault();
 
@@ -221,6 +227,7 @@ public class LLMChatConfig {
         data.enableBroadcast = this.enableBroadcast;
         data.broadcastPlayers = new HashSet<>(this.broadcastPlayers);
         data.historyRetentionDays = this.historyRetentionDays;
+        data.concurrencySettings = this.concurrencySettings;
         data.logConfig = this.logConfig;
         data.providers = this.providers;
         data.currentProvider = this.currentProvider;
@@ -332,6 +339,16 @@ public class LLMChatConfig {
 
     public void setHistoryRetentionDays(int historyRetentionDays) {
         this.historyRetentionDays = historyRetentionDays;
+        saveConfig();
+    }
+
+    // 并发配置相关方法
+    public ConcurrencySettings getConcurrencySettings() {
+        return concurrencySettings;
+    }
+
+    public void setConcurrencySettings(ConcurrencySettings concurrencySettings) {
+        this.concurrencySettings = concurrencySettings != null ? concurrencySettings : ConcurrencySettings.createDefault();
         saveConfig();
     }
 
@@ -515,6 +532,9 @@ public class LLMChatConfig {
         Boolean enableBroadcast;
         Set<String> broadcastPlayers;
         Integer historyRetentionDays;
+
+        // 并发配置
+        ConcurrencySettings concurrencySettings;
 
         // 日志配置
         LogConfig logConfig;
