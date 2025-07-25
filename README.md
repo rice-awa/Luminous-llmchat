@@ -131,7 +131,7 @@
 ```
 
 ### Function Calling 智能交互
-启用Function Calling后，AI可以主动调用游戏API获取实时信息：
+启用Function Calling后（在配置文件中将enableFunctionCalling改为true），AI可以主动调用游戏API获取实时信息：
 
 ```
 /llmchat 帮我查看一下当前的游戏状态
@@ -467,7 +467,7 @@ src/main/java/com/riceawa/
 ## 更新日志
 
 ### v1.3.0 (2025-07-25)
-- 🔥 **AI聊天广播功能** - OP可控制AI对话是否对全服可见
+- 🔥 **AI聊天广播功能** - OP可控制AI对话是否对全服可见或广播特定玩家列表
 - 🔥 **权限管理优化** - 配置管理命令现在需要OP权限
 - ✨ 新增广播控制命令：enable/disable/status
 - ✨ 智能广播消息格式，清晰标识发起者和回复对象
