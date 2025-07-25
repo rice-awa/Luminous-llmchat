@@ -47,9 +47,19 @@ public class Lllmchat implements ModInitializer {
 	 * 初始化核心组件
 	 */
 	private void initializeComponents() {
-		// 初始化配置管理器
+		// 初始化配置管理器并尝试自动恢复
 		LLMChatConfig config = LLMChatConfig.getInstance();
 		LOGGER.info("Configuration manager initialized");
+
+		// 尝试自动修复配置
+		try {
+			boolean wasFixed = config.validateAndCompleteConfig();
+			if (wasFixed) {
+				LOGGER.info("Configuration auto-recovery completed");
+			}
+		} catch (Exception e) {
+			LOGGER.warn("Configuration auto-recovery failed: " + e.getMessage());
+		}
 
 		// 初始化日志管理器
 		LogManager.getInstance(config.getLogConfig());

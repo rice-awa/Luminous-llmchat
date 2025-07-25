@@ -3,7 +3,7 @@ package com.riceawa.llm.config;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.riceawa.llm.logging.LogConfig;
-import com.riceawa.llm.logging.LogLevel;
+
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.*;
@@ -558,124 +558,33 @@ public class LLMChatConfig {
         return provider != null ? new ArrayList<>(provider.getModels()) : new ArrayList<>();
     }
 
-    /**
-     * 检查配置是否完整且可用
-     */
-    public boolean isConfigurationValid() {
-        // 检查是否有有效的provider
-        if (providers.isEmpty()) {
-            return false;
-        }
 
-        // 检查当前provider是否有效
-        Provider currentProviderConfig = getCurrentProviderConfig();
-        if (currentProviderConfig == null) {
-            return false;
-        }
-
-        // 检查API密钥是否是默认占位符
-        String apiKey = currentProviderConfig.getApiKey();
-        if (apiKey == null || apiKey.trim().isEmpty() ||
-            apiKey.contains("your-") || apiKey.contains("-api-key-here")) {
-            return false;
-        }
-
-        // 检查当前模型是否有效
-        if (currentModel == null || currentModel.trim().isEmpty()) {
-            return false;
-        }
-
-        // 检查当前provider是否支持当前模型
-        if (!currentProviderConfig.supportsModel(currentModel)) {
-            return false;
-        }
-
-        return true;
-    }
 
     /**
-     * 获取配置问题的详细描述
-     */
-    public List<String> getConfigurationIssues() {
-        List<String> issues = new ArrayList<>();
-
-        if (providers.isEmpty()) {
-            issues.add("没有配置任何AI服务提供商");
-            return issues;
-        }
-
-        Provider currentProviderConfig = getCurrentProviderConfig();
-        if (currentProviderConfig == null) {
-            issues.add("当前选择的服务提供商 '" + currentProvider + "' 不存在");
-            return issues;
-        }
-
-        String apiKey = currentProviderConfig.getApiKey();
-        if (apiKey == null || apiKey.trim().isEmpty()) {
-            issues.add("当前服务提供商 '" + currentProvider + "' 的API密钥为空");
-        } else if (apiKey.contains("your-") || apiKey.contains("-api-key-here")) {
-            issues.add("当前服务提供商 '" + currentProvider + "' 的API密钥仍为默认占位符，需要设置真实的API密钥");
-        }
-
-        if (currentModel == null || currentModel.trim().isEmpty()) {
-            issues.add("没有设置当前使用的模型");
-        } else if (!currentProviderConfig.supportsModel(currentModel)) {
-            issues.add("当前模型 '" + currentModel + "' 不被服务提供商 '" + currentProvider + "' 支持");
-        }
-
-        return issues;
-    }
-
-    /**
-     * 检查是否是首次使用（配置文件刚创建）
-     */
-    public boolean isFirstTimeSetup() {
-        // 检查所有provider的API密钥是否都是默认值
-        for (Provider provider : providers) {
-            String apiKey = provider.getApiKey();
-            if (apiKey != null && !apiKey.contains("your-") && !apiKey.contains("-api-key-here")) {
-                return false; // 至少有一个provider配置了真实的API密钥
-            }
-        }
-        return true;
-    }
-
-    /**
-     * 验证并补齐配置完整性
+     * 简化的配置恢复功能
      */
     public boolean validateAndCompleteConfig() {
         boolean updated = false;
 
-        // 检查并发配置
+        // 确保基本配置存在
         if (concurrencySettings == null) {
             concurrencySettings = ConcurrencySettings.createDefault();
-            System.out.println("Added missing concurrency settings");
-            updated = true;
-        } else if (!concurrencySettings.isValid()) {
-            System.out.println("Invalid concurrency settings detected, resetting to defaults");
-            concurrencySettings = ConcurrencySettings.createDefault();
             updated = true;
         }
 
-        // 检查日志配置
         if (logConfig == null) {
             logConfig = LogConfig.createDefault();
-            System.out.println("Added missing log configuration");
             updated = true;
         }
 
-        // 检查providers配置
         if (providers == null || providers.isEmpty()) {
             createDefaultProviders();
-            System.out.println("Added missing providers configuration");
             updated = true;
         }
 
-        // 检查当前provider和model
         if (currentProvider == null || currentProvider.isEmpty()) {
             if (!providers.isEmpty()) {
                 currentProvider = providers.get(0).getName();
-                System.out.println("Set default current provider: " + currentProvider);
                 updated = true;
             }
         }
@@ -684,27 +593,18 @@ public class LLMChatConfig {
             String defaultModel = getDefaultModelForCurrentProvider();
             if (!defaultModel.isEmpty()) {
                 currentModel = defaultModel;
-                System.out.println("Set default current model: " + currentModel);
                 updated = true;
             }
         }
 
-        // 检查广播玩家列表
         if (broadcastPlayers == null) {
             broadcastPlayers = new HashSet<>();
-            updated = true;
-        }
-
-        // 更新配置版本
-        if (!CURRENT_CONFIG_VERSION.equals(configVersion)) {
-            configVersion = CURRENT_CONFIG_VERSION;
             updated = true;
         }
 
         // 如果有更新，保存配置
         if (updated) {
             saveConfig();
-            System.out.println("Configuration completed and saved");
         }
 
         return updated;

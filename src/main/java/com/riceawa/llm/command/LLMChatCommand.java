@@ -5,7 +5,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.riceawa.llm.config.LLMChatConfig;
 import com.riceawa.llm.config.Provider;
-import com.riceawa.llm.config.ConcurrencySettings;
+
 import com.riceawa.llm.context.ChatContext;
 import com.riceawa.llm.context.ChatContextManager;
 import com.riceawa.llm.core.*;
@@ -104,11 +104,6 @@ public class LLMChatCommand {
                         .executes(LLMChatCommand::handleReload))
                 .then(CommandManager.literal("setup")
                         .executes(LLMChatCommand::handleSetup))
-                .then(CommandManager.literal("config")
-                        .then(CommandManager.literal("status")
-                                .executes(LLMChatCommand::handleConfigStatus))
-                        .then(CommandManager.literal("validate")
-                                .executes(LLMChatCommand::handleConfigValidate)))
                 .then(CommandManager.literal("stats")
                         .executes(LLMChatCommand::handleStats))
                 .then(CommandManager.literal("help")
@@ -232,7 +227,7 @@ public class LLMChatCommand {
 
 
     /**
-     * 处理重新加载配置命令
+     * 处理重新加载配置命令（简化版恢复功能）
      */
     private static int handleReload(CommandContext<ServerCommandSource> context) {
         ServerCommandSource source = context.getSource();
@@ -249,10 +244,15 @@ public class LLMChatCommand {
             return 0;
         }
 
+        player.sendMessage(Text.literal("🔄 正在重载配置...").formatted(Formatting.YELLOW), false);
+
         try {
-            // 重新加载配置
+            // 重新加载配置并尝试恢复
             LLMChatConfig config = LLMChatConfig.getInstance();
             config.reload();
+
+            // 尝试自动修复配置
+            boolean wasFixed = config.validateAndCompleteConfig();
 
             // 重新加载提示词模板
             PromptTemplateManager templateManager = PromptTemplateManager.getInstance();
@@ -262,154 +262,27 @@ public class LLMChatCommand {
             LLMServiceManager serviceManager = LLMServiceManager.getInstance();
             serviceManager.reload();
 
-            player.sendMessage(Text.literal("配置已重新加载").formatted(Formatting.GREEN), false);
-
-            // 检查配置状态并给出反馈
-            if (config.isConfigurationValid()) {
-                player.sendMessage(Text.literal("✅ 配置验证通过，AI聊天功能可正常使用").formatted(Formatting.GREEN), false);
-                player.sendMessage(Text.literal("当前服务提供商: " + config.getCurrentProvider()).formatted(Formatting.GRAY), false);
-                player.sendMessage(Text.literal("当前模型: " + config.getCurrentModel()).formatted(Formatting.GRAY), false);
+            if (wasFixed) {
+                player.sendMessage(Text.literal("✅ 配置已重载并自动修复").formatted(Formatting.GREEN), false);
             } else {
-                player.sendMessage(Text.literal("⚠️ 配置验证失败，请检查以下问题:").formatted(Formatting.YELLOW), false);
-                List<String> issues = config.getConfigurationIssues();
-                for (String issue : issues) {
-                    player.sendMessage(Text.literal("• " + issue).formatted(Formatting.WHITE), false);
-                }
-                player.sendMessage(Text.literal("使用 /llmchat setup 查看配置向导").formatted(Formatting.BLUE), false);
+                player.sendMessage(Text.literal("✅ 配置已重载").formatted(Formatting.GREEN), false);
             }
+
+            player.sendMessage(Text.literal("当前提供商: " + config.getCurrentProvider()).formatted(Formatting.GRAY), false);
+            player.sendMessage(Text.literal("当前模型: " + config.getCurrentModel()).formatted(Formatting.GRAY), false);
 
         } catch (Exception e) {
-            player.sendMessage(Text.literal("重新加载配置失败: " + e.getMessage()).formatted(Formatting.RED), false);
+            player.sendMessage(Text.literal("❌ 重载配置失败: " + e.getMessage()).formatted(Formatting.RED), false);
+            player.sendMessage(Text.literal("请检查配置文件或使用 /llmchat setup 重新配置").formatted(Formatting.BLUE), false);
             return 0;
         }
 
         return 1;
     }
 
-    /**
-     * 处理配置状态命令
-     */
-    private static int handleConfigStatus(CommandContext<ServerCommandSource> context) {
-        ServerCommandSource source = context.getSource();
-        PlayerEntity player = source.getPlayer();
 
-        if (player == null) {
-            source.sendError(Text.literal("此命令只能由玩家执行"));
-            return 0;
-        }
 
-        LLMChatConfig config = LLMChatConfig.getInstance();
 
-        player.sendMessage(Text.literal("=== 配置状态信息 ===").formatted(Formatting.GOLD), false);
-        player.sendMessage(Text.literal(""), false);
-
-        // 配置版本信息
-        player.sendMessage(Text.literal("📋 配置版本:").formatted(Formatting.AQUA), false);
-        player.sendMessage(Text.literal("  当前版本: " + config.getConfigVersion()).formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal(""), false);
-
-        // 配置完整性检查
-        boolean isValid = config.isConfigurationValid();
-        String validStatus = isValid ? "✅ 有效" : "❌ 无效";
-        Formatting validColor = isValid ? Formatting.GREEN : Formatting.RED;
-        player.sendMessage(Text.literal("🔍 配置状态: " + validStatus).formatted(validColor), false);
-
-        if (!isValid) {
-            List<String> issues = config.getConfigurationIssues();
-            player.sendMessage(Text.literal("发现的问题:").formatted(Formatting.YELLOW), false);
-            for (String issue : issues) {
-                player.sendMessage(Text.literal("  • " + issue).formatted(Formatting.WHITE), false);
-            }
-        }
-        player.sendMessage(Text.literal(""), false);
-
-        // 并发配置状态
-        ConcurrencySettings concurrency = config.getConcurrencySettings();
-        boolean concurrencyValid = concurrency != null && concurrency.isValid();
-        String concurrencyStatus = concurrencyValid ? "✅ 正常" : "❌ 异常";
-        Formatting concurrencyColor = concurrencyValid ? Formatting.GREEN : Formatting.RED;
-        player.sendMessage(Text.literal("⚙️ 并发配置: " + concurrencyStatus).formatted(concurrencyColor), false);
-
-        if (concurrencyValid) {
-            player.sendMessage(Text.literal("  最大并发: " + concurrency.getMaxConcurrentRequests()).formatted(Formatting.GRAY), false);
-            player.sendMessage(Text.literal("  队列容量: " + concurrency.getQueueCapacity()).formatted(Formatting.GRAY), false);
-            player.sendMessage(Text.literal("  线程池: " + concurrency.getCorePoolSize() + "-" + concurrency.getMaximumPoolSize()).formatted(Formatting.GRAY), false);
-        }
-        player.sendMessage(Text.literal(""), false);
-
-        // 提供商配置状态
-        List<Provider> providers = config.getProviders();
-        player.sendMessage(Text.literal("🔧 提供商配置:").formatted(Formatting.AQUA), false);
-        player.sendMessage(Text.literal("  配置数量: " + providers.size()).formatted(Formatting.WHITE), false);
-
-        int validProviders = 0;
-        for (Provider provider : providers) {
-            if (provider.isValid()) {
-                validProviders++;
-            }
-        }
-        player.sendMessage(Text.literal("  有效提供商: " + validProviders + "/" + providers.size()).formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("  当前提供商: " + config.getCurrentProvider()).formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("  当前模型: " + config.getCurrentModel()).formatted(Formatting.WHITE), false);
-
-        player.sendMessage(Text.literal(""), false);
-        player.sendMessage(Text.literal("💡 使用 /llmchat config validate 验证并修复配置").formatted(Formatting.BLUE), false);
-
-        return 1;
-    }
-
-    /**
-     * 处理配置验证命令
-     */
-    private static int handleConfigValidate(CommandContext<ServerCommandSource> context) {
-        ServerCommandSource source = context.getSource();
-        PlayerEntity player = source.getPlayer();
-
-        if (player == null) {
-            source.sendError(Text.literal("此命令只能由玩家执行"));
-            return 0;
-        }
-
-        // 检查OP权限
-        if (!source.hasPermissionLevel(2)) {
-            player.sendMessage(Text.literal("只有OP可以验证和修复配置").formatted(Formatting.RED), false);
-            return 0;
-        }
-
-        player.sendMessage(Text.literal("🔍 正在验证配置...").formatted(Formatting.YELLOW), false);
-
-        try {
-            LLMChatConfig config = LLMChatConfig.getInstance();
-            boolean wasUpdated = config.validateAndCompleteConfig();
-
-            if (wasUpdated) {
-                player.sendMessage(Text.literal("✅ 配置已验证并修复").formatted(Formatting.GREEN), false);
-                player.sendMessage(Text.literal("已自动补齐缺失的配置项并保存").formatted(Formatting.WHITE), false);
-
-                // 重新初始化服务
-                LLMServiceManager serviceManager = LLMServiceManager.getInstance();
-                serviceManager.reload();
-
-                player.sendMessage(Text.literal("服务已重新初始化").formatted(Formatting.GREEN), false);
-            } else {
-                player.sendMessage(Text.literal("✅ 配置验证通过，无需修复").formatted(Formatting.GREEN), false);
-            }
-
-            // 显示当前配置状态
-            player.sendMessage(Text.literal(""), false);
-            player.sendMessage(Text.literal("📊 当前配置状态:").formatted(Formatting.AQUA), false);
-            player.sendMessage(Text.literal("  配置版本: " + config.getConfigVersion()).formatted(Formatting.WHITE), false);
-            player.sendMessage(Text.literal("  配置有效: " + (config.isConfigurationValid() ? "是" : "否")).formatted(Formatting.WHITE), false);
-            player.sendMessage(Text.literal("  当前提供商: " + config.getCurrentProvider()).formatted(Formatting.WHITE), false);
-            player.sendMessage(Text.literal("  当前模型: " + config.getCurrentModel()).formatted(Formatting.WHITE), false);
-
-        } catch (Exception e) {
-            player.sendMessage(Text.literal("❌ 配置验证失败: " + e.getMessage()).formatted(Formatting.RED), false);
-            return 0;
-        }
-
-        return 1;
-    }
 
     /**
      * 处理统计信息命令
@@ -507,10 +380,8 @@ public class LLMChatCommand {
         player.sendMessage(Text.literal("/llmchat broadcast player remove <玩家> - 从广播列表移除玩家 (仅OP)").formatted(Formatting.WHITE), false);
         player.sendMessage(Text.literal("/llmchat broadcast player list - 查看广播玩家列表").formatted(Formatting.WHITE), false);
         player.sendMessage(Text.literal("/llmchat broadcast player clear - 清空广播玩家列表 (仅OP)").formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("/llmchat reload - 重新加载配置文件 (仅OP)").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("/llmchat reload - 重载配置并尝试恢复 (仅OP)").formatted(Formatting.WHITE), false);
         player.sendMessage(Text.literal("/llmchat setup - 显示配置向导").formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("/llmchat config status - 显示配置状态").formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("/llmchat config validate - 验证并修复配置 (仅OP)").formatted(Formatting.WHITE), false);
         player.sendMessage(Text.literal("/llmchat stats - 显示并发统计信息").formatted(Formatting.WHITE), false);
         player.sendMessage(Text.literal("/llmchat help - 显示此帮助").formatted(Formatting.WHITE), false);
         
