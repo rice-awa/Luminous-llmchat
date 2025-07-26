@@ -92,10 +92,38 @@ git push origin main
 .\scripts\manage-versions-simple.ps1 test-build 1.21.8
 ```
 
-#### 方法2：GitHub Actions多版本构建
-如果已创建multi-version分支，需要先同步main分支的更改：
+#### 方法2：一键自动同步和构建（推荐）
+使用自动化脚本完成完整流程：
 
-**步骤1：同步main分支到multi-version分支**
+```powershell
+# Windows PowerShell - 一键完成所有操作
+.\scripts\auto-sync-and-build.ps1
+
+# 强制执行（跳过确认）
+.\scripts\auto-sync-and-build.ps1 -Force
+
+# 预演模式（查看将要执行的操作）
+.\scripts\auto-sync-and-build.ps1 -DryRun
+```
+
+```bash
+# Linux/Mac - 一键完成所有操作
+./scripts/auto-sync-and-build.sh
+
+# 强制执行（跳过确认）
+./scripts/auto-sync-and-build.sh --force
+```
+
+**自动脚本会执行：**
+1. ✅ 更新main分支到最新版本
+2. ✅ 创建或切换到multi-version分支
+3. ✅ 合并main分支的更改
+4. ✅ 运行本地测试构建
+5. ✅ 推送并触发GitHub Actions构建
+
+#### 方法3：手动Git操作
+如果需要手动控制每个步骤：
+
 ```bash
 # 确保main分支是最新的
 git checkout main
@@ -108,10 +136,6 @@ git merge main
 # 推送触发自动构建
 git push origin multi-version
 ```
-
-**步骤2：查看构建状态**
-- 访问GitHub仓库的Actions页面
-- 查看"Multi-Version Build"工作流的执行状态
 
 ### 场景3：手动触发多版本构建
 1. 访问GitHub仓库的Actions页面
@@ -326,9 +350,11 @@ git log --oneline HEAD..main  # 查看main领先multi-version的提交（应该�
 - [AUTO_VERSION_DISCOVERY.md](AUTO_VERSION_DISCOVERY.md) - 自动版本发现系统说明
 
 ### 🛠️ 可用脚本
+- `.\scripts\auto-sync-and-build.ps1` - **自动同步和构建脚本（推荐）**
 - `.\scripts\manage-versions-simple.ps1` - 简化的版本管理脚本
 - `.\scripts\add-version.ps1` - 添加新版本配置脚本
 - `.\scripts\test-sync.ps1` - 测试系统完整性脚本
+- `.\scripts\auto-sync-and-build.sh` - Linux/Mac版自动同步脚本
 
 ### 📋 快速命令参考
 
@@ -345,6 +371,32 @@ git log --oneline HEAD..main  # 查看main领先multi-version的提交（应该�
 
 # 测试系统
 .\scripts\test-sync.ps1 -Verbose
+```
+
+#### 自动同步和构建
+```powershell
+# Windows - 一键完成完整流程
+.\scripts\auto-sync-and-build.ps1
+
+# 强制执行（跳过确认）
+.\scripts\auto-sync-and-build.ps1 -Force
+
+# 预演模式
+.\scripts\auto-sync-and-build.ps1 -DryRun
+
+# 跳过本地测试
+.\scripts\auto-sync-and-build.ps1 -SkipTests
+```
+
+```bash
+# Linux/Mac - 一键完成完整流程
+./scripts/auto-sync-and-build.sh
+
+# 强制执行（跳过确认）
+./scripts/auto-sync-and-build.sh --force
+
+# 预演模式
+./scripts/auto-sync-and-build.sh --dry-run
 ```
 
 #### 分支同步
@@ -384,6 +436,19 @@ git push origin multi-version
 5. **多版本发布** - 推送到multi-version分支触发全版本构建
 
 ### 🚀 立即开始
+
+#### 方式1：使用自动化脚本（推荐）
+```powershell
+# 1. 查看当前支持的版本
+.\scripts\manage-versions-simple.ps1 list-versions
+
+# 2. 一键完成同步和构建
+.\scripts\auto-sync-and-build.ps1
+
+# 3. 查看GitHub Actions构建状态
+```
+
+#### 方式2：手动步骤
 ```powershell
 # 1. 查看当前支持的版本
 .\scripts\manage-versions-simple.ps1 list-versions
@@ -391,7 +456,7 @@ git push origin multi-version
 # 2. 测试一个版本的构建
 .\scripts\manage-versions-simple.ps1 test-build 1.21.6
 
-# 3. 开始开发！
+# 3. 手动同步分支（参考上面的Git命令）
 ```
 
 祝您开发愉快！🎮
