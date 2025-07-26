@@ -24,6 +24,7 @@
 @rem ##########################################################################
 
 @rem Set local scope for the variables with windows NT shell
+chcp 65001
 if "%OS%"=="Windows_NT" setlocal
 
 set DIRNAME=%~dp0
