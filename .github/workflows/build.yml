@@ -1,9 +1,11 @@
-# Automatically build the project and run any configured tests for every push
-# and submitted pull request. This can help catch issues that only occur on
-# certain platforms or Java versions, and provides a first line of defence
-# against bad commits.
+# 单版本构建工作流 - 用于main分支的快速开发和测试
+# 自动构建项目并运行配置的测试，适用于每次推送和提交的拉取请求
+# 这有助于捕获仅在特定平台或Java版本上出现的问题，并提供针对错误提交的第一道防线
+#
+# 注意：此工作流专注于单一版本（当前为Minecraft 1.21.7）的构建
+# 如需多版本构建，请使用multi-version-build.yml工作流
 
-name: build
+name: Single Version Build (Main Branch)
 on:
   pull_request:
   push:

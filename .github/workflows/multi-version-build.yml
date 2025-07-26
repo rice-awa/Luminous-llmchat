@@ -1,0 +1,239 @@
+# 多版本构建工作流 - 专门用于构建不同Minecraft版本的mod
+# 建议在 multi-version 分支上运行此工作流
+
+name: Multi-Version Build
+on:
+  push:
+    branches:
+      - multi-version
+      - 'release/**'
+  pull_request:
+    branches:
+      - multi-version
+  workflow_dispatch:
+    inputs:
+      versions_to_build:
+        description: '要构建的版本 (用逗号分隔，如: 1.21.5,1.21.6,1.21.7,1.21.8 或 all)'
+        required: false
+        default: 'all'
+        type: string
+      debug_enabled:
+        description: '启用调试模式'
+        required: false
+        default: false
+        type: boolean
+      create_release:
+        description: '创建GitHub Release'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  prepare-matrix:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Prepare build matrix
+        id: set-matrix
+        run: |
+          # 定义所有可用版本
+          declare -A versions=(
+            ["1.21.5"]="build_version/1.21/gradle-1.21.5.properties"
+            ["1.21.6"]="build_version/1.21/gradle-1.21.6.properties"
+            ["1.21.7"]="gradle.properties"
+            ["1.21.8"]="build_version/1.21/gradle-1.21.8.properties"
+          )
+          
+          # 解析输入的版本
+          if [ "${{ inputs.versions_to_build }}" == "all" ] || [ -z "${{ inputs.versions_to_build }}" ]; then
+            # 构建所有版本
+            build_versions="1.21.5,1.21.6,1.21.7,1.21.8"
+          else
+            build_versions="${{ inputs.versions_to_build }}"
+          fi
+          
+          # 构建matrix JSON
+          matrix_json="["
+          IFS=',' read -ra VERSION_ARRAY <<< "$build_versions"
+          for i in "${!VERSION_ARRAY[@]}"; do
+            version="${VERSION_ARRAY[$i]// /}"  # 去除空格
+            if [[ -n "${versions[$version]}" ]]; then
+              if [ $i -gt 0 ]; then
+                matrix_json+=","
+              fi
+              matrix_json+="{\"version\":\"$version\",\"properties_file\":\"${versions[$version]}\"}"
+            fi
+          done
+          matrix_json+="]"
+          
+          echo "matrix=$matrix_json" >> $GITHUB_OUTPUT
+          echo "构建矩阵: $matrix_json"
+
+  build:
+    needs: prepare-matrix
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.prepare-matrix.outputs.matrix) }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'microsoft'
+
+      - name: Make gradle wrapper executable
+        run: chmod +x ./gradlew
+
+      - name: Setup version-specific properties
+        run: |
+          echo "正在为 Minecraft ${{ matrix.version }} 设置构建属性..."
+          if [ "${{ matrix.properties_file }}" != "gradle.properties" ]; then
+            cp "${{ matrix.properties_file }}" gradle.properties
+            echo "已复制 ${{ matrix.properties_file }} 到 gradle.properties"
+          else
+            echo "使用默认的 gradle.properties (Minecraft ${{ matrix.version }})"
+          fi
+          
+          # 显示当前使用的版本信息
+          echo "当前构建配置:"
+          grep -E "(minecraft_version|mod_version|fabric_version)" gradle.properties
+
+      - name: Setup gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/multi-version' }}
+
+      - name: Run tests for ${{ matrix.version }}
+        run: |
+          echo "🧪 运行 Minecraft ${{ matrix.version }} 的测试..."
+          if [ "${{ inputs.debug_enabled }}" == "true" ]; then
+            ./gradlew test --continue --info --stacktrace
+          else
+            ./gradlew test --continue
+          fi
+
+      - name: Build mod for ${{ matrix.version }}
+        run: |
+          echo "🔨 构建 Minecraft ${{ matrix.version }} 版本的mod..."
+          if [ "${{ inputs.debug_enabled }}" == "true" ]; then
+            ./gradlew build --info --stacktrace
+          else
+            ./gradlew build
+          fi
+
+      - name: Upload test reports for ${{ matrix.version }}
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports-${{ matrix.version }}
+          path: |
+            build/reports/tests/
+            build/test-results/
+          retention-days: 30
+
+      - name: Upload mod artifacts for ${{ matrix.version }}
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: mod-${{ matrix.version }}
+          path: |
+            build/libs/*.jar
+            !build/libs/*-sources.jar
+          retention-days: 90
+
+      - name: Upload sources for ${{ matrix.version }}
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: sources-${{ matrix.version }}
+          path: build/libs/*-sources.jar
+          retention-days: 90
+
+  create-release:
+    if: ${{ inputs.create_release == true && github.event_name == 'workflow_dispatch' }}
+    needs: [prepare-matrix, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+      
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          
+          # 组织所有构建的mod文件
+          for version_dir in artifacts/mod-*/; do
+            if [ -d "$version_dir" ]; then
+              version=$(basename "$version_dir" | sed 's/mod-//')
+              echo "处理版本: $version"
+              cp "$version_dir"/*.jar "release-assets/" 2>/dev/null || true
+            fi
+          done
+          
+          # 组织源码文件
+          for sources_dir in artifacts/sources-*/; do
+            if [ -d "$sources_dir" ]; then
+              cp "$sources_dir"/*.jar "release-assets/" 2>/dev/null || true
+            fi
+          done
+          
+          ls -la release-assets/
+      
+      - name: Get mod version
+        id: mod_version
+        run: |
+          version=$(grep "mod_version=" gradle.properties | cut -d'=' -f2)
+          echo "version=$version" >> $GITHUB_OUTPUT
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.mod_version.outputs.version }}-multi
+          name: "Luminous LLM Chat v${{ steps.mod_version.outputs.version }} (多版本)"
+          body: |
+            ## 🎮 多版本发布
+            
+            此版本包含以下Minecraft版本的构建：
+            
+            ${{ needs.prepare-matrix.outputs.matrix }}
+            
+            ### 📦 包含的文件
+            - 各版本的mod jar文件
+            - 对应的源码文件
+            
+            ### 🔧 安装说明
+            1. 选择对应您Minecraft版本的jar文件
+            2. 将文件放入mods文件夹
+            3. 确保已安装对应版本的Fabric Loader和Fabric API
+            
+            ### 📋 版本兼容性
+            - Minecraft 1.21.5+
+            - Fabric Loader 0.16.14+
+            - Java 21+
+          files: release-assets/*
+          draft: false
+          prerelease: false
