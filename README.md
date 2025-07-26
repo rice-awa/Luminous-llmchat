@@ -66,7 +66,8 @@
 ## 安装和配置
 
 ### 1. 安装模组
-将编译好的jar文件放入Minecraft的`mods`文件夹中，你可以在Actions artifacts中获取编译好的jar文件。
+将编译好的jar文件放入Minecraft的`mods`文件夹中。
+> 你可以在Actions artifacts中获取编译好的jar文件，其中 Multi-Version Build 构建有多个版本的mod文件。
 
 ### 2. 配置API密钥
 首次运行后，在`config/lllmchat/config.json`中配置你的API密钥。
