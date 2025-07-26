@@ -33,14 +33,12 @@ public class PermissionHelper {
     ));
     
     /**
-     * 需要特殊权限的指令前缀
+     * 需要特殊权限的指令前缀 - 减少限制，允许更多命令执行
      */
     private static final Set<String> RESTRICTED_COMMAND_PREFIXES = new HashSet<>(Arrays.asList(
-        "execute",      // 执行命令
+        // 移除了execute、difficulty、gamerule等常用命令的限制
         "forceload",    // 强制加载区块
-        "worldborder",  // 世界边界
-        "difficulty",   // 难度设置
-        "gamerule"      // 游戏规则
+        "worldborder"   // 世界边界
     ));
     
     /**
