@@ -63,14 +63,20 @@ git push origin main
 这将触发单版本构建（Minecraft 1.21.7）。
 
 ### 场景2：多版本发布
-当准备发布时，切换到`multi-version`分支：
 
-```bash
+#### 方法1：一键发布（推荐）
+```powershell
+# 完整的发布流程：自动同步main分支 + 推送 + 触发构建
+.\scripts\manage-versions.ps1 release
+```
+
+#### 方法2：分步操作
+```powershell
 # 同步main分支的更改
 .\scripts\manage-versions.ps1 sync-from-main
 
-# 推送触发多版本构建
-git push origin multi-version
+# 推送触发多版本构建（会自动再次同步main分支）
+.\scripts\manage-versions.ps1 push-branch
 ```
 
 ### 场景3：手动触发多版本构建
@@ -95,34 +101,79 @@ git push origin multi-version
 
 ## 🔧 配置说明
 
-### 支持的版本
-当前配置支持以下Minecraft版本：
+### 🔍 自动版本发现
+系统现在会自动扫描`build_version`目录中的所有配置文件，无需手动维护版本列表！
 
-| 版本 | 配置文件 | Fabric API |
-|------|----------|------------|
-| 1.21.5 | `build_version/1.21/gradle-1.21.5.properties` | 0.128.1+1.21.5 |
-| 1.21.6 | `build_version/1.21/gradle-1.21.6.properties` | 0.128.2+1.21.6 |
-| 1.21.7 | `gradle.properties` | 0.129.0+1.21.7 |
-| 1.21.8 | `build_version/1.21/gradle-1.21.8.properties` | 0.129.0+1.21.8 |
+查看当前支持的版本：
+```powershell
+.\scripts\manage-versions-simple.ps1 list-versions
+```
 
-### 添加新版本
-1. 在`build_version/1.21/`目录创建新的配置文件
-2. 更新`.github/workflows/multi-version-build.yml`中的版本矩阵
-3. 更新管理脚本中的版本列表
+示例输出：
+```
+Auto-scanning available Minecraft versions:
+  * 1.21.8 (build_version\1.21\gradle-1.21.8.properties)
+  * 1.21.7 (gradle.properties - default dev version)
+  * 1.21.6 (build_version\1.21\gradle-1.21.6.properties)
+  * 1.21.5 (build_version\1.21\gradle-1.21.5.properties)
+  * 1.21.4 (build_version\1.21\gradle-1.21.4.properties)
+  * 1.21.3 (build_version\1.21\gradle-1.21.3.properties)
+  * 1.21.2 (build_version\1.21\gradle-1.21.2.properties)
+  * 1.21.1 (build_version\1.21\gradle-1.21.1.properties)
+Total discovered: 8 version configurations
+```
+
+### ➕ 添加新版本
+
+#### 方法1：自动检测（推荐）
+```powershell
+# 自动检测并创建Minecraft 1.21.9的配置
+.\scripts\add-version.ps1 -MinecraftVersion 1.21.9 -AutoDetect
+```
+
+#### 方法2：手动指定
+```powershell
+# 手动指定版本信息
+.\scripts\add-version.ps1 -MinecraftVersion 1.21.9 `
+  -YarnMappings "1.21.9+build.1" `
+  -FabricVersion "0.130.0+1.21.9" `
+  -LoaderVersion "0.16.14"
+```
+
+#### 方法3：手动创建
+1. 在`build_version/1.21/`目录创建新的配置文件，命名为`gradle-{版本}.properties`
+2. 复制`gradle.properties`的内容并修改版本信息
+
+添加新版本后，系统会自动识别并包含在构建中，无需修改任何其他文件！
+
+## ✨ 自动同步功能
+
+管理脚本现在具有智能同步功能：
+
+- **创建分支时**：自动从最新的main分支创建multi-version分支
+- **推送分支时**：自动同步main分支的最新更改后再推送
+- **发布流程**：一键完成同步、推送和触发构建的完整流程
+
+这确保了multi-version分支始终包含main分支的最新更改！
 
 ## 🚨 常见问题
 
 ### Q: 构建失败怎么办？
-A: 
+A:
 1. 检查GitHub Actions的构建日志
 2. 本地测试构建：`.\scripts\manage-versions.ps1 test-build 1.21.x`
 3. 验证版本配置文件是否正确
 
 ### Q: 如何同步main分支的更改？
-A: 使用管理脚本：`.\scripts\manage-versions.ps1 sync-from-main`
+A:
+- **自动同步**：使用 `push-branch` 或 `release` 命令会自动同步
+- **手动同步**：使用 `.\scripts\manage-versions.ps1 sync-from-main`
 
 ### Q: 可以只构建特定版本吗？
 A: 可以！在GitHub Actions中手动触发时，在版本输入框中指定版本，如：`1.21.6,1.21.7`
+
+### Q: 如果合并时出现冲突怎么办？
+A: 脚本会提示您手动解决冲突，解决后运行：`git add . && git commit`
 
 ## 📚 更多信息
 

@@ -36,42 +36,95 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      
+
+      - name: Auto-discover versions from build_version directory
+        id: discover-versions
+        run: |
+          echo "🔍 自动扫描build_version目录中的版本配置..."
+
+          # 创建关联数组存储版本信息
+          declare -A discovered_versions
+
+          # 扫描build_version目录下的所有.properties文件
+          if [ -d "build_version" ]; then
+            while IFS= read -r -d '' file; do
+              # 提取文件名中的版本号 (gradle-1.21.5.properties -> 1.21.5)
+              filename=$(basename "$file")
+              if [[ $filename =~ gradle-([0-9]+\.[0-9]+\.[0-9]+)\.properties ]]; then
+                version="${BASH_REMATCH[1]}"
+                discovered_versions["$version"]="$file"
+                echo "发现版本: $version -> $file"
+              fi
+            done < <(find build_version -name "gradle-*.properties" -type f -print0)
+          fi
+
+          # 添加默认版本（使用根目录的gradle.properties）
+          if [ -f "gradle.properties" ]; then
+            # 从gradle.properties中提取minecraft_version
+            default_version=$(grep "minecraft_version=" gradle.properties | cut -d'=' -f2)
+            if [ -n "$default_version" ]; then
+              discovered_versions["$default_version"]="gradle.properties"
+              echo "发现默认版本: $default_version -> gradle.properties"
+            fi
+          fi
+
+          # 输出发现的版本供下一步使用
+          versions_json="{"
+          first=true
+          for version in "${!discovered_versions[@]}"; do
+            if [ "$first" = true ]; then
+              first=false
+            else
+              versions_json+=","
+            fi
+            versions_json+="\"$version\":\"${discovered_versions[$version]}\""
+          done
+          versions_json+="}"
+
+          echo "discovered_versions=$versions_json" >> $GITHUB_OUTPUT
+          echo "发现的版本: $versions_json"
+
       - name: Prepare build matrix
         id: set-matrix
         run: |
-          # 定义所有可用版本
-          declare -A versions=(
-            ["1.21.5"]="build_version/1.21/gradle-1.21.5.properties"
-            ["1.21.6"]="build_version/1.21/gradle-1.21.6.properties"
-            ["1.21.7"]="gradle.properties"
-            ["1.21.8"]="build_version/1.21/gradle-1.21.8.properties"
-          )
-          
+          # 获取发现的版本
+          discovered_versions='${{ steps.discover-versions.outputs.discovered_versions }}'
+          echo "使用发现的版本: $discovered_versions"
+
           # 解析输入的版本
           if [ "${{ inputs.versions_to_build }}" == "all" ] || [ -z "${{ inputs.versions_to_build }}" ]; then
-            # 构建所有版本
-            build_versions="1.21.5,1.21.6,1.21.7,1.21.8"
+            # 构建所有发现的版本
+            build_versions=$(echo "$discovered_versions" | jq -r 'keys[]' | tr '\n' ',' | sed 's/,$//')
+            echo "构建所有版本: $build_versions"
           else
             build_versions="${{ inputs.versions_to_build }}"
+            echo "构建指定版本: $build_versions"
           fi
-          
+
           # 构建matrix JSON
           matrix_json="["
+          first=true
           IFS=',' read -ra VERSION_ARRAY <<< "$build_versions"
-          for i in "${!VERSION_ARRAY[@]}"; do
-            version="${VERSION_ARRAY[$i]// /}"  # 去除空格
-            if [[ -n "${versions[$version]}" ]]; then
-              if [ $i -gt 0 ]; then
+          for version in "${VERSION_ARRAY[@]}"; do
+            version="${version// /}"  # 去除空格
+            properties_file=$(echo "$discovered_versions" | jq -r --arg v "$version" '.[$v] // empty')
+
+            if [ -n "$properties_file" ]; then
+              if [ "$first" = true ]; then
+                first=false
+              else
                 matrix_json+=","
               fi
-              matrix_json+="{\"version\":\"$version\",\"properties_file\":\"${versions[$version]}\"}"
+              matrix_json+="{\"version\":\"$version\",\"properties_file\":\"$properties_file\"}"
+              echo "添加到构建矩阵: $version -> $properties_file"
+            else
+              echo "⚠️ 警告: 版本 $version 没有对应的配置文件，跳过"
             fi
           done
           matrix_json+="]"
-          
+
           echo "matrix=$matrix_json" >> $GITHUB_OUTPUT
-          echo "构建矩阵: $matrix_json"
+          echo "最终构建矩阵: $matrix_json"
 
   build:
     needs: prepare-matrix
