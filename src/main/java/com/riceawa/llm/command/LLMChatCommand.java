@@ -756,12 +756,32 @@ public class LLMChatCommand {
         }
 
         String providerName = StringArgumentType.getString(context, "provider");
+        LLMChatConfig config = LLMChatConfig.getInstance();
         LLMServiceManager serviceManager = LLMServiceManager.getInstance();
 
-        if (serviceManager.switchToProvider(providerName, null)) {
+        // 检查provider是否存在
+        Provider provider = config.getProvider(providerName);
+        if (provider == null) {
+            player.sendMessage(Text.literal("Provider不存在: " + providerName).formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        // 检查provider是否有可用模型
+        List<String> supportedModels = config.getSupportedModels(providerName);
+        if (supportedModels.isEmpty()) {
+            player.sendMessage(Text.literal("无法切换到 " + providerName + "：该provider没有配置任何模型").formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        // 获取第一个模型作为默认模型
+        String defaultModel = supportedModels.get(0);
+
+        // 切换到provider并设置默认模型
+        if (serviceManager.switchToProvider(providerName, defaultModel)) {
             player.sendMessage(Text.literal("已切换到provider: " + providerName).formatted(Formatting.GREEN), false);
+            player.sendMessage(Text.literal("默认模型已设置为: " + defaultModel).formatted(Formatting.GRAY), false);
         } else {
-            player.sendMessage(Text.literal("切换失败，provider不存在或配置无效: " + providerName).formatted(Formatting.RED), false);
+            player.sendMessage(Text.literal("切换失败，provider配置无效: " + providerName).formatted(Formatting.RED), false);
             return 0;
         }
 
