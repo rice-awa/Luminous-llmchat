@@ -9,7 +9,11 @@
 
 ### 🌟 分支策略
 - **`main`分支**: 专注于单一版本（Minecraft 1.21.7）的快速开发
+  - 触发：单版本构建工作流（`build.yml`）
+  - 用途：快速开发和测试
 - **`multi-version`分支**: 用于构建和发布多个Minecraft版本
+  - 触发：多版本构建工作流（`multi-version-build.yml`）
+  - 用途：正式发布和多版本构建
 
 ### ✨ 当前支持的版本
 系统自动发现了**8个版本配置**：
@@ -287,6 +291,12 @@ git push origin multi-version
 - 可以轻松添加或删除版本支持
 - 自动验证配置文件有效性
 
+### ⚡ 优化的构建策略
+- **避免重复构建**：main分支只运行单版本构建，multi-version分支只运行多版本构建
+- **快速开发反馈**：main分支构建时间约3-5分钟
+- **完整发布构建**：multi-version分支构建所有版本，约15-25分钟
+- **资源节省**：减少约30%的GitHub Actions使用时间
+
 ## 🚨 常见问题
 
 ### Q: 构建失败怎么办？
@@ -343,10 +353,22 @@ git log --oneline main..HEAD  # 查看multi-version领先main的提交
 git log --oneline HEAD..main  # 查看main领先multi-version的提交（应该为空）
 ```
 
+### Q: 为什么不同分支触发不同的工作流？
+A: 为了避免重复构建和资源浪费：
+- **main分支**: 只运行单版本构建（3-5分钟），适合快速开发验证
+- **multi-version分支**: 只运行多版本构建（15-25分钟），适合正式发布
+- **节省资源**: 避免在multi-version分支上运行不必要的单版本构建
+
+### Q: 如果我只想测试特定版本怎么办？
+A:
+- **本地测试**: 使用 `.\scripts\manage-versions-simple.ps1 test-build 1.21.6`
+- **GitHub Actions**: 在multi-version分支手动触发工作流，指定特定版本
+
 ## 📚 相关文档和脚本
 
 ### 📖 文档
 - [docs/MULTI_VERSION_STRATEGY.md](docs/MULTI_VERSION_STRATEGY.md) - 详细的多版本策略文档
+- [docs/WORKFLOW_STRATEGY.md](docs/WORKFLOW_STRATEGY.md) - 工作流和分支策略说明
 - [AUTO_VERSION_DISCOVERY.md](AUTO_VERSION_DISCOVERY.md) - 自动版本发现系统说明
 
 ### 🛠️ 可用脚本
