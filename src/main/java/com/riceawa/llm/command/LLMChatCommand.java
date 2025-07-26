@@ -419,7 +419,7 @@ public class LLMChatCommand {
 
         // 如果是新会话，添加系统提示词
         if (chatContext.getMessageCount() == 0 && template != null) {
-            String systemPrompt = template.renderSystemPrompt();
+            String systemPrompt = template.renderSystemPromptWithContext(serverPlayer, config);
             if (systemPrompt != null && !systemPrompt.trim().isEmpty()) {
                 chatContext.addSystemMessage(systemPrompt);
             }
