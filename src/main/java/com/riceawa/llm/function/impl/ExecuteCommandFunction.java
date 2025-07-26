@@ -128,16 +128,38 @@ public class ExecuteCommandFunction implements LLMFunction {
 
             try {
                 // 通过自定义CommandSource执行命令
-                server.getCommandManager().executeWithPrefix(captureSource, command);
-                resultCode = 1; // 如果没有异常，认为成功
+                System.out.println("[ExecuteCommandFunction] 开始执行命令: " + command);
+
+                // 尝试使用CommandDispatcher直接执行命令并获取返回值
+                try {
+                    resultCode = server.getCommandManager().getDispatcher().execute(command, captureSource);
+                    System.out.println("[ExecuteCommandFunction] 命令执行完成，返回码: " + resultCode + ", 捕获到 " + outputMessages.size() + " 条消息");
+                } catch (Exception e) {
+                    // 如果直接执行失败，尝试使用executeWithPrefix
+                    System.out.println("[ExecuteCommandFunction] 直接执行失败，尝试executeWithPrefix: " + e.getMessage());
+                    server.getCommandManager().executeWithPrefix(captureSource, command);
+                    resultCode = 1; // 如果没有异常，认为成功
+                    System.out.println("[ExecuteCommandFunction] executeWithPrefix完成，捕获到 " + outputMessages.size() + " 条消息");
+                }
 
                 // 收集输出信息
                 if (!outputMessages.isEmpty()) {
-                    output = String.join("\n", outputMessages);
+                    output = "捕获到的输出:\n" + String.join("\n", outputMessages);
                 } else {
-                    // 如果没有捕获到输出，提供基本信息
+                    // 如果没有捕获到输出，尝试使用原始命令源执行并提供详细信息
+                    output = "命令执行成功，但未捕获到输出。";
+
+                    // 对于某些特定命令，提供更详细的信息
                     String commandInfo = getCommandInfo(command);
-                    output = "命令执行成功" + (commandInfo.isEmpty() ? "" : "\n" + commandInfo);
+                    if (!commandInfo.isEmpty()) {
+                        output += "\n" + commandInfo;
+                    }
+
+                    // 添加调试信息
+                    output += "\n[调试] 命令: " + command +
+                             ", 捕获器消息数: " + outputCapture.getMessageCount() +
+                             ", 输出捕获器配置: shouldReceiveFeedback=" + outputCapture.shouldReceiveFeedback() +
+                             ", shouldTrackOutput=" + outputCapture.shouldTrackOutput();
                 }
 
             } catch (RuntimeException e) {
@@ -306,6 +328,7 @@ public class ExecuteCommandFunction implements LLMFunction {
      */
     private static class CommandOutputCapture implements net.minecraft.server.command.CommandOutput {
         private final List<String> outputMessages;
+        private int messageCount = 0;
 
         public CommandOutputCapture(List<String> outputMessages) {
             this.outputMessages = outputMessages;
@@ -313,7 +336,11 @@ public class ExecuteCommandFunction implements LLMFunction {
 
         @Override
         public void sendMessage(Text message) {
-            outputMessages.add(message.getString());
+            messageCount++;
+            String messageText = message.getString();
+            outputMessages.add("[消息" + messageCount + "] " + messageText);
+            // 添加调试日志
+            System.out.println("[CommandOutputCapture] 捕获到消息: " + messageText);
         }
 
         @Override
@@ -329,6 +356,10 @@ public class ExecuteCommandFunction implements LLMFunction {
         @Override
         public boolean shouldBroadcastConsoleToOps() {
             return false;
+        }
+
+        public int getMessageCount() {
+            return messageCount;
         }
     }
 }
