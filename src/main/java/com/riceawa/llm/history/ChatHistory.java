@@ -65,31 +65,53 @@ public class ChatHistory {
      */
     public void saveSession(ChatContext context) {
         UUID playerId = context.getPlayerId();
-        
-        ChatSession session = new ChatSession(
-                context.getSessionId(),
+        String sessionId = context.getSessionId();
+
+        // 获取玩家的会话列表
+        List<ChatSession> sessions = playerHistories.computeIfAbsent(playerId, k -> new ArrayList<>());
+
+        // 查找是否已存在相同sessionId的会话
+        ChatSession existingSession = null;
+        int existingIndex = -1;
+        for (int i = 0; i < sessions.size(); i++) {
+            if (sessions.get(i).getSessionId().equals(sessionId)) {
+                existingSession = sessions.get(i);
+                existingIndex = i;
+                break;
+            }
+        }
+
+        // 创建新的会话对象
+        ChatSession newSession = new ChatSession(
+                sessionId,
                 playerId,
                 context.getMessages(),
                 LocalDateTime.now(),
                 context.getCurrentPromptTemplate()
         );
 
-        // 添加到内存缓存
-        List<ChatSession> sessions = playerHistories.computeIfAbsent(playerId, k -> new ArrayList<>());
-        sessions.add(session);
-        
-        // 限制会话数量
-        if (sessions.size() > maxSessionsPerPlayer) {
-            sessions.remove(0);
+        if (existingSession != null) {
+            // 更新现有会话
+            sessions.set(existingIndex, newSession);
+            LogManager.getInstance().chat("Chat session updated for player " + playerId +
+                    ", session: " + sessionId +
+                    ", messages: " + context.getMessages().size());
+        } else {
+            // 添加新会话
+            sessions.add(newSession);
+
+            // 限制会话数量
+            if (sessions.size() > maxSessionsPerPlayer) {
+                sessions.remove(0);
+            }
+
+            LogManager.getInstance().chat("New chat session saved for player " + playerId +
+                    ", session: " + sessionId +
+                    ", messages: " + context.getMessages().size());
         }
 
         // 保存到文件
         saveToFile(playerId, sessions);
-
-        // 记录聊天日志
-        LogManager.getInstance().chat("Chat session saved for player " + playerId +
-                ", session: " + context.getSessionId() +
-                ", messages: " + context.getMessages().size());
     }
 
     /**

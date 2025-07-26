@@ -1,10 +1,17 @@
 package com.riceawa.llm.template;
 
 import com.google.gson.annotations.SerializedName;
+import com.riceawa.llm.config.LLMChatConfig;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.MinecraftServer;
+import net.fabricmc.loader.api.FabricLoader;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * 提示词模板
@@ -54,6 +61,32 @@ public class PromptTemplate {
      */
     public String renderSystemPrompt() {
         return renderTemplate(systemPrompt);
+    }
+
+    /**
+     * 渲染带全局上下文的系统提示词
+     */
+    public String renderSystemPromptWithContext(ServerPlayerEntity player, LLMChatConfig config) {
+        StringBuilder result = new StringBuilder();
+
+        // 添加原始系统提示词
+        String originalPrompt = renderTemplate(systemPrompt);
+        if (originalPrompt != null && !originalPrompt.trim().isEmpty()) {
+            result.append(originalPrompt);
+        }
+
+        // 如果启用了全局上下文，添加全局上下文信息
+        if (config.isEnableGlobalContext() && config.getGlobalContextPrompt() != null && !config.getGlobalContextPrompt().trim().isEmpty()) {
+            if (result.length() > 0) {
+                result.append("\n\n");
+            }
+
+            // 生成全局上下文信息
+            String globalContext = generateGlobalContext(player, config.getGlobalContextPrompt());
+            result.append(globalContext);
+        }
+
+        return result.toString();
     }
 
     /**
@@ -202,5 +235,84 @@ public class PromptTemplate {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+    }
+
+    /**
+     * 生成全局上下文信息
+     */
+    private String generateGlobalContext(ServerPlayerEntity player, String globalContextTemplate) {
+        if (globalContextTemplate == null || globalContextTemplate.trim().isEmpty()) {
+            return "";
+        }
+
+        // 创建上下文变量映射
+        Map<String, String> contextVariables = new HashMap<>();
+
+        // 玩家信息
+        contextVariables.put("player_name", player.getName().getString());
+
+        // 当前时间
+        LocalDateTime now = LocalDateTime.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        contextVariables.put("current_time", now.format(formatter));
+
+        // 服务器和在线玩家信息
+        MinecraftServer server = player.getServer();
+        if (server != null) {
+            // 在线玩家信息
+            var playerManager = server.getPlayerManager();
+            int playerCount = playerManager.getCurrentPlayerCount();
+            contextVariables.put("player_count", String.valueOf(playerCount));
+
+            // 在线玩家列表（限制显示数量避免过长）
+            String onlinePlayers = playerManager.getPlayerList().stream()
+                    .limit(10) // 最多显示10个玩家
+                    .map(p -> p.getName().getString())
+                    .collect(Collectors.joining(", "));
+            if (playerCount > 10) {
+                onlinePlayers += "...";
+            }
+            contextVariables.put("online_players", onlinePlayers);
+        } else {
+            contextVariables.put("player_count", "1");
+            contextVariables.put("online_players", player.getName().getString());
+        }
+
+        // 游戏版本信息
+        contextVariables.put("game_version", "Minecraft 1.21.7");
+
+        // 模组版本信息
+        try {
+            String modVersion = FabricLoader.getInstance()
+                    .getModContainer("lllmchat")
+                    .map(container -> container.getMetadata().getVersion().getFriendlyString())
+                    .orElse("Unknown");
+            contextVariables.put("mod_version", modVersion);
+        } catch (Exception e) {
+            contextVariables.put("mod_version", "Unknown");
+        }
+
+        // 渲染模板
+        return renderTemplateWithVariables(globalContextTemplate, contextVariables);
+    }
+
+    /**
+     * 使用指定变量渲染模板
+     */
+    private String renderTemplateWithVariables(String template, Map<String, String> variables) {
+        if (template == null) {
+            return "";
+        }
+
+        String result = template;
+        Matcher matcher = VARIABLE_PATTERN.matcher(template);
+
+        while (matcher.find()) {
+            String variableName = matcher.group(1);
+            String variableValue = variables.getOrDefault(variableName, "");
+            result = result.replace("{{" + variableName + "}}", variableValue);
+        }
+
+        return result;
     }
 }
