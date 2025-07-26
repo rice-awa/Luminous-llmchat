@@ -6,8 +6,10 @@ import com.riceawa.llm.function.PermissionHelper;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.ServerCommandSource;
-import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import net.minecraft.text.Text;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 执行服务器指令的函数
@@ -97,21 +99,60 @@ public class ExecuteCommandFunction implements LLMFunction {
      */
     private FunctionResult executeCommandWithCapture(MinecraftServer server, String command, boolean detailed, long startTime) {
         try {
+            // 创建输出捕获器
+            List<String> outputMessages = new ArrayList<>();
+
             // 获取服务器控制台命令源
             ServerCommandSource consoleSource = server.getCommandSource();
 
+            // 创建自定义的CommandOutput来捕获输出
+            CommandOutputCapture outputCapture = new CommandOutputCapture(outputMessages);
+
+            // 创建自定义的CommandSource来捕获输出
+            ServerCommandSource captureSource = new ServerCommandSource(
+                outputCapture,
+                consoleSource.getPosition(),
+                consoleSource.getRotation(),
+                consoleSource.getWorld(),
+                4, // 最高权限级别
+                consoleSource.getName(),
+                consoleSource.getDisplayName(),
+                consoleSource.getServer(),
+                consoleSource.getEntity()
+            );
+
             // 执行命令并获取返回值
-            int resultCode = 1; // 默认成功状态
+            int resultCode = 0;
             String output = "";
             String error = "";
 
             try {
-                // 通过控制台执行命令 - executeWithPrefix 返回 void
-                server.getCommandManager().executeWithPrefix(consoleSource, command);
+                // 通过自定义CommandSource执行命令
+                server.getCommandManager().executeWithPrefix(captureSource, command);
+                resultCode = 1; // 如果没有异常，认为成功
 
-                // 命令执行成功（没有抛出异常）
-                output = "命令执行成功";
+                // 收集输出信息
+                if (!outputMessages.isEmpty()) {
+                    output = String.join("\n", outputMessages);
+                } else {
+                    // 如果没有捕获到输出，提供基本信息
+                    String commandInfo = getCommandInfo(command);
+                    output = "命令执行成功" + (commandInfo.isEmpty() ? "" : "\n" + commandInfo);
+                }
 
+            } catch (RuntimeException e) {
+                resultCode = 0;
+                error = "命令执行失败: " + e.getMessage();
+                // 检查是否是权限问题
+                if (e.getMessage() != null && e.getMessage().toLowerCase().contains("permission")) {
+                    error += "\n提示: 可能是权限不足导致的错误";
+                }
+                // 检查是否是语法错误
+                if (e.getMessage() != null && (e.getMessage().toLowerCase().contains("syntax") ||
+                    e.getMessage().toLowerCase().contains("unknown") ||
+                    e.getMessage().toLowerCase().contains("expected"))) {
+                    error += "\n提示: 可能是命令语法错误";
+                }
             } catch (Exception e) {
                 resultCode = 0;
                 error = "命令执行异常: " + e.getMessage();
@@ -122,6 +163,71 @@ public class ExecuteCommandFunction implements LLMFunction {
 
         } catch (Exception e) {
             return createErrorResult("执行命令时发生内部错误: " + e.getMessage(), command, startTime);
+        }
+    }
+
+    /**
+     * 根据命令类型提供额外信息
+     */
+    private String getCommandInfo(String command) {
+        String[] parts = command.split("\\s+");
+        if (parts.length == 0) return "";
+
+        String commandName = parts[0].toLowerCase();
+
+        switch (commandName) {
+            case "say":
+                return "消息已广播到所有玩家";
+            case "tell":
+            case "msg":
+            case "w":
+                return "私人消息已发送";
+            case "give":
+                return "物品已给予玩家";
+            case "tp":
+            case "teleport":
+                return "传送已执行";
+            case "time":
+                return "时间已设置";
+            case "weather":
+                return "天气已更改";
+            case "gamemode":
+                return "游戏模式已更改";
+            case "difficulty":
+                return "难度已设置";
+            case "kill":
+                return "实体已被清除";
+            case "clear":
+                return "物品已清除";
+            case "effect":
+                return "效果已应用";
+            case "enchant":
+                return "附魔已应用";
+            case "experience":
+            case "xp":
+                return "经验已给予";
+            case "fill":
+                return "方块已填充";
+            case "setblock":
+                return "方块已设置";
+            case "summon":
+                return "实体已生成";
+            case "list":
+                return "玩家列表已显示";
+            case "whitelist":
+                return "白名单已更新";
+            case "ban":
+            case "ban-ip":
+                return "封禁已执行";
+            case "pardon":
+            case "pardon-ip":
+                return "解封已执行";
+            case "op":
+                return "OP权限已授予";
+            case "deop":
+                return "OP权限已移除";
+            default:
+                return "";
         }
     }
 
@@ -193,5 +299,36 @@ public class ExecuteCommandFunction implements LLMFunction {
     @Override
     public String getCategory() {
         return "admin";
+    }
+
+    /**
+     * 自定义命令输出捕获器
+     */
+    private static class CommandOutputCapture implements net.minecraft.server.command.CommandOutput {
+        private final List<String> outputMessages;
+
+        public CommandOutputCapture(List<String> outputMessages) {
+            this.outputMessages = outputMessages;
+        }
+
+        @Override
+        public void sendMessage(Text message) {
+            outputMessages.add(message.getString());
+        }
+
+        @Override
+        public boolean shouldReceiveFeedback() {
+            return true;
+        }
+
+        @Override
+        public boolean shouldTrackOutput() {
+            return true;
+        }
+
+        @Override
+        public boolean shouldBroadcastConsoleToOps() {
+            return false;
+        }
     }
 }

@@ -419,7 +419,7 @@ public class LLMChatCommand {
 
         // 如果是新会话，添加系统提示词
         if (chatContext.getMessageCount() == 0 && template != null) {
-            String systemPrompt = template.renderSystemPrompt();
+            String systemPrompt = template.renderSystemPromptWithContext(serverPlayer, config);
             if (systemPrompt != null && !systemPrompt.trim().isEmpty()) {
                 chatContext.addSystemMessage(systemPrompt);
             }
@@ -457,6 +457,13 @@ public class LLMChatCommand {
         if (shouldBroadcast(config, serverPlayer.getName().getString())) {
             serverPlayer.getServer().getPlayerManager().broadcast(
                 Text.literal("[" + serverPlayer.getName().getString() + " 问AI] " + message)
+                    .formatted(Formatting.LIGHT_PURPLE),
+                false
+            );
+        } else {
+            // 如果没有启用广播，向玩家自己显示提示词确认
+            serverPlayer.sendMessage(
+                Text.literal("你问 AI " + message)
                     .formatted(Formatting.LIGHT_PURPLE),
                 false
             );

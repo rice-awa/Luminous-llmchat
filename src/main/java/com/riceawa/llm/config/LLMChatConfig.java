@@ -39,6 +39,10 @@ public class LLMChatConfig {
     private Set<String> broadcastPlayers = new HashSet<>();
     private int historyRetentionDays = 30;
 
+    // 全局上下文配置
+    private boolean enableGlobalContext = true;
+    private String globalContextPrompt = "=== 当前游戏环境信息 ===\n发起者：{{player_name}}\n当前时间：{{current_time}}\n在线玩家（{{player_count}}人）：{{online_players}}\n游戏版本：{{game_version}}";
+
     // 并发配置
     private ConcurrencySettings concurrencySettings = ConcurrencySettings.createDefault();
 
@@ -312,6 +316,9 @@ public class LLMChatConfig {
         this.enableBroadcast = data.enableBroadcast != null ? data.enableBroadcast : false;
         this.broadcastPlayers = data.broadcastPlayers != null ? new HashSet<>(data.broadcastPlayers) : new HashSet<>();
         this.historyRetentionDays = data.historyRetentionDays != null ? data.historyRetentionDays : 30;
+        this.enableGlobalContext = data.enableGlobalContext != null ? data.enableGlobalContext : true;
+        this.globalContextPrompt = data.globalContextPrompt != null ? data.globalContextPrompt :
+            "=== 当前游戏环境信息 ===\n发起者：{{player_name}}\n当前时间：{{current_time}}\n在线玩家（{{player_count}}人）：{{online_players}}\n游戏版本：{{game_version}}";
 
         // 处理并发配置
         this.concurrencySettings = data.concurrencySettings != null ? data.concurrencySettings : ConcurrencySettings.createDefault();
@@ -348,6 +355,8 @@ public class LLMChatConfig {
         data.enableBroadcast = this.enableBroadcast;
         data.broadcastPlayers = new HashSet<>(this.broadcastPlayers);
         data.historyRetentionDays = this.historyRetentionDays;
+        data.enableGlobalContext = this.enableGlobalContext;
+        data.globalContextPrompt = this.globalContextPrompt;
         data.concurrencySettings = this.concurrencySettings;
         data.logConfig = this.logConfig;
         data.providers = this.providers;
@@ -460,6 +469,25 @@ public class LLMChatConfig {
 
     public void setHistoryRetentionDays(int historyRetentionDays) {
         this.historyRetentionDays = historyRetentionDays;
+        saveConfig();
+    }
+
+    // 全局上下文配置相关方法
+    public boolean isEnableGlobalContext() {
+        return enableGlobalContext;
+    }
+
+    public void setEnableGlobalContext(boolean enableGlobalContext) {
+        this.enableGlobalContext = enableGlobalContext;
+        saveConfig();
+    }
+
+    public String getGlobalContextPrompt() {
+        return globalContextPrompt;
+    }
+
+    public void setGlobalContextPrompt(String globalContextPrompt) {
+        this.globalContextPrompt = globalContextPrompt != null ? globalContextPrompt : "";
         saveConfig();
     }
 
@@ -631,6 +659,10 @@ public class LLMChatConfig {
         Boolean enableBroadcast;
         Set<String> broadcastPlayers;
         Integer historyRetentionDays;
+
+        // 全局上下文配置
+        Boolean enableGlobalContext;
+        String globalContextPrompt;
 
         // 并发配置
         ConcurrencySettings concurrencySettings;
