@@ -460,6 +460,13 @@ public class LLMChatCommand {
                     .formatted(Formatting.LIGHT_PURPLE),
                 false
             );
+        } else {
+            // 如果没有启用广播，向玩家自己显示提示词确认
+            serverPlayer.sendMessage(
+                Text.literal("你问 AI " + message)
+                    .formatted(Formatting.LIGHT_PURPLE),
+                false
+            );
         }
 
         // 发送请求
