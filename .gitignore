@@ -1,5 +1,5 @@
 # gradle
-
+gradle.properties.backup
 .gradle/
 build/
 out/
