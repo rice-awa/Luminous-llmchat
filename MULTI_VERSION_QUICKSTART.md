@@ -97,13 +97,13 @@ git push origin main
 
 ```powershell
 # Windows PowerShell - 一键完成所有操作
-.\scripts\auto-sync-and-build.ps1
+.\scripts\auto-sync-build-clean.ps1
 
 # 强制执行（跳过确认）
-.\scripts\auto-sync-and-build.ps1 -Force
+.\scripts\auto-sync-build-clean.ps1 -Force
 
 # 预演模式（查看将要执行的操作）
-.\scripts\auto-sync-and-build.ps1 -DryRun
+.\scripts\auto-sync-build-clean.ps1 -DryRun
 ```
 
 ```bash
@@ -350,7 +350,7 @@ git log --oneline HEAD..main  # 查看main领先multi-version的提交（应该�
 - [AUTO_VERSION_DISCOVERY.md](AUTO_VERSION_DISCOVERY.md) - 自动版本发现系统说明
 
 ### 🛠️ 可用脚本
-- `.\scripts\auto-sync-and-build.ps1` - **自动同步和构建脚本（推荐）**
+- `.\scripts\auto-sync-build-clean.ps1` - **自动同步和构建脚本（推荐）**
 - `.\scripts\manage-versions-simple.ps1` - 简化的版本管理脚本
 - `.\scripts\add-version.ps1` - 添加新版本配置脚本
 - `.\scripts\test-sync.ps1` - 测试系统完整性脚本
@@ -376,16 +376,16 @@ git log --oneline HEAD..main  # 查看main领先multi-version的提交（应该�
 #### 自动同步和构建
 ```powershell
 # Windows - 一键完成完整流程
-.\scripts\auto-sync-and-build.ps1
+.\scripts\auto-sync-build-clean.ps1
 
 # 强制执行（跳过确认）
-.\scripts\auto-sync-and-build.ps1 -Force
+.\scripts\auto-sync-build-clean.ps1 -Force
 
 # 预演模式
-.\scripts\auto-sync-and-build.ps1 -DryRun
+.\scripts\auto-sync-build-clean.ps1 -DryRun
 
 # 跳过本地测试
-.\scripts\auto-sync-and-build.ps1 -SkipTests
+.\scripts\auto-sync-build-clean.ps1 -SkipTests
 ```
 
 ```bash
@@ -443,7 +443,7 @@ git push origin multi-version
 .\scripts\manage-versions-simple.ps1 list-versions
 
 # 2. 一键完成同步和构建
-.\scripts\auto-sync-and-build.ps1
+.\scripts\auto-sync-build-clean.ps1
 
 # 3. 查看GitHub Actions构建状态
 ```

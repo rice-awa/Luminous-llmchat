@@ -14,7 +14,7 @@
 6. **推送并触发构建** - 启动GitHub Actions
 
 ### 📁 脚本文件
-- `scripts/auto-sync-and-build.ps1` - Windows PowerShell版本
+- `scripts/auto-sync-build-clean.ps1` - Windows PowerShell版本（推荐）
 - `scripts/auto-sync-and-build.sh` - Linux/Mac Bash版本
 
 ## 🚀 快速开始
@@ -22,13 +22,13 @@
 ### Windows (PowerShell)
 ```powershell
 # 基本使用
-.\scripts\auto-sync-and-build.ps1
+.\scripts\auto-sync-build-clean.ps1
 
 # 强制执行（跳过确认）
-.\scripts\auto-sync-and-build.ps1 -Force
+.\scripts\auto-sync-build-clean.ps1 -Force
 
 # 预演模式（查看将要执行的操作）
-.\scripts\auto-sync-and-build.ps1 -DryRun
+.\scripts\auto-sync-build-clean.ps1 -DryRun
 ```
 
 ### Linux/Mac (Bash)
