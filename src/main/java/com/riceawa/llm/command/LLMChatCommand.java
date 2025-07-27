@@ -365,9 +365,20 @@ public class LLMChatCommand {
             } else {
                 player.sendMessage(Text.literal("⚠️ 配置验证失败，请检查以下问题:").formatted(Formatting.YELLOW), false);
                 Provider currentProvider = config.getCurrentProviderConfig();
-                if (currentProvider != null && (currentProvider.getApiKey().contains("your-") || currentProvider.getApiKey().contains("-api-key-here"))) {
-                    player.sendMessage(Text.literal("• 当前服务提供商 '" + config.getCurrentProvider() + "' 的API密钥仍为默认占位符，需要设置真实的API密钥").formatted(Formatting.GRAY), false);
+                if (currentProvider != null) {
+                    String apiKey = currentProvider.getApiKey();
+                    if (apiKey != null && (apiKey.contains("your-") || apiKey.contains("-api-key-here"))) {
+                        player.sendMessage(Text.literal("• 当前服务提供商 '" + config.getCurrentProvider() + "' 的API密钥仍为默认占位符，需要设置真实的API密钥").formatted(Formatting.GRAY), false);
+                    }
+                } else {
+                    player.sendMessage(Text.literal("• 当前服务提供商配置无效或不存在，请检查配置文件").formatted(Formatting.GRAY), false);
                 }
+
+                // 检查是否有任何有效的provider
+                if (!config.hasAnyValidProvider()) {
+                    player.sendMessage(Text.literal("• 没有找到有效配置的服务提供商，请至少配置一个API密钥").formatted(Formatting.GRAY), false);
+                }
+
                 player.sendMessage(Text.literal("使用 /llmchat setup 查看配置向导").formatted(Formatting.GRAY), false);
             }
 
@@ -1165,7 +1176,8 @@ public class LLMChatCommand {
         player.sendMessage(Text.literal("🔧 可用的服务提供商:").formatted(Formatting.AQUA), false);
         List<Provider> providers = config.getProviders();
         for (Provider provider : providers) {
-            String status = provider.getApiKey().contains("your-") || provider.getApiKey().contains("-api-key-here")
+            String apiKey = provider.getApiKey();
+            String status = (apiKey != null && (apiKey.contains("your-") || apiKey.contains("-api-key-here")))
                 ? "❌ 需要配置API密钥" : "✅ 已配置";
             player.sendMessage(Text.literal("• " + provider.getName() + " - " + status).formatted(Formatting.WHITE), false);
         }

@@ -286,8 +286,19 @@ public class LLMChatConfig {
         defaultProviders.add(deepseekProvider);
 
         this.providers = defaultProviders;
-        this.currentProvider = "openai"; // 默认使用OpenAI
-        this.currentModel = "gpt-3.5-turbo"; // 默认模型
+
+        // 智能选择默认provider：优先选择有效配置的，否则选择第一个
+        Provider validProvider = getFirstValidProvider();
+        if (validProvider != null) {
+            this.currentProvider = validProvider.getName();
+        } else if (!defaultProviders.isEmpty()) {
+            this.currentProvider = defaultProviders.get(0).getName();
+        } else {
+            this.currentProvider = "";
+        }
+
+        // 设置默认模型
+        this.currentModel = getDefaultModelForCurrentProvider();
     }
 
     /**
@@ -570,7 +581,32 @@ public class LLMChatConfig {
     }
 
     public void removeProvider(String providerName) {
+        // 检查是否要删除当前provider
+        boolean removingCurrentProvider = providerName.equals(currentProvider);
+
+        // 删除provider
         providers.removeIf(p -> p.getName().equals(providerName));
+
+        // 如果删除的是当前provider，需要切换到其他provider
+        if (removingCurrentProvider) {
+            if (!providers.isEmpty()) {
+                // 优先选择第一个有效配置的provider
+                Provider validProvider = getFirstValidProvider();
+                if (validProvider != null) {
+                    this.currentProvider = validProvider.getName();
+                } else {
+                    // 如果没有有效配置的provider，选择第一个
+                    this.currentProvider = providers.get(0).getName();
+                }
+                // 更新当前模型
+                this.currentModel = getDefaultModelForCurrentProvider();
+            } else {
+                // 如果没有provider了，清空当前设置
+                this.currentProvider = "";
+                this.currentModel = "";
+            }
+        }
+
         saveConfig();
     }
 
@@ -628,40 +664,85 @@ public class LLMChatConfig {
 
 
     /**
-     * 检查是否是第一次使用（API密钥未配置）
+     * 检查单个provider是否有效配置（API密钥不是默认值）
      */
-    public boolean isFirstTimeUse() {
-        // 获取当前provider配置
-        Provider currentProviderConfig = getCurrentProviderConfig();
-        if (currentProviderConfig == null) {
-            return true; // 没有当前provider，认为是第一次使用
+    private boolean isProviderValid(Provider provider) {
+        if (provider == null) {
+            return false;
         }
 
-        String apiKey = currentProviderConfig.getApiKey();
+        String apiKey = provider.getApiKey();
         if (apiKey == null || apiKey.trim().isEmpty()) {
-            return true; // API密钥为空，认为是第一次使用
+            return false;
         }
 
         // 检查是否为默认占位符
-        return apiKey.contains("your-") || apiKey.contains("-api-key-here");
+        return !apiKey.contains("your-") && !apiKey.contains("-api-key-here");
+    }
+
+    /**
+     * 检查是否有任何有效的provider配置
+     */
+    public boolean hasAnyValidProvider() {
+        if (providers == null || providers.isEmpty()) {
+            return false;
+        }
+
+        return providers.stream().anyMatch(this::isProviderValid);
+    }
+
+    /**
+     * 获取第一个有效配置的provider
+     */
+    public Provider getFirstValidProvider() {
+        if (providers == null || providers.isEmpty()) {
+            return null;
+        }
+
+        return providers.stream()
+                .filter(this::isProviderValid)
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * 检查是否是第一次使用（所有API密钥都未配置）
+     */
+    public boolean isFirstTimeUse() {
+        // 如果没有任何providers，认为是第一次使用
+        if (providers == null || providers.isEmpty()) {
+            return true;
+        }
+
+        // 检查是否有任何有效配置的provider
+        return !hasAnyValidProvider();
     }
 
     /**
      * 检查当前配置是否有效（用于配置验证）
      */
     public boolean isConfigurationValid() {
+        // 检查是否有任何有效的provider
+        if (!hasAnyValidProvider()) {
+            return false;
+        }
+
+        // 检查当前provider是否有效
         Provider currentProviderConfig = getCurrentProviderConfig();
         if (currentProviderConfig == null) {
+            // 如果当前provider无效，但有其他有效provider，尝试自动切换
+            Provider validProvider = getFirstValidProvider();
+            if (validProvider != null) {
+                this.currentProvider = validProvider.getName();
+                this.currentModel = getDefaultModelForCurrentProvider();
+                saveConfig();
+                return true;
+            }
             return false;
         }
 
-        String apiKey = currentProviderConfig.getApiKey();
-        if (apiKey == null || apiKey.trim().isEmpty()) {
-            return false;
-        }
-
-        // 检查是否为默认占位符
-        if (apiKey.contains("your-") || apiKey.contains("-api-key-here")) {
+        // 检查当前provider是否有效配置
+        if (!isProviderValid(currentProviderConfig)) {
             return false;
         }
 
@@ -691,9 +772,16 @@ public class LLMChatConfig {
             updated = true;
         }
 
-        if (currentProvider == null || currentProvider.isEmpty()) {
+        // 检查currentProvider是否有效
+        if (currentProvider == null || currentProvider.isEmpty() || getProvider(currentProvider) == null) {
             if (!providers.isEmpty()) {
-                currentProvider = providers.get(0).getName();
+                // 优先选择有效配置的provider
+                Provider validProvider = getFirstValidProvider();
+                if (validProvider != null) {
+                    currentProvider = validProvider.getName();
+                } else {
+                    currentProvider = providers.get(0).getName();
+                }
                 updated = true;
             }
         }
