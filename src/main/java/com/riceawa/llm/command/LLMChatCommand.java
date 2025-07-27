@@ -69,14 +69,18 @@ public class LLMChatCommand {
                                 .executes(LLMChatCommand::handleListTemplates))
                         .then(CommandManager.literal("set")
                                 .then(CommandManager.argument("template", StringArgumentType.word())
-                                        .executes(LLMChatCommand::handleSetTemplate))))
+                                        .executes(LLMChatCommand::handleSetTemplate)))
+                        .then(CommandManager.literal("help")
+                                .executes(LLMChatCommand::handleTemplateHelp)))
 
                 .then(CommandManager.literal("provider")
                         .then(CommandManager.literal("list")
                                 .executes(LLMChatCommand::handleListProviders))
                         .then(CommandManager.literal("switch")
                                 .then(CommandManager.argument("provider", StringArgumentType.word())
-                                        .executes(LLMChatCommand::handleSwitchProvider))))
+                                        .executes(LLMChatCommand::handleSwitchProvider)))
+                        .then(CommandManager.literal("help")
+                                .executes(LLMChatCommand::handleProviderHelp)))
                 .then(CommandManager.literal("model")
                         .then(CommandManager.literal("list")
                                 .executes(LLMChatCommand::handleListModels)
@@ -84,7 +88,9 @@ public class LLMChatCommand {
                                         .executes(LLMChatCommand::handleListModelsForProvider)))
                         .then(CommandManager.literal("set")
                                 .then(CommandManager.argument("model", StringArgumentType.word())
-                                        .executes(LLMChatCommand::handleSetCurrentModel))))
+                                        .executes(LLMChatCommand::handleSetCurrentModel)))
+                        .then(CommandManager.literal("help")
+                                .executes(LLMChatCommand::handleModelHelp)))
                 .then(CommandManager.literal("broadcast")
                         .then(CommandManager.literal("enable")
                                 .executes(LLMChatCommand::handleEnableBroadcast))
@@ -102,7 +108,11 @@ public class LLMChatCommand {
                                 .then(CommandManager.literal("list")
                                         .executes(LLMChatCommand::handleListBroadcastPlayers))
                                 .then(CommandManager.literal("clear")
-                                        .executes(LLMChatCommand::handleClearBroadcastPlayers))))
+                                        .executes(LLMChatCommand::handleClearBroadcastPlayers))
+                                .then(CommandManager.literal("help")
+                                        .executes(LLMChatCommand::handleBroadcastPlayerHelp)))
+                        .then(CommandManager.literal("help")
+                                .executes(LLMChatCommand::handleBroadcastHelp)))
                 .then(CommandManager.literal("reload")
                         .executes(LLMChatCommand::handleReload))
                 .then(CommandManager.literal("setup")
@@ -442,39 +452,45 @@ public class LLMChatCommand {
     }
 
     /**
-     * 处理帮助命令
+     * 处理主帮助命令 - 显示一级子命令概览
      */
     private static int handleHelp(CommandContext<ServerCommandSource> context) {
         ServerCommandSource source = context.getSource();
         PlayerEntity player = source.getPlayer();
-        
+
         if (player == null) {
             source.sendError(Text.literal("此命令只能由玩家执行"));
             return 0;
         }
 
         player.sendMessage(Text.literal("=== LLM Chat 帮助 ===").formatted(Formatting.GOLD), false);
-        player.sendMessage(Text.literal("/llmchat <消息> - 发送消息给AI助手").formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("/llmchat clear - 清空聊天历史").formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("/llmchat template list - 列出所有模板").formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("/llmchat template set <模板> - 设置提示词模板").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal(""), false);
 
-        player.sendMessage(Text.literal("/llmchat provider list - 列出所有providers").formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("/llmchat provider switch <provider> - 切换provider (仅OP)").formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("/llmchat model list [provider] - 列出模型").formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("/llmchat model set <model> - 设置当前模型 (仅OP)").formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("/llmchat broadcast enable - 开启AI聊天广播 (仅OP)").formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("/llmchat broadcast disable - 关闭AI聊天广播 (仅OP)").formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("/llmchat broadcast status - 查看广播状态").formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("/llmchat broadcast player add <玩家> - 添加玩家到广播列表 (仅OP)").formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("/llmchat broadcast player remove <玩家> - 从广播列表移除玩家 (仅OP)").formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("/llmchat broadcast player list - 查看广播玩家列表").formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("/llmchat broadcast player clear - 清空广播玩家列表 (仅OP)").formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("/llmchat reload - 重载配置并尝试恢复 (仅OP)").formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("/llmchat setup - 显示配置向导").formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("/llmchat stats - 显示并发统计信息").formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("/llmchat help - 显示此帮助").formatted(Formatting.WHITE), false);
-        
+        // 基本命令
+        player.sendMessage(Text.literal("📝 基本命令:").formatted(Formatting.AQUA), false);
+        player.sendMessage(Text.literal("  /llmchat <消息> - 发送消息给AI助手").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat clear - 清空聊天历史").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat resume - 恢复上次对话内容").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal(""), false);
+
+        // 子命令分类
+        player.sendMessage(Text.literal("🔧 功能模块 (使用 /llmchat <模块> help 查看详细帮助):").formatted(Formatting.AQUA), false);
+        player.sendMessage(Text.literal("  template - 提示词模板管理").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  provider - AI服务提供商管理").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  model - AI模型管理").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  broadcast - AI聊天广播功能").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal(""), false);
+
+        // 系统命令
+        player.sendMessage(Text.literal("⚙️ 系统命令:").formatted(Formatting.AQUA), false);
+        player.sendMessage(Text.literal("  /llmchat setup - 显示配置向导").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat stats - 显示系统统计信息").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat reload - 重载配置 (仅OP)").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal(""), false);
+
+        // 提示信息
+        player.sendMessage(Text.literal("💡 提示: 使用 /llmchat <子命令> help 查看具体功能的详细帮助").formatted(Formatting.YELLOW), false);
+
         return 1;
     }
 
@@ -1272,6 +1288,143 @@ public class LLMChatCommand {
         LLMChatConfig config = LLMChatConfig.getInstance();
         config.clearBroadcastPlayers();
         player.sendMessage(Text.literal("已清空广播玩家列表").formatted(Formatting.YELLOW), false);
+
+        return 1;
+    }
+
+    /**
+     * 处理template子命令帮助
+     */
+    private static int handleTemplateHelp(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        player.sendMessage(Text.literal("=== 提示词模板管理 ===").formatted(Formatting.GOLD), false);
+        player.sendMessage(Text.literal(""), false);
+        player.sendMessage(Text.literal("📝 可用命令:").formatted(Formatting.AQUA), false);
+        player.sendMessage(Text.literal("  /llmchat template list - 列出所有可用的提示词模板").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat template set <模板ID> - 切换到指定的提示词模板").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal(""), false);
+        player.sendMessage(Text.literal("💡 说明:").formatted(Formatting.YELLOW), false);
+        player.sendMessage(Text.literal("  • 提示词模板定义了AI的角色和行为风格").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • 内置模板包括: default, creative, survival, redstone, mod等").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • 可在 config/lllmchat/prompt_templates.json 中自定义模板").formatted(Formatting.GRAY), false);
+
+        return 1;
+    }
+
+    /**
+     * 处理provider子命令帮助
+     */
+    private static int handleProviderHelp(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        player.sendMessage(Text.literal("=== AI服务提供商管理 ===").formatted(Formatting.GOLD), false);
+        player.sendMessage(Text.literal(""), false);
+        player.sendMessage(Text.literal("📡 可用命令:").formatted(Formatting.AQUA), false);
+        player.sendMessage(Text.literal("  /llmchat provider list - 列出所有配置的AI服务提供商").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat provider switch <provider> - 切换到指定的服务提供商 (仅OP)").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal(""), false);
+        player.sendMessage(Text.literal("💡 说明:").formatted(Formatting.YELLOW), false);
+        player.sendMessage(Text.literal("  • 支持多个AI服务: OpenAI, OpenRouter, DeepSeek等").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • 每个provider需要配置API密钥和支持的模型").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • 切换provider会自动设置为该provider的第一个模型").formatted(Formatting.GRAY), false);
+
+        return 1;
+    }
+
+    /**
+     * 处理model子命令帮助
+     */
+    private static int handleModelHelp(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        player.sendMessage(Text.literal("=== AI模型管理 ===").formatted(Formatting.GOLD), false);
+        player.sendMessage(Text.literal(""), false);
+        player.sendMessage(Text.literal("🤖 可用命令:").formatted(Formatting.AQUA), false);
+        player.sendMessage(Text.literal("  /llmchat model list - 列出当前provider支持的所有模型").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat model list <provider> - 列出指定provider支持的模型").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat model set <模型名> - 设置当前使用的AI模型 (仅OP)").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal(""), false);
+        player.sendMessage(Text.literal("💡 说明:").formatted(Formatting.YELLOW), false);
+        player.sendMessage(Text.literal("  • 不同模型有不同的能力和成本").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • 高级模型(如GPT-4)质量更好但成本更高").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • 可配置专用压缩模型来优化成本").formatted(Formatting.GRAY), false);
+
+        return 1;
+    }
+
+    /**
+     * 处理broadcast子命令帮助
+     */
+    private static int handleBroadcastHelp(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        player.sendMessage(Text.literal("=== AI聊天广播功能 ===").formatted(Formatting.GOLD), false);
+        player.sendMessage(Text.literal(""), false);
+        player.sendMessage(Text.literal("📢 基本命令:").formatted(Formatting.AQUA), false);
+        player.sendMessage(Text.literal("  /llmchat broadcast enable - 开启AI聊天广播 (仅OP)").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat broadcast disable - 关闭AI聊天广播 (仅OP)").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat broadcast status - 查看当前广播状态").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal(""), false);
+        player.sendMessage(Text.literal("👥 玩家管理:").formatted(Formatting.AQUA), false);
+        player.sendMessage(Text.literal("  /llmchat broadcast player help - 查看玩家管理命令详情").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal(""), false);
+        player.sendMessage(Text.literal("💡 说明:").formatted(Formatting.YELLOW), false);
+        player.sendMessage(Text.literal("  • 开启后，AI对话将对全服玩家可见").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • 可以设置特定玩家列表进行精确控制").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • 默认关闭以保护玩家隐私").formatted(Formatting.GRAY), false);
+
+        return 1;
+    }
+
+    /**
+     * 处理broadcast player子命令帮助
+     */
+    private static int handleBroadcastPlayerHelp(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        player.sendMessage(Text.literal("=== 广播玩家管理 ===").formatted(Formatting.GOLD), false);
+        player.sendMessage(Text.literal(""), false);
+        player.sendMessage(Text.literal("👥 可用命令:").formatted(Formatting.AQUA), false);
+        player.sendMessage(Text.literal("  /llmchat broadcast player add <玩家名> - 添加玩家到广播列表 (仅OP)").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat broadcast player remove <玩家名> - 从广播列表移除玩家 (仅OP)").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat broadcast player list - 查看当前广播玩家列表").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat broadcast player clear - 清空广播玩家列表 (仅OP)").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal(""), false);
+        player.sendMessage(Text.literal("💡 广播模式说明:").formatted(Formatting.YELLOW), false);
+        player.sendMessage(Text.literal("  • 列表为空: 广播所有玩家的AI对话 (全局模式)").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • 列表不为空: 只广播列表中玩家的AI对话 (特定玩家模式)").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • 可以根据需要灵活控制广播范围").formatted(Formatting.GRAY), false);
 
         return 1;
     }
