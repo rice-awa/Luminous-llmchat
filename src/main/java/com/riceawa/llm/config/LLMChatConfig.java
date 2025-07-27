@@ -589,6 +589,48 @@ public class LLMChatConfig {
 
 
     /**
+     * 检查是否是第一次使用（API密钥未配置）
+     */
+    public boolean isFirstTimeUse() {
+        // 获取当前provider配置
+        Provider currentProviderConfig = getCurrentProviderConfig();
+        if (currentProviderConfig == null) {
+            return true; // 没有当前provider，认为是第一次使用
+        }
+
+        String apiKey = currentProviderConfig.getApiKey();
+        if (apiKey == null || apiKey.trim().isEmpty()) {
+            return true; // API密钥为空，认为是第一次使用
+        }
+
+        // 检查是否为默认占位符
+        return apiKey.contains("your-") || apiKey.contains("-api-key-here");
+    }
+
+    /**
+     * 检查当前配置是否有效（用于配置验证）
+     */
+    public boolean isConfigurationValid() {
+        Provider currentProviderConfig = getCurrentProviderConfig();
+        if (currentProviderConfig == null) {
+            return false;
+        }
+
+        String apiKey = currentProviderConfig.getApiKey();
+        if (apiKey == null || apiKey.trim().isEmpty()) {
+            return false;
+        }
+
+        // 检查是否为默认占位符
+        if (apiKey.contains("your-") || apiKey.contains("-api-key-here")) {
+            return false;
+        }
+
+        // 检查模型是否设置
+        return currentModel != null && !currentModel.trim().isEmpty();
+    }
+
+    /**
      * 简化的配置恢复功能
      */
     public boolean validateAndCompleteConfig() {
