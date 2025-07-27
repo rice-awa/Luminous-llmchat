@@ -325,7 +325,7 @@ public class LLMChatConfig {
         this.defaultPromptTemplate = data.defaultPromptTemplate != null ? data.defaultPromptTemplate : "default";
         this.defaultTemperature = data.defaultTemperature != null ? data.defaultTemperature : 0.7;
         this.defaultMaxTokens = data.defaultMaxTokens != null ? data.defaultMaxTokens : 8192;
-        this.maxContextLength = data.maxContextLength != null ? data.maxContextLength : 8192;
+        this.maxContextLength = data.maxContextLength != null ? data.maxContextLength : 32768;
         this.enableHistory = data.enableHistory != null ? data.enableHistory : true;
         this.enableFunctionCalling = data.enableFunctionCalling != null ? data.enableFunctionCalling : true;
         this.enableBroadcast = data.enableBroadcast != null ? data.enableBroadcast : false;
