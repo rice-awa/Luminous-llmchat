@@ -14,6 +14,7 @@ import com.riceawa.llm.function.LLMFunction;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.riceawa.llm.history.ChatHistory;
+import com.riceawa.llm.history.ChatHistory.ChatSession;
 import com.riceawa.llm.logging.LogManager;
 import com.riceawa.llm.service.LLMServiceManager;
 import com.riceawa.llm.template.PromptTemplate;
@@ -61,6 +62,8 @@ public class LLMChatCommand {
                         .executes(LLMChatCommand::handleChatMessage))
                 .then(CommandManager.literal("clear")
                         .executes(LLMChatCommand::handleClearHistory))
+                .then(CommandManager.literal("resume")
+                        .executes(LLMChatCommand::handleResume))
                 .then(CommandManager.literal("template")
                         .then(CommandManager.literal("list")
                                 .executes(LLMChatCommand::handleListTemplates))
@@ -151,7 +154,7 @@ public class LLMChatCommand {
     private static int handleClearHistory(CommandContext<ServerCommandSource> context) {
         ServerCommandSource source = context.getSource();
         PlayerEntity player = source.getPlayer();
-        
+
         if (player == null) {
             source.sendError(Text.literal("此命令只能由玩家执行"));
             return 0;
@@ -159,7 +162,88 @@ public class LLMChatCommand {
 
         ChatContextManager.getInstance().clearContext(player);
         player.sendMessage(Text.literal("聊天历史已清空").formatted(Formatting.GREEN), false);
-        
+
+        return 1;
+    }
+
+    /**
+     * 处理恢复上次对话
+     */
+    private static int handleResume(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        try {
+            ChatHistory chatHistory = ChatHistory.getInstance();
+            List<ChatSession> sessions = chatHistory.loadPlayerHistory(player.getUuid());
+
+            if (sessions == null || sessions.isEmpty()) {
+                player.sendMessage(Text.literal("没有找到历史对话记录").formatted(Formatting.YELLOW), false);
+                return 1;
+            }
+
+            // 获取最近的会话
+            ChatSession lastSession = sessions.get(sessions.size() - 1);
+
+            // 获取当前上下文
+            ChatContextManager contextManager = ChatContextManager.getInstance();
+            ChatContext currentContext = contextManager.getContext(player);
+
+            // 检查当前上下文是否为空
+            if (currentContext.getMessageCount() > 0) {
+                player.sendMessage(Text.literal("当前对话不为空，请先使用 /llmchat clear 清空当前对话")
+                    .formatted(Formatting.RED), false);
+                return 0;
+            }
+
+            // 恢复历史对话
+            List<LLMMessage> historyMessages = lastSession.getMessages();
+            if (historyMessages != null && !historyMessages.isEmpty()) {
+                // 将历史消息添加到当前上下文
+                for (LLMMessage message : historyMessages) {
+                    currentContext.addMessage(message);
+                }
+
+                // 设置提示词模板
+                if (lastSession.getPromptTemplate() != null && !lastSession.getPromptTemplate().isEmpty()) {
+                    currentContext.setCurrentPromptTemplate(lastSession.getPromptTemplate());
+                }
+
+                player.sendMessage(Text.literal("已恢复上次对话，共 " + historyMessages.size() + " 条消息")
+                    .formatted(Formatting.GREEN), false);
+
+                // 显示最后几条消息作为预览
+                int previewCount = Math.min(3, historyMessages.size());
+                player.sendMessage(Text.literal("最近的对话内容:").formatted(Formatting.AQUA), false);
+
+                for (int i = historyMessages.size() - previewCount; i < historyMessages.size(); i++) {
+                    LLMMessage msg = historyMessages.get(i);
+                    String roleText = msg.getRole() == LLMMessage.MessageRole.USER ? "你" : "AI";
+                    String content = msg.getContent();
+                    if (content.length() > 100) {
+                        content = content.substring(0, 100) + "...";
+                    }
+                    player.sendMessage(Text.literal("  " + roleText + ": " + content)
+                        .formatted(Formatting.GRAY), false);
+                }
+
+                LogManager.getInstance().chat("Player " + player.getName().getString() +
+                    " resumed chat session with " + historyMessages.size() + " messages");
+            } else {
+                player.sendMessage(Text.literal("历史对话记录为空").formatted(Formatting.YELLOW), false);
+            }
+
+        } catch (Exception e) {
+            player.sendMessage(Text.literal("恢复对话时发生错误: " + e.getMessage())
+                .formatted(Formatting.RED), false);
+            LogManager.getInstance().error("Error resuming chat for player " + player.getName().getString(), e);
+        }
+
         return 1;
     }
 
@@ -445,6 +529,14 @@ public class LLMChatCommand {
 
         // 处理用户消息
         String processedMessage = template != null ? template.renderUserMessage(message) : message;
+
+        // 检查是否会触发上下文压缩并发送通知
+        if (config.isEnableCompressionNotification() &&
+            chatContext.getMessageCount() >= chatContext.getMaxContextLength()) {
+            serverPlayer.sendMessage(Text.literal("⚠️ 已达到最大上下文长度，您的之前上下文将被压缩")
+                .formatted(Formatting.YELLOW), false);
+        }
+
         chatContext.addUserMessage(processedMessage);
 
         // 构建LLM配置

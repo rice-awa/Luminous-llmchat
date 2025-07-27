@@ -2,14 +2,36 @@ package com.riceawa.llm.context;
 
 import com.riceawa.llm.core.LLMMessage;
 import com.riceawa.llm.core.LLMMessage.MessageRole;
+import com.riceawa.llm.core.LLMService;
+import com.riceawa.llm.core.LLMConfig;
+import com.riceawa.llm.core.LLMResponse;
+import com.riceawa.llm.service.LLMServiceManager;
+import com.riceawa.llm.config.LLMChatConfig;
+import com.riceawa.llm.logging.LogManager;
 import net.minecraft.entity.player.PlayerEntity;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * 聊天上下文管理器，管理每个玩家的对话状态
  */
 public class ChatContext {
+
+    /**
+     * 上下文事件通知接口
+     */
+    public interface ContextEventListener {
+        /**
+         * 当上下文即将被压缩时调用
+         */
+        void onContextCompressionStarted(UUID playerId, int messagesToCompress);
+
+        /**
+         * 当上下文压缩完成时调用
+         */
+        void onContextCompressionCompleted(UUID playerId, boolean success, int originalCount, int compressedCount);
+    }
     private final String sessionId;
     private final UUID playerId;
     private final List<LLMMessage> messages;
@@ -17,6 +39,7 @@ public class ChatContext {
     private String currentPromptTemplate;
     private int maxContextLength;
     private long lastActivity;
+    private ContextEventListener eventListener;
 
     public ChatContext(UUID playerId) {
         this.sessionId = UUID.randomUUID().toString();
@@ -24,7 +47,7 @@ public class ChatContext {
         this.messages = new ArrayList<>();
         this.metadata = new ConcurrentHashMap<>();
         this.currentPromptTemplate = "default";
-        this.maxContextLength = 4000; // 默认最大上下文长度
+        this.maxContextLength = 32768; // 默认最大上下文长度
         this.lastActivity = System.currentTimeMillis();
     }
 
@@ -96,6 +119,7 @@ public class ChatContext {
 
     /**
      * 修剪上下文，保持在最大长度内
+     * 使用智能压缩而不是简单删除
      */
     private void trimContext() {
         if (messages.size() <= maxContextLength) {
@@ -117,8 +141,62 @@ public class ChatContext {
         // 计算需要保留的非系统消息数量
         int maxOtherMessages = maxContextLength - systemMessages.size();
         if (otherMessages.size() > maxOtherMessages) {
+            // 计算需要压缩的消息数量
+            int messagesToCompress = otherMessages.size() - maxOtherMessages + (maxOtherMessages / 4); // 压缩前1/4的消息
+
+            if (messagesToCompress > 0) {
+                // 通知监听器压缩即将开始
+                if (eventListener != null) {
+                    eventListener.onContextCompressionStarted(playerId, messagesToCompress);
+                }
+
+                // 尝试压缩旧消息
+                List<LLMMessage> messagesToCompressSublist = otherMessages.subList(0, messagesToCompress);
+                String compressedSummary = compressMessages(messagesToCompressSublist);
+
+                if (compressedSummary != null && !compressedSummary.trim().isEmpty()) {
+                    // 压缩成功，用摘要替换旧消息
+                    List<LLMMessage> remainingMessages = otherMessages.subList(messagesToCompress, otherMessages.size());
+
+                    // 重新构建消息列表
+                    messages.clear();
+                    messages.addAll(systemMessages);
+
+                    // 添加压缩摘要作为系统消息
+                    messages.add(new LLMMessage(MessageRole.SYSTEM,
+                        "=== 对话历史摘要 ===\n" + compressedSummary + "\n=== 以下是最近的对话 ==="));
+
+                    messages.addAll(remainingMessages);
+
+                    LogManager.getInstance().system("Context compressed for session " + sessionId +
+                        ", compressed " + messagesToCompress + " messages into summary");
+
+                    // 通知监听器压缩成功
+                    if (eventListener != null) {
+                        eventListener.onContextCompressionCompleted(playerId, true,
+                            messagesToCompress, messages.size());
+                    }
+                } else {
+                    // 压缩失败，回退到简单删除
+                    fallbackTrimContext(systemMessages, otherMessages, maxOtherMessages);
+
+                    // 通知监听器压缩失败
+                    if (eventListener != null) {
+                        eventListener.onContextCompressionCompleted(playerId, false,
+                            messagesToCompress, messages.size());
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 回退的上下文修剪方法（简单删除）
+     */
+    private void fallbackTrimContext(List<LLMMessage> systemMessages, List<LLMMessage> otherMessages, int maxOtherMessages) {
+        if (otherMessages.size() > maxOtherMessages) {
             otherMessages = otherMessages.subList(
-                otherMessages.size() - maxOtherMessages, 
+                otherMessages.size() - maxOtherMessages,
                 otherMessages.size()
             );
         }
@@ -127,6 +205,63 @@ public class ChatContext {
         messages.clear();
         messages.addAll(systemMessages);
         messages.addAll(otherMessages);
+
+        LogManager.getInstance().system("Context trimmed using fallback method for session " + sessionId);
+    }
+
+    /**
+     * 压缩消息列表为摘要
+     */
+    private String compressMessages(List<LLMMessage> messagesToCompress) {
+        try {
+            LLMServiceManager serviceManager = LLMServiceManager.getInstance();
+            LLMService llmService = serviceManager.getDefaultService();
+
+            if (llmService == null || !llmService.isAvailable()) {
+                LogManager.getInstance().error("LLM service not available for context compression");
+                return null;
+            }
+
+            // 构建压缩提示词
+            StringBuilder conversationText = new StringBuilder();
+            for (LLMMessage message : messagesToCompress) {
+                String roleText = message.getRole() == MessageRole.USER ? "用户" : "助手";
+                conversationText.append(roleText).append(": ").append(message.getContent()).append("\n");
+            }
+
+            String compressionPrompt = "请将以下对话内容压缩成一个简洁的摘要，保留关键信息和上下文：\n\n" +
+                conversationText.toString() +
+                "\n请用中文回复，摘要应该简洁明了，突出重点内容和讨论的主要话题。";
+
+            // 构建压缩请求
+            List<LLMMessage> compressionMessages = new ArrayList<>();
+            compressionMessages.add(new LLMMessage(MessageRole.USER, compressionPrompt));
+
+            LLMConfig compressionConfig = new LLMConfig();
+            LLMChatConfig config = LLMChatConfig.getInstance();
+            compressionConfig.setModel(config.getEffectiveCompressionModel()); // 使用配置的压缩模型
+            compressionConfig.setTemperature(0.3); // 使用较低的温度以获得更一致的摘要
+            compressionConfig.setMaxTokens(512); // 限制摘要长度
+
+            // 同步调用LLM进行压缩
+            CompletableFuture<LLMResponse> future = llmService.chat(compressionMessages, compressionConfig);
+            LLMResponse response = future.get(); // 阻塞等待结果
+
+            if (response.isSuccess()) {
+                String summary = response.getContent();
+                if (summary != null && !summary.trim().isEmpty()) {
+                    LogManager.getInstance().system("Successfully compressed " + messagesToCompress.size() +
+                        " messages into summary for session " + sessionId);
+                    return summary.trim();
+                }
+            } else {
+                LogManager.getInstance().error("Failed to compress context: " + response.getError());
+            }
+        } catch (Exception e) {
+            LogManager.getInstance().error("Error during context compression for session " + sessionId, e);
+        }
+
+        return null;
     }
 
     /**
@@ -207,5 +342,19 @@ public class ChatContext {
 
     public int getMessageCount() {
         return messages.size();
+    }
+
+    /**
+     * 设置上下文事件监听器
+     */
+    public void setEventListener(ContextEventListener eventListener) {
+        this.eventListener = eventListener;
+    }
+
+    /**
+     * 获取上下文事件监听器
+     */
+    public ContextEventListener getEventListener() {
+        return eventListener;
     }
 }

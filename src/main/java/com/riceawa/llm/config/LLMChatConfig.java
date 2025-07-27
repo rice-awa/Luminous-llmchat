@@ -32,12 +32,16 @@ public class LLMChatConfig {
     private String defaultPromptTemplate = "default";
     private double defaultTemperature = 0.7;
     private int defaultMaxTokens = 8192;
-    private int maxContextLength = 8192;
+    private int maxContextLength = 32768;
     private boolean enableHistory = true;
     private boolean enableFunctionCalling = false;
     private boolean enableBroadcast = false;
     private Set<String> broadcastPlayers = new HashSet<>();
     private int historyRetentionDays = 30;
+
+    // 上下文压缩配置
+    private String compressionModel = ""; // 用于压缩上下文的模型，空字符串表示使用当前模型
+    private boolean enableCompressionNotification = true; // 是否启用压缩通知
 
     // 全局上下文配置
     private boolean enableGlobalContext = true;
@@ -320,6 +324,10 @@ public class LLMChatConfig {
         this.globalContextPrompt = data.globalContextPrompt != null ? data.globalContextPrompt :
             "=== 当前游戏环境信息 ===\n发起者：{{player_name}}\n当前时间：{{current_time}}\n在线玩家（{{player_count}}人）：{{online_players}}\n游戏版本：{{game_version}}";
 
+        // 处理上下文压缩配置
+        this.compressionModel = data.compressionModel != null ? data.compressionModel : "";
+        this.enableCompressionNotification = data.enableCompressionNotification != null ? data.enableCompressionNotification : true;
+
         // 处理并发配置
         this.concurrencySettings = data.concurrencySettings != null ? data.concurrencySettings : ConcurrencySettings.createDefault();
 
@@ -357,6 +365,8 @@ public class LLMChatConfig {
         data.historyRetentionDays = this.historyRetentionDays;
         data.enableGlobalContext = this.enableGlobalContext;
         data.globalContextPrompt = this.globalContextPrompt;
+        data.compressionModel = this.compressionModel;
+        data.enableCompressionNotification = this.enableCompressionNotification;
         data.concurrencySettings = this.concurrencySettings;
         data.logConfig = this.logConfig;
         data.providers = this.providers;
@@ -489,6 +499,35 @@ public class LLMChatConfig {
     public void setGlobalContextPrompt(String globalContextPrompt) {
         this.globalContextPrompt = globalContextPrompt != null ? globalContextPrompt : "";
         saveConfig();
+    }
+
+    // 上下文压缩配置相关方法
+    public String getCompressionModel() {
+        return compressionModel;
+    }
+
+    public void setCompressionModel(String compressionModel) {
+        this.compressionModel = compressionModel != null ? compressionModel : "";
+        saveConfig();
+    }
+
+    public boolean isEnableCompressionNotification() {
+        return enableCompressionNotification;
+    }
+
+    public void setEnableCompressionNotification(boolean enableCompressionNotification) {
+        this.enableCompressionNotification = enableCompressionNotification;
+        saveConfig();
+    }
+
+    /**
+     * 获取用于压缩的模型，如果未设置则返回当前模型
+     */
+    public String getEffectiveCompressionModel() {
+        if (compressionModel == null || compressionModel.trim().isEmpty()) {
+            return getCurrentModel();
+        }
+        return compressionModel;
     }
 
     // 并发配置相关方法
@@ -705,6 +744,10 @@ public class LLMChatConfig {
         // 全局上下文配置
         Boolean enableGlobalContext;
         String globalContextPrompt;
+
+        // 上下文压缩配置
+        String compressionModel;
+        Boolean enableCompressionNotification;
 
         // 并发配置
         ConcurrencySettings concurrencySettings;
