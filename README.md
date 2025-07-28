@@ -131,7 +131,7 @@
 - Typesafe Config (配置管理)
 
 ### 许可证
-本项目采用 MIT 许可证。
+本项目采用 [MIT](./LICENSE) 许可证。
 
 ### 贡献
 欢迎提交Issue和Pull Request来改进这个模组！

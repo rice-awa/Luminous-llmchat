@@ -15,7 +15,7 @@ public class ConfigDefaults {
     public static final String DEFAULT_PROMPT_TEMPLATE = "default";
     public static final double DEFAULT_TEMPERATURE = 0.7;
     public static final int DEFAULT_MAX_TOKENS = 8192;
-    public static final int DEFAULT_MAX_CONTEXT_CHARACTERS = 100000;
+    public static final int DEFAULT_MAX_CONTEXT_CHARACTERS = 60000;
     public static final boolean DEFAULT_ENABLE_HISTORY = true;
     public static final boolean DEFAULT_ENABLE_FUNCTION_CALLING = false;
     public static final boolean DEFAULT_ENABLE_BROADCAST = false;

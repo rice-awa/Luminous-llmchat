@@ -1,3 +1,4 @@
+package com.riceawa.llm.config;
 /**
  * 调试配置问题的简单测试
  */
