@@ -156,6 +156,15 @@ public class LLMChatConfig {
      */
     public void reload() {
         loadConfig();
+
+        // 重载配置后，更新现有的上下文实例
+        if (!isInitializing) {
+            try {
+                com.riceawa.llm.context.ChatContextManager.getInstance().updateMaxContextLength();
+            } catch (Exception e) {
+                System.err.println("Failed to update existing contexts after reload: " + e.getMessage());
+            }
+        }
     }
 
 
@@ -228,6 +237,7 @@ public class LLMChatConfig {
             System.out.println("Using legacy maxContextLength as maxContextCharacters: " + this.maxContextCharacters);
         } else if (data.maxContextCharacters != null) {
             this.maxContextCharacters = data.maxContextCharacters;
+            System.out.println("Loaded maxContextCharacters from config: " + this.maxContextCharacters);
         } else {
             this.maxContextCharacters = ConfigDefaults.DEFAULT_MAX_CONTEXT_CHARACTERS;
             System.out.println("Applied default maxContextCharacters: " + this.maxContextCharacters);

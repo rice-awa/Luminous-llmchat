@@ -426,7 +426,7 @@ public class ChatContext {
 
             // 同步调用LLM进行压缩
             CompletableFuture<LLMResponse> future = llmService.chat(compressionMessages, compressionConfig);
-            LLMResponse response = future.get(); // 阻塞等待结果
+            LLMResponse response = future.get(); // 等待结果
 
             if (response.isSuccess()) {
                 String summary = response.getContent();
@@ -513,6 +513,8 @@ public class ChatContext {
     }
 
     public void setMaxContextCharacters(int maxContextCharacters) {
+        System.out.println("ChatContext[" + sessionId + "] updating maxContextCharacters from " +
+            this.maxContextCharacters + " to " + maxContextCharacters);
         this.maxContextCharacters = maxContextCharacters;
         invalidateCharacterCache();
         updateLastActivity();
