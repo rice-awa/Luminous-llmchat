@@ -29,7 +29,7 @@ public class HelpCommandTest {
     @Test
     void testHelpMessageFormat() {
         // 测试help消息的基本格式要求
-        String helpTitle = "=== LLM Chat 帮助 ===";
+        String helpTitle = "=== Luminous LLM Chat 帮助 ===";
         String templateTitle = "=== 提示词模板管理 ===";
         String providerTitle = "=== AI服务提供商管理 ===";
         String modelTitle = "=== AI模型管理 ===";

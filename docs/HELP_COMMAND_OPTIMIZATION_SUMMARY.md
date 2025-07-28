@@ -70,7 +70,7 @@ private static int handleHelp(CommandContext<ServerCommandSource> context) {
 
 #### 主Help信息结构
 ```
-=== LLM Chat 帮助 ===
+=== Luminous LLM Chat 帮助 ===
 
 📝 基本命令:
   - 聊天、清空、恢复等基础功能

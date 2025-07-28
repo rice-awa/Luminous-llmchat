@@ -16,7 +16,7 @@
 
 **显示效果：**
 ```
-=== LLM Chat 帮助 ===
+=== Luminous LLM Chat 帮助 ===
 
 📝 基本命令:
   /llmchat <消息> - 发送消息给AI助手
