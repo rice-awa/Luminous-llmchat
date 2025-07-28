@@ -175,8 +175,9 @@ public class LLMChatCommand {
             return 0;
         }
 
-        ChatContextManager.getInstance().clearContext(player);
-        player.sendMessage(Text.literal("聊天历史已清空").formatted(Formatting.GREEN), false);
+        // 使用renewSession而不是clearContext，这样会创建新的会话ID
+        ChatContextManager.getInstance().renewSession(player.getUuid());
+        player.sendMessage(Text.literal("聊天历史已清空，开始新的对话会话").formatted(Formatting.GREEN), false);
 
         return 1;
     }
@@ -418,7 +419,7 @@ public class LLMChatCommand {
     private static int handleSetTemplate(CommandContext<ServerCommandSource> context) {
         ServerCommandSource source = context.getSource();
         PlayerEntity player = source.getPlayer();
-        
+
         if (player == null) {
             source.sendError(Text.literal("此命令只能由玩家执行"));
             return 0;
@@ -426,18 +427,29 @@ public class LLMChatCommand {
 
         String templateId = StringArgumentType.getString(context, "template");
         PromptTemplateManager templateManager = PromptTemplateManager.getInstance();
-        
+
         if (!templateManager.hasTemplate(templateId)) {
             player.sendMessage(Text.literal("模板不存在: " + templateId).formatted(Formatting.RED), false);
             return 0;
         }
 
-        ChatContext chatContext = ChatContextManager.getInstance().getContext(player);
-        chatContext.setCurrentPromptTemplate(templateId);
+        // 获取当前上下文以检查是否有历史消息
+        ChatContextManager contextManager = ChatContextManager.getInstance();
+        ChatContext currentContext = contextManager.getContext(player);
+
+        if (currentContext.getMessageCount() > 0) {
+            // 如果有历史消息，创建新会话并复制历史
+            contextManager.createNewSessionWithHistory(player.getUuid(), templateId);
+            player.sendMessage(Text.literal("已切换到模板并创建新会话，历史消息已复制").formatted(Formatting.GREEN), false);
+        } else {
+            // 如果没有历史消息，直接设置模板
+            currentContext.setCurrentPromptTemplate(templateId);
+            player.sendMessage(Text.literal("已切换到模板").formatted(Formatting.GREEN), false);
+        }
 
         PromptTemplate template = templateManager.getTemplate(templateId);
-        player.sendMessage(Text.literal("已切换到模板: " + template.getName()).formatted(Formatting.GREEN), false);
-        
+        player.sendMessage(Text.literal("当前模板: " + template.getName()).formatted(Formatting.GRAY), false);
+
         return 1;
     }
 
