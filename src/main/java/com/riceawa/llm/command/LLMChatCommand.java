@@ -557,13 +557,6 @@ public class LLMChatCommand {
         // 处理用户消息
         String processedMessage = template != null ? template.renderUserMessage(message) : message;
 
-        // 检查是否会触发上下文压缩并发送通知
-        if (config.isEnableCompressionNotification() &&
-            chatContext.getMessageCount() >= chatContext.getMaxContextLength()) {
-            serverPlayer.sendMessage(Text.literal("⚠️ 已达到最大上下文长度，您的之前上下文将被压缩")
-                .formatted(Formatting.YELLOW), false);
-        }
-
         chatContext.addUserMessage(processedMessage);
 
         // 构建LLM配置
@@ -693,12 +686,35 @@ public class LLMChatCommand {
                 if (config.isEnableHistory()) {
                     ChatHistory.getInstance().saveSession(chatContext);
                 }
+
+                // 检查是否需要压缩上下文（对话结束后异步处理）
+                checkAndNotifyCompression(chatContext, player, config);
             } else {
                 player.sendMessage(Text.literal("AI没有返回有效内容").formatted(Formatting.RED), false);
                 LogManager.getInstance().error("AI returned no valid content for player " +
                         player.getName().getString());
             }
         }
+    }
+
+    /**
+     * 检查是否需要压缩上下文并发送通知
+     */
+    private static void checkAndNotifyCompression(ChatContext chatContext, ServerPlayerEntity player, LLMChatConfig config) {
+        // 设置当前玩家实体，用于发送通知
+        chatContext.setCurrentPlayer(player);
+
+        // 检查是否启用压缩通知
+        if (config.isEnableCompressionNotification()) {
+            // 检查是否超过上下文限制
+            if (chatContext.calculateTotalCharacters() > chatContext.getMaxContextCharacters()) {
+                player.sendMessage(Text.literal("⚠️ 已达到最大上下文长度，您的之前上下文将被压缩")
+                    .formatted(Formatting.YELLOW), false);
+            }
+        }
+
+        // 启动异步压缩检查
+        chatContext.scheduleCompressionIfNeeded();
     }
 
     /**
@@ -798,6 +814,9 @@ public class LLMChatCommand {
                                 if (config.isEnableHistory()) {
                                     ChatHistory.getInstance().saveSession(chatContext);
                                 }
+
+                                // 检查是否需要压缩上下文（对话结束后异步处理）
+                                checkAndNotifyCompression(chatContext, player, config);
                             }
                         } else {
                             player.sendMessage(Text.literal("AI响应错误: " + response.getError()).formatted(Formatting.RED), false);
@@ -829,6 +848,9 @@ public class LLMChatCommand {
             if (config.isEnableHistory()) {
                 ChatHistory.getInstance().saveSession(chatContext);
             }
+
+            // 检查是否需要压缩上下文（对话结束后异步处理）
+            checkAndNotifyCompression(chatContext, player, config);
         } else {
             String errorMessage = result.getError();
             player.sendMessage(Text.literal("[函数错误] " + errorMessage).formatted(Formatting.RED), false);

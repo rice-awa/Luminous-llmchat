@@ -126,6 +126,13 @@ public class ChatContextManager {
     }
 
     /**
+     * 获取调度器用于异步任务
+     */
+    public ScheduledExecutorService getScheduler() {
+        return scheduler;
+    }
+
+    /**
      * 启动清理任务
      */
     private void startCleanupTask() {
@@ -182,6 +189,21 @@ public class ChatContextManager {
         }
 
         @Override
+        public void onContextCompressionStarted(UUID playerId, int messagesToCompress, PlayerEntity player) {
+            // 检查是否启用压缩通知
+            LLMChatConfig config = LLMChatConfig.getInstance();
+            if (!config.isEnableCompressionNotification()) {
+                return;
+            }
+
+            // 直接使用传入的玩家实体发送通知
+            if (player != null) {
+                LogManager.getInstance().chat("Compression started for player " +
+                    player.getName().getString() + " for " + messagesToCompress + " messages");
+            }
+        }
+
+        @Override
         public void onContextCompressionCompleted(UUID playerId, boolean success, int originalCount, int compressedCount) {
             // 检查是否启用压缩通知
             LLMChatConfig config = LLMChatConfig.getInstance();
@@ -199,6 +221,30 @@ public class ChatContextManager {
                     player.sendMessage(Text.literal("⚠️ 上下文压缩失败，已删除部分旧消息")
                         .formatted(Formatting.YELLOW), false);
                 }
+            }
+        }
+
+        @Override
+        public void onContextCompressionCompleted(UUID playerId, boolean success, int originalCount, int compressedCount, PlayerEntity player) {
+            // 检查是否启用压缩通知
+            LLMChatConfig config = LLMChatConfig.getInstance();
+            if (!config.isEnableCompressionNotification()) {
+                return;
+            }
+
+            // 直接使用传入的玩家实体发送通知
+            if (player != null) {
+                if (success) {
+                    player.sendMessage(Text.literal("✅ 上下文压缩完成，对话历史已优化")
+                        .formatted(Formatting.GREEN), false);
+                } else {
+                    player.sendMessage(Text.literal("⚠️ 上下文压缩失败，已删除部分旧消息")
+                        .formatted(Formatting.YELLOW), false);
+                }
+
+                LogManager.getInstance().chat("Compression completed for player " +
+                    player.getName().getString() + " - success: " + success +
+                    ", original: " + originalCount + ", compressed: " + compressedCount);
             }
         }
 

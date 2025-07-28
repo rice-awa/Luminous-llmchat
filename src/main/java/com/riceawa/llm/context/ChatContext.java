@@ -31,6 +31,20 @@ public class ChatContext {
          * 当上下文压缩完成时调用
          */
         void onContextCompressionCompleted(UUID playerId, boolean success, int originalCount, int compressedCount);
+
+        /**
+         * 当上下文即将被压缩时调用（带玩家实体参数）
+         */
+        default void onContextCompressionStarted(UUID playerId, int messagesToCompress, PlayerEntity player) {
+            onContextCompressionStarted(playerId, messagesToCompress);
+        }
+
+        /**
+         * 当上下文压缩完成时调用（带玩家实体参数）
+         */
+        default void onContextCompressionCompleted(UUID playerId, boolean success, int originalCount, int compressedCount, PlayerEntity player) {
+            onContextCompressionCompleted(playerId, success, originalCount, compressedCount);
+        }
     }
     private final String sessionId;
     private final UUID playerId;
@@ -44,6 +58,12 @@ public class ChatContext {
     // 缓存字符长度以提高性能
     private int cachedTotalCharacters = -1;
     private boolean characterCacheValid = false;
+
+    // 压缩状态标记
+    private volatile boolean compressionInProgress = false;
+
+    // 当前玩家实体（用于发送通知）
+    private transient PlayerEntity currentPlayer;
 
     public ChatContext(UUID playerId) {
         this.sessionId = UUID.randomUUID().toString();
@@ -63,9 +83,6 @@ public class ChatContext {
             messages.add(message);
             invalidateCharacterCache();
             updateLastActivity();
-
-            // 根据配置的限制模式检查是否需要修剪上下文
-            trimContext();
         }
     }
 
@@ -160,6 +177,44 @@ public class ChatContext {
     }
 
     /**
+     * 设置当前玩家实体（用于发送通知）
+     */
+    public void setCurrentPlayer(PlayerEntity player) {
+        this.currentPlayer = player;
+    }
+
+    /**
+     * 检查是否需要压缩，如果需要则启动异步压缩任务
+     */
+    public void scheduleCompressionIfNeeded() {
+        if (!exceedsContextLimits() || compressionInProgress) {
+            return;
+        }
+
+        // 启动异步压缩
+        compressContextAsync();
+    }
+
+    /**
+     * 异步压缩上下文
+     */
+    private void compressContextAsync() {
+        compressionInProgress = true;
+
+        // 使用ChatContextManager的调度器执行异步任务
+        ChatContextManager.getInstance().getScheduler().execute(() -> {
+            try {
+                // 执行压缩逻辑
+                trimContext();
+            } catch (Exception e) {
+                LogManager.getInstance().error("Async context compression failed for session " + sessionId, e);
+            } finally {
+                compressionInProgress = false;
+            }
+        });
+    }
+
+    /**
      * 修剪上下文，保持在最大长度内
      * 使用智能压缩而不是简单删除
      */
@@ -190,7 +245,11 @@ public class ChatContext {
         if (messagesToCompress > 0 && messagesToCompress < otherMessages.size()) {
                 // 通知监听器压缩即将开始
                 if (eventListener != null) {
-                    eventListener.onContextCompressionStarted(playerId, messagesToCompress);
+                    if (currentPlayer != null) {
+                        eventListener.onContextCompressionStarted(playerId, messagesToCompress, currentPlayer);
+                    } else {
+                        eventListener.onContextCompressionStarted(playerId, messagesToCompress);
+                    }
                 }
 
                 // 尝试压缩旧消息
@@ -216,8 +275,13 @@ public class ChatContext {
 
                     // 通知监听器压缩成功
                     if (eventListener != null) {
-                        eventListener.onContextCompressionCompleted(playerId, true,
-                            messagesToCompress, messages.size());
+                        if (currentPlayer != null) {
+                            eventListener.onContextCompressionCompleted(playerId, true,
+                                messagesToCompress, messages.size(), currentPlayer);
+                        } else {
+                            eventListener.onContextCompressionCompleted(playerId, true,
+                                messagesToCompress, messages.size());
+                        }
                     }
                 } else {
                     // 压缩失败，回退到简单删除
@@ -225,8 +289,13 @@ public class ChatContext {
 
                     // 通知监听器压缩失败
                     if (eventListener != null) {
-                        eventListener.onContextCompressionCompleted(playerId, false,
-                            messagesToCompress, messages.size());
+                        if (currentPlayer != null) {
+                            eventListener.onContextCompressionCompleted(playerId, false,
+                                messagesToCompress, messages.size(), currentPlayer);
+                        } else {
+                            eventListener.onContextCompressionCompleted(playerId, false,
+                                messagesToCompress, messages.size());
+                        }
                     }
                 }
             }
