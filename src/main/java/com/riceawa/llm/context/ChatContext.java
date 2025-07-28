@@ -37,17 +37,21 @@ public class ChatContext {
     private final List<LLMMessage> messages;
     private final Map<String, Object> metadata;
     private String currentPromptTemplate;
-    private int maxContextLength;
+    private int maxContextCharacters;
     private long lastActivity;
     private ContextEventListener eventListener;
+
+    // 缓存字符长度以提高性能
+    private int cachedTotalCharacters = -1;
+    private boolean characterCacheValid = false;
 
     public ChatContext(UUID playerId) {
         this.sessionId = UUID.randomUUID().toString();
         this.playerId = playerId;
         this.messages = new ArrayList<>();
         this.metadata = new ConcurrentHashMap<>();
-        this.currentPromptTemplate = "default";
-        this.maxContextLength = 32768; // 默认最大上下文长度
+        this.currentPromptTemplate = LLMChatConfig.getInstance().getDefaultPromptTemplate();
+        this.maxContextCharacters = LLMChatConfig.getInstance().getMaxContextCharacters();
         this.lastActivity = System.currentTimeMillis();
     }
 
@@ -57,9 +61,10 @@ public class ChatContext {
     public void addMessage(LLMMessage message) {
         synchronized (messages) {
             messages.add(message);
+            invalidateCharacterCache();
             updateLastActivity();
-            
-            // 如果超过最大长度，移除最早的用户消息（保留系统消息）
+
+            // 根据配置的限制模式检查是否需要修剪上下文
             trimContext();
         }
     }
@@ -113,8 +118,45 @@ public class ChatContext {
     public void clear() {
         synchronized (messages) {
             messages.clear();
+            invalidateCharacterCache();
             updateLastActivity();
         }
+    }
+
+    /**
+     * 计算所有消息的总字符长度
+     */
+    public int calculateTotalCharacters() {
+        if (characterCacheValid) {
+            return cachedTotalCharacters;
+        }
+
+        synchronized (messages) {
+            int total = 0;
+            for (LLMMessage message : messages) {
+                if (message.getContent() != null) {
+                    total += message.getContent().length();
+                }
+            }
+            cachedTotalCharacters = total;
+            characterCacheValid = true;
+            return total;
+        }
+    }
+
+    /**
+     * 使字符长度缓存失效
+     */
+    private void invalidateCharacterCache() {
+        characterCacheValid = false;
+        cachedTotalCharacters = -1;
+    }
+
+    /**
+     * 检查是否超过上下文字符长度限制
+     */
+    private boolean exceedsContextLimits() {
+        return calculateTotalCharacters() > maxContextCharacters;
     }
 
     /**
@@ -122,7 +164,7 @@ public class ChatContext {
      * 使用智能压缩而不是简单删除
      */
     private void trimContext() {
-        if (messages.size() <= maxContextLength) {
+        if (!exceedsContextLimits()) {
             return;
         }
 
@@ -138,13 +180,14 @@ public class ChatContext {
             }
         }
 
-        // 计算需要保留的非系统消息数量
-        int maxOtherMessages = maxContextLength - systemMessages.size();
-        if (otherMessages.size() > maxOtherMessages) {
-            // 计算需要压缩的消息数量
-            int messagesToCompress = otherMessages.size() - maxOtherMessages + (maxOtherMessages / 4); // 压缩前1/4的消息
+        // 智能计算需要压缩的消息
+        int messagesToCompress = calculateMessagesToCompress(systemMessages, otherMessages);
 
-            if (messagesToCompress > 0) {
+        if (messagesToCompress <= 0) {
+            return; // 无需压缩
+        }
+
+        if (messagesToCompress > 0 && messagesToCompress < otherMessages.size()) {
                 // 通知监听器压缩即将开始
                 if (eventListener != null) {
                     eventListener.onContextCompressionStarted(playerId, messagesToCompress);
@@ -178,7 +221,7 @@ public class ChatContext {
                     }
                 } else {
                     // 压缩失败，回退到简单删除
-                    fallbackTrimContext(systemMessages, otherMessages, maxOtherMessages);
+                    fallbackTrimContext(systemMessages, otherMessages);
 
                     // 通知监听器压缩失败
                     if (eventListener != null) {
@@ -188,25 +231,94 @@ public class ChatContext {
                 }
             }
         }
+
+    /**
+     * 智能计算需要压缩的消息数量（基于字符长度）
+     * 策略：压缩完整的消息（如1/2的消息），保持消息完整性
+     */
+    private int calculateMessagesToCompress(List<LLMMessage> systemMessages, List<LLMMessage> otherMessages) {
+        int totalCharacters = calculateTotalCharacters();
+        if (totalCharacters <= maxContextCharacters) {
+            return 0; // 无需压缩
+        }
+
+        // 计算系统消息的字符长度
+        int systemCharacters = 0;
+        for (LLMMessage msg : systemMessages) {
+            if (msg.getContent() != null) {
+                systemCharacters += msg.getContent().length();
+            }
+        }
+
+        // 预留压缩摘要的空间（估算为500字符）
+        int availableCharacters = maxContextCharacters - systemCharacters - 500;
+        if (availableCharacters <= 0) {
+            // 如果空间不足，压缩一半消息（保持完整性）
+            return Math.max(1, otherMessages.size() / 2);
+        }
+
+        // 从最新消息开始，计算能保留多少完整消息
+        int currentCharacters = 0;
+        int messagesToKeep = 0;
+        for (int i = otherMessages.size() - 1; i >= 0; i--) {
+            LLMMessage msg = otherMessages.get(i);
+            int msgLength = msg.getContent() != null ? msg.getContent().length() : 0;
+            if (currentCharacters + msgLength <= availableCharacters) {
+                currentCharacters += msgLength;
+                messagesToKeep++;
+            } else {
+                break;
+            }
+        }
+
+        int messagesToCompress = otherMessages.size() - messagesToKeep;
+
+        // 确保至少压缩一些消息，避免无效压缩
+        if (messagesToCompress <= 0) {
+            messagesToCompress = Math.max(1, otherMessages.size() / 2);
+        }
+
+        return messagesToCompress;
     }
 
     /**
      * 回退的上下文修剪方法（简单删除）
      */
-    private void fallbackTrimContext(List<LLMMessage> systemMessages, List<LLMMessage> otherMessages, int maxOtherMessages) {
-        if (otherMessages.size() > maxOtherMessages) {
-            otherMessages = otherMessages.subList(
-                otherMessages.size() - maxOtherMessages,
-                otherMessages.size()
-            );
+    private void fallbackTrimContext(List<LLMMessage> systemMessages, List<LLMMessage> otherMessages) {
+        // 按字符长度保留完整消息
+        List<LLMMessage> messagesToKeep = new ArrayList<>();
+
+        // 计算系统消息的字符长度
+        int systemCharacters = 0;
+        for (LLMMessage msg : systemMessages) {
+            if (msg.getContent() != null) {
+                systemCharacters += msg.getContent().length();
+            }
+        }
+
+        int availableCharacters = maxContextCharacters - systemCharacters;
+        int currentCharacters = 0;
+
+        // 从最新消息开始保留完整消息
+        for (int i = otherMessages.size() - 1; i >= 0; i--) {
+            LLMMessage msg = otherMessages.get(i);
+            int msgLength = msg.getContent() != null ? msg.getContent().length() : 0;
+            if (currentCharacters + msgLength <= availableCharacters) {
+                currentCharacters += msgLength;
+                messagesToKeep.add(0, msg); // 添加到开头保持顺序
+            } else {
+                break; // 不能放下完整消息就停止
+            }
         }
 
         // 重新构建消息列表
         messages.clear();
         messages.addAll(systemMessages);
-        messages.addAll(otherMessages);
+        messages.addAll(messagesToKeep);
+        invalidateCharacterCache();
 
-        LogManager.getInstance().system("Context trimmed using fallback method for session " + sessionId);
+        LogManager.getInstance().system("Context trimmed using fallback method for session " + sessionId +
+            ", kept " + messagesToKeep.size() + " messages with " + currentCharacters + " characters");
     }
 
     /**
@@ -327,13 +439,23 @@ public class ChatContext {
         updateLastActivity();
     }
 
+    public int getMaxContextCharacters() {
+        return maxContextCharacters;
+    }
+
+    public void setMaxContextCharacters(int maxContextCharacters) {
+        this.maxContextCharacters = maxContextCharacters;
+        invalidateCharacterCache();
+        updateLastActivity();
+    }
+
+    // 保持向后兼容的方法名
     public int getMaxContextLength() {
-        return maxContextLength;
+        return maxContextCharacters;
     }
 
     public void setMaxContextLength(int maxContextLength) {
-        this.maxContextLength = maxContextLength;
-        updateLastActivity();
+        setMaxContextCharacters(maxContextLength);
     }
 
     public long getLastActivity() {

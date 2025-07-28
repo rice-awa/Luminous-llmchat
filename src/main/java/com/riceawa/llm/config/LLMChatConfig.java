@@ -32,7 +32,7 @@ public class LLMChatConfig {
     private String defaultPromptTemplate = "default";
     private double defaultTemperature = 0.7;
     private int defaultMaxTokens = 8192;
-    private int maxContextLength = 32768;
+    private int maxContextCharacters = 100000; // 最大上下文字符长度
     private boolean enableHistory = true;
     private boolean enableFunctionCalling = false;
     private boolean enableBroadcast = false;
@@ -325,7 +325,14 @@ public class LLMChatConfig {
         this.defaultPromptTemplate = data.defaultPromptTemplate != null ? data.defaultPromptTemplate : "default";
         this.defaultTemperature = data.defaultTemperature != null ? data.defaultTemperature : 0.7;
         this.defaultMaxTokens = data.defaultMaxTokens != null ? data.defaultMaxTokens : 8192;
-        this.maxContextLength = data.maxContextLength != null ? data.maxContextLength : 32768;
+        // 兼容旧配置：如果有maxContextLength，使用它作为maxContextCharacters
+        if (data.maxContextLength != null) {
+            this.maxContextCharacters = data.maxContextLength;
+        } else if (data.maxContextCharacters != null) {
+            this.maxContextCharacters = data.maxContextCharacters;
+        } else {
+            this.maxContextCharacters = 100000;
+        }
         this.enableHistory = data.enableHistory != null ? data.enableHistory : true;
         this.enableFunctionCalling = data.enableFunctionCalling != null ? data.enableFunctionCalling : true;
         this.enableBroadcast = data.enableBroadcast != null ? data.enableBroadcast : false;
@@ -368,7 +375,7 @@ public class LLMChatConfig {
         data.defaultPromptTemplate = this.defaultPromptTemplate;
         data.defaultTemperature = this.defaultTemperature;
         data.defaultMaxTokens = this.defaultMaxTokens;
-        data.maxContextLength = this.maxContextLength;
+        data.maxContextCharacters = this.maxContextCharacters;
         data.enableHistory = this.enableHistory;
         data.enableFunctionCalling = this.enableFunctionCalling;
         data.enableBroadcast = this.enableBroadcast;
@@ -416,14 +423,32 @@ public class LLMChatConfig {
         saveConfig();
     }
 
+    public int getMaxContextCharacters() {
+        return maxContextCharacters;
+    }
+
+    public void setMaxContextCharacters(int maxContextCharacters) {
+        this.maxContextCharacters = maxContextCharacters;
+        saveConfig();
+
+        // 更新现有的上下文实例
+        try {
+            com.riceawa.llm.context.ChatContextManager.getInstance().updateMaxContextLength();
+        } catch (Exception e) {
+            System.err.println("Failed to update existing contexts with new max context characters: " + e.getMessage());
+        }
+    }
+
+    // 保持向后兼容的方法名
     public int getMaxContextLength() {
-        return maxContextLength;
+        return maxContextCharacters;
     }
 
     public void setMaxContextLength(int maxContextLength) {
-        this.maxContextLength = maxContextLength;
-        saveConfig();
+        setMaxContextCharacters(maxContextLength);
     }
+
+
 
     public boolean isEnableHistory() {
         return enableHistory;
@@ -822,7 +847,8 @@ public class LLMChatConfig {
         String defaultPromptTemplate;
         Double defaultTemperature;
         Integer defaultMaxTokens;
-        Integer maxContextLength;
+        Integer maxContextLength; // 保留用于向后兼容
+        Integer maxContextCharacters;
         Boolean enableHistory;
         Boolean enableFunctionCalling;
         Boolean enableBroadcast;

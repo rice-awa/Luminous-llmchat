@@ -87,6 +87,31 @@ public class ChatContextManager {
     }
 
     /**
+     * 更新所有上下文的最大字符长度配置
+     */
+    public void updateMaxContextLength() {
+        LLMChatConfig config = LLMChatConfig.getInstance();
+        int newMaxContextCharacters = config.getMaxContextCharacters();
+
+        for (ChatContext context : contexts.values()) {
+            context.setMaxContextCharacters(newMaxContextCharacters);
+        }
+        LogManager.getInstance().system("Updated max context characters to " + newMaxContextCharacters +
+            " for " + contexts.size() + " active contexts");
+    }
+
+    /**
+     * 更新指定玩家的最大上下文字符长度
+     */
+    public void updateMaxContextLength(UUID playerId) {
+        ChatContext context = contexts.get(playerId);
+        if (context != null) {
+            LLMChatConfig config = LLMChatConfig.getInstance();
+            context.setMaxContextCharacters(config.getMaxContextCharacters());
+        }
+    }
+
+    /**
      * 清空指定玩家的聊天历史
      */
     public void clearContext(PlayerEntity player) {
