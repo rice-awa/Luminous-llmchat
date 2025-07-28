@@ -49,6 +49,10 @@ public class LLMChatConfig {
     private boolean enableGlobalContext = ConfigDefaults.DEFAULT_ENABLE_GLOBAL_CONTEXT;
     private String globalContextPrompt = ConfigDefaults.DEFAULT_GLOBAL_CONTEXT_PROMPT;
 
+    // 标题生成配置
+    private boolean enableTitleGeneration = ConfigDefaults.DEFAULT_ENABLE_TITLE_GENERATION;
+    private String titleGenerationModel = ConfigDefaults.DEFAULT_TITLE_GENERATION_MODEL;
+
     // 并发配置
     private ConcurrencySettings concurrencySettings = ConcurrencySettings.createDefault();
 
@@ -255,6 +259,10 @@ public class LLMChatConfig {
         this.compressionModel = data.compressionModel != null ? data.compressionModel : (String) ConfigDefaults.getDefaultValue("compressionModel");
         this.enableCompressionNotification = data.enableCompressionNotification != null ? data.enableCompressionNotification : (Boolean) ConfigDefaults.getDefaultValue("enableCompressionNotification");
 
+        // 处理标题生成配置
+        this.enableTitleGeneration = data.enableTitleGeneration != null ? data.enableTitleGeneration : (Boolean) ConfigDefaults.getDefaultValue("enableTitleGeneration");
+        this.titleGenerationModel = data.titleGenerationModel != null ? data.titleGenerationModel : (String) ConfigDefaults.getDefaultValue("titleGenerationModel");
+
         // 处理并发配置
         this.concurrencySettings = data.concurrencySettings != null ? data.concurrencySettings : ConcurrencySettings.createDefault();
 
@@ -330,25 +338,40 @@ public class LLMChatConfig {
      */
     private ConfigData createConfigData() {
         ConfigData data = new ConfigData();
+
+        // 基础配置
         data.configVersion = this.configVersion;
         data.defaultPromptTemplate = this.defaultPromptTemplate;
         data.defaultTemperature = this.defaultTemperature;
         data.defaultMaxTokens = this.defaultMaxTokens;
         data.maxContextCharacters = this.maxContextCharacters;
+
+        // 功能开关配置
         data.enableHistory = this.enableHistory;
         data.enableFunctionCalling = this.enableFunctionCalling;
         data.enableBroadcast = this.enableBroadcast;
         data.broadcastPlayers = new HashSet<>(this.broadcastPlayers);
         data.historyRetentionDays = this.historyRetentionDays;
+
+        // 全局上下文配置
         data.enableGlobalContext = this.enableGlobalContext;
         data.globalContextPrompt = this.globalContextPrompt;
-        data.compressionModel = this.compressionModel;
+
+        // 压缩和标题生成功能配置
         data.enableCompressionNotification = this.enableCompressionNotification;
+        data.enableTitleGeneration = this.enableTitleGeneration;
+
+        // 系统配置
         data.concurrencySettings = this.concurrencySettings;
         data.logConfig = this.logConfig;
         data.providers = this.providers;
+
+        // 模型相关配置（放在最后）
+        data.compressionModel = this.compressionModel;
+        data.titleGenerationModel = this.titleGenerationModel;
         data.currentProvider = this.currentProvider;
         data.currentModel = this.currentModel;
+
         return data;
     }
 
@@ -498,6 +521,36 @@ public class LLMChatConfig {
     public void setGlobalContextPrompt(String globalContextPrompt) {
         this.globalContextPrompt = globalContextPrompt != null ? globalContextPrompt : "";
         saveConfig();
+    }
+
+    // 标题生成配置相关方法
+    public boolean isEnableTitleGeneration() {
+        return enableTitleGeneration;
+    }
+
+    public void setEnableTitleGeneration(boolean enableTitleGeneration) {
+        this.enableTitleGeneration = enableTitleGeneration;
+        saveConfig();
+    }
+
+    public String getTitleGenerationModel() {
+        return titleGenerationModel;
+    }
+
+    public void setTitleGenerationModel(String titleGenerationModel) {
+        this.titleGenerationModel = titleGenerationModel != null ? titleGenerationModel : "";
+        saveConfig();
+    }
+
+    /**
+     * 获取有效的标题生成模型
+     * 如果未设置专门的标题生成模型，则使用当前模型
+     */
+    public String getEffectiveTitleGenerationModel() {
+        if (titleGenerationModel != null && !titleGenerationModel.trim().isEmpty()) {
+            return titleGenerationModel;
+        }
+        return getCurrentModel();
     }
 
     // 上下文压缩配置相关方法
@@ -838,12 +891,15 @@ public class LLMChatConfig {
      * 配置数据类
      */
     private static class ConfigData {
+        // 基础配置
         String configVersion;
         String defaultPromptTemplate;
         Double defaultTemperature;
         Integer defaultMaxTokens;
         Integer maxContextLength; // 保留用于向后兼容
         Integer maxContextCharacters;
+
+        // 功能开关配置
         Boolean enableHistory;
         Boolean enableFunctionCalling;
         Boolean enableBroadcast;
@@ -854,18 +910,18 @@ public class LLMChatConfig {
         Boolean enableGlobalContext;
         String globalContextPrompt;
 
-        // 上下文压缩配置
-        String compressionModel;
+        // 压缩和标题生成功能配置
         Boolean enableCompressionNotification;
+        Boolean enableTitleGeneration;
 
-        // 并发配置
+        // 系统配置
         ConcurrencySettings concurrencySettings;
-
-        // 日志配置
         LogConfig logConfig;
-
-        // Providers配置
         List<Provider> providers;
+
+        // 模型相关配置（放在最后）
+        String compressionModel;
+        String titleGenerationModel;
         String currentProvider;
         String currentModel;
     }
