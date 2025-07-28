@@ -1,3 +1,4 @@
+package com.riceawa.llm.config;
 import com.riceawa.llm.config.LLMChatConfig;
 import com.riceawa.llm.config.Provider;
 import com.riceawa.llm.config.ConfigDefaults;
