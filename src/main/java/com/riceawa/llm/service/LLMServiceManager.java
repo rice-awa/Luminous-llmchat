@@ -175,6 +175,30 @@ public class LLMServiceManager {
 
         services.clear();
         initializeServices();
+
+        // 触发健康检查
+        triggerHealthCheck();
+    }
+
+    /**
+     * 触发provider健康检查
+     */
+    private void triggerHealthCheck() {
+        try {
+            LLMChatConfig config = LLMChatConfig.getInstance();
+            com.riceawa.llm.config.ProviderManager providerManager =
+                new com.riceawa.llm.config.ProviderManager(config.getProviders());
+
+            providerManager.checkAllProvidersHealth().whenComplete((healthMap, throwable) -> {
+                if (throwable != null) {
+                    System.err.println("Service health check failed: " + throwable.getMessage());
+                } else {
+                    System.out.println("Service health check completed for " + healthMap.size() + " services");
+                }
+            });
+        } catch (Exception e) {
+            System.err.println("Failed to trigger service health check: " + e.getMessage());
+        }
     }
 
     /**

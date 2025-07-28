@@ -1,18 +1,24 @@
 package com.riceawa.llm.config;
 
+import com.riceawa.llm.service.ProviderHealthChecker;
+
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Provider管理和自动切换服务
  * 负责Provider验证、故障切换等逻辑
  */
 public class ProviderManager {
-    
+
     private final List<Provider> providers;
-    
+    private final ProviderHealthChecker healthChecker;
+
     public ProviderManager(List<Provider> providers) {
         this.providers = providers;
+        this.healthChecker = ProviderHealthChecker.getInstance();
     }
     
     /**
@@ -133,16 +139,52 @@ public class ProviderManager {
     }
     
     /**
+     * 异步检测所有provider的健康状态
+     */
+    public CompletableFuture<Map<String, ProviderHealthChecker.HealthStatus>> checkAllProvidersHealth() {
+        return healthChecker.checkAllProviders(providers);
+    }
+
+    /**
+     * 异步检测单个provider的健康状态
+     */
+    public CompletableFuture<ProviderHealthChecker.HealthStatus> checkProviderHealth(String providerName) {
+        Optional<Provider> provider = findProvider(providerName);
+        if (provider.isPresent()) {
+            return healthChecker.checkProviderHealth(provider.get());
+        }
+        return CompletableFuture.completedFuture(
+            new ProviderHealthChecker.HealthStatus(false, "Provider不存在",
+                ProviderHealthChecker.HealthStatus.ErrorType.CONFIG_ERROR,
+                java.time.LocalDateTime.now())
+        );
+    }
+
+    /**
+     * 获取缓存的健康状态
+     */
+    public ProviderHealthChecker.HealthStatus getCachedProviderHealth(String providerName) {
+        return healthChecker.getCachedHealth(providerName);
+    }
+
+    /**
+     * 清除健康检查缓存
+     */
+    public void clearHealthCache() {
+        healthChecker.clearAllCache();
+    }
+
+    /**
      * 获取配置状态报告
      */
     public ConfigurationReport getConfigurationReport() {
         int totalProviders = providers.size();
         List<Provider> validProviders = getValidProviders();
         int validCount = validProviders.size();
-        
+
         StringBuilder report = new StringBuilder();
         report.append(String.format("Provider配置状态: %d/%d 有效\n", validCount, totalProviders));
-        
+
         if (validCount == 0) {
             report.append("⚠️ 没有有效的Provider配置，请设置API密钥\n");
             report.append("无效的Provider列表:\n");
@@ -153,10 +195,15 @@ public class ProviderManager {
         } else {
             report.append("✅ 有效的Provider列表:\n");
             for (Provider provider : validProviders) {
-                report.append(String.format("  - %s: %d个模型可用\n", 
-                    provider.getName(), provider.getModels().size()));
+                ProviderHealthChecker.HealthStatus health = getCachedProviderHealth(provider.getName());
+                String healthStatus = "";
+                if (health != null) {
+                    healthStatus = health.isHealthy() ? " (在线)" : " (离线: " + health.getMessage() + ")";
+                }
+                report.append(String.format("  - %s: %d个模型可用%s\n",
+                    provider.getName(), provider.getModels().size(), healthStatus));
             }
-            
+
             if (validCount < totalProviders) {
                 report.append("⚠️ 无效的Provider列表:\n");
                 for (Provider provider : providers) {
@@ -167,8 +214,56 @@ public class ProviderManager {
                 }
             }
         }
-        
+
         return new ConfigurationReport(validCount > 0, report.toString(), validProviders);
+    }
+
+    /**
+     * 获取包含健康状态的详细配置报告
+     */
+    public CompletableFuture<ConfigurationReport> getDetailedConfigurationReport() {
+        return checkAllProvidersHealth().thenApply(healthMap -> {
+            int totalProviders = providers.size();
+            List<Provider> validProviders = getValidProviders();
+            int validCount = validProviders.size();
+
+            StringBuilder report = new StringBuilder();
+            report.append(String.format("Provider配置状态: %d/%d 有效\n", validCount, totalProviders));
+
+            if (validCount == 0) {
+                report.append("⚠️ 没有有效的Provider配置，请设置API密钥\n");
+                report.append("无效的Provider列表:\n");
+                for (Provider provider : providers) {
+                    String reason = getInvalidReason(provider);
+                    report.append(String.format("  - %s: %s\n", provider.getName(), reason));
+                }
+            } else {
+                report.append("✅ Provider状态列表:\n");
+                for (Provider provider : providers) {
+                    if (isProviderValid(provider)) {
+                        ProviderHealthChecker.HealthStatus health = healthMap.get(provider.getName());
+                        String status = "未检测";
+                        String lastCheck = "";
+
+                        if (health != null) {
+                            status = health.isHealthy() ? "🟢 在线" : "🔴 离线";
+                            lastCheck = " (检测时间: " + health.getFormattedCheckTime() + ")";
+                            if (!health.isHealthy()) {
+                                lastCheck += " - " + health.getMessage();
+                            }
+                        }
+
+                        report.append(String.format("  - %s: %s%s\n",
+                            provider.getName(), status, lastCheck));
+                    } else {
+                        String reason = getInvalidReason(provider);
+                        report.append(String.format("  - %s: ⚠️ 配置无效 - %s\n", provider.getName(), reason));
+                    }
+                }
+            }
+
+            return new ConfigurationReport(validCount > 0, report.toString(), validProviders);
+        });
     }
     
     /**

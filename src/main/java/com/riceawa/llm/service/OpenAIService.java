@@ -210,6 +210,24 @@ public class OpenAIService implements LLMService {
     }
 
     @Override
+    public CompletableFuture<Boolean> healthCheck() {
+        if (!isAvailable()) {
+            return CompletableFuture.completedFuture(false);
+        }
+
+        // 创建最小的测试请求
+        LLMMessage testMessage = new LLMMessage(LLMMessage.MessageRole.USER, "test");
+        LLMConfig testConfig = new LLMConfig();
+        testConfig.setModel("gpt-3.5-turbo"); // 使用最便宜的模型
+        testConfig.setMaxTokens(1); // 最小token数
+        testConfig.setTemperature(0.1);
+
+        return chat(List.of(testMessage), testConfig)
+            .thenApply(response -> response != null && response.isSuccess())
+            .exceptionally(throwable -> false);
+    }
+
+    @Override
     public String getServiceName() {
         return "OpenAI";
     }

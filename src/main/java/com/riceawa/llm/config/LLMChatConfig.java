@@ -2,6 +2,7 @@ package com.riceawa.llm.config;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonSyntaxException;
 import com.riceawa.llm.logging.LogConfig;
 
 import net.fabricmc.loader.api.FabricLoader;
@@ -168,6 +169,27 @@ public class LLMChatConfig {
             } catch (Exception e) {
                 System.err.println("Failed to update existing contexts after reload: " + e.getMessage());
             }
+
+            // 触发异步健康检查
+            triggerHealthCheck();
+        }
+    }
+
+    /**
+     * 触发provider健康检查
+     */
+    private void triggerHealthCheck() {
+        try {
+            ProviderManager providerManager = new ProviderManager(this.providers);
+            providerManager.checkAllProvidersHealth().whenComplete((healthMap, throwable) -> {
+                if (throwable != null) {
+                    System.err.println("Provider health check failed: " + throwable.getMessage());
+                } else {
+                    System.out.println("Provider health check completed for " + healthMap.size() + " providers");
+                }
+            });
+        } catch (Exception e) {
+            System.err.println("Failed to trigger health check: " + e.getMessage());
         }
     }
 

@@ -870,9 +870,10 @@ public class LLMChatCommand {
         }
 
         LLMChatConfig config = LLMChatConfig.getInstance();
-        LLMServiceManager serviceManager = LLMServiceManager.getInstance();
+        com.riceawa.llm.config.ProviderManager providerManager =
+            new com.riceawa.llm.config.ProviderManager(config.getProviders());
 
-        player.sendMessage(Text.literal("可用的Providers:").formatted(Formatting.YELLOW), false);
+        player.sendMessage(Text.literal("🔍 正在检测Provider状态...").formatted(Formatting.YELLOW), false);
 
         List<Provider> providers = config.getProviders();
         if (providers.isEmpty()) {
@@ -880,7 +881,48 @@ public class LLMChatCommand {
             return 1;
         }
 
+        // 异步获取详细状态报告
+        providerManager.getDetailedConfigurationReport().whenComplete((report, throwable) -> {
+            if (throwable != null) {
+                player.sendMessage(Text.literal("❌ 获取Provider状态失败: " + throwable.getMessage())
+                    .formatted(Formatting.RED), false);
+                // 回退到基本显示
+                showBasicProviderList(player, config, providers);
+            } else {
+                player.sendMessage(Text.literal("📡 Provider状态报告:").formatted(Formatting.AQUA), false);
+                String[] lines = report.getReportText().split("\n");
+                for (String line : lines) {
+                    if (!line.trim().isEmpty()) {
+                        Formatting color = Formatting.WHITE;
+                        if (line.contains("🟢")) color = Formatting.GREEN;
+                        else if (line.contains("🔴")) color = Formatting.RED;
+                        else if (line.contains("⚠️")) color = Formatting.YELLOW;
+                        else if (line.contains("✅")) color = Formatting.GREEN;
+
+                        player.sendMessage(Text.literal(line).formatted(color), false);
+                    }
+                }
+
+                // 显示当前选择的provider
+                String currentProvider = config.getCurrentProvider();
+                if (!currentProvider.isEmpty()) {
+                    player.sendMessage(Text.literal(""), false);
+                    player.sendMessage(Text.literal("📌 当前使用: " + currentProvider + " / " + config.getCurrentModel())
+                        .formatted(Formatting.AQUA), false);
+                }
+            }
+        });
+
+        return 1;
+    }
+
+    /**
+     * 显示基本的provider列表（回退方案）
+     */
+    private static void showBasicProviderList(PlayerEntity player, LLMChatConfig config, List<Provider> providers) {
+        LLMServiceManager serviceManager = LLMServiceManager.getInstance();
         String currentProvider = config.getCurrentProvider();
+
         for (Provider provider : providers) {
             String prefix = provider.getName().equals(currentProvider) ? "* " : "  ";
             boolean available = serviceManager.isServiceAvailable(provider.getName());
@@ -892,8 +934,6 @@ public class LLMChatCommand {
             player.sendMessage(Text.literal(prefix + provider.getName() + " (" + status + ") - " + provider.getApiBaseUrl())
                     .formatted(color), false);
         }
-
-        return 1;
     }
 
     /**
