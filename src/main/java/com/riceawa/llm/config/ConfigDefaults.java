@@ -24,6 +24,10 @@ public class ConfigDefaults {
     // 上下文压缩配置默认值
     public static final String DEFAULT_COMPRESSION_MODEL = ""; // 空字符串表示使用当前模型
     public static final boolean DEFAULT_ENABLE_COMPRESSION_NOTIFICATION = true;
+
+    // 消息预览配置默认值
+    public static final int DEFAULT_MESSAGE_PREVIEW_COUNT = 5; // 恢复对话时显示的消息数量
+    public static final int DEFAULT_MESSAGE_PREVIEW_MAX_LENGTH = 150; // 每条消息的最大显示长度
     
     // 全局上下文配置默认值
     public static final boolean DEFAULT_ENABLE_GLOBAL_CONTEXT = true;

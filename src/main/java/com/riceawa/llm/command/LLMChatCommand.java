@@ -230,23 +230,11 @@ public class LLMChatCommand {
                     currentContext.setCurrentPromptTemplate(lastSession.getPromptTemplate());
                 }
 
-                player.sendMessage(Text.literal("已恢复上次对话，共 " + historyMessages.size() + " 条消息")
+                player.sendMessage(Text.literal("✅ 已恢复上次对话，共 " + historyMessages.size() + " 条消息")
                     .formatted(Formatting.GREEN), false);
 
-                // 显示最后几条消息作为预览
-                int previewCount = Math.min(3, historyMessages.size());
-                player.sendMessage(Text.literal("最近的对话内容:").formatted(Formatting.AQUA), false);
-
-                for (int i = historyMessages.size() - previewCount; i < historyMessages.size(); i++) {
-                    LLMMessage msg = historyMessages.get(i);
-                    String roleText = msg.getRole() == LLMMessage.MessageRole.USER ? "你" : "AI";
-                    String content = msg.getContent();
-                    if (content.length() > 100) {
-                        content = content.substring(0, 100) + "...";
-                    }
-                    player.sendMessage(Text.literal("  " + roleText + ": " + content)
-                        .formatted(Formatting.GRAY), false);
-                }
+                // 显示消息预览
+                showMessagePreview(player, historyMessages, "上次对话");
 
                 LogManager.getInstance().chat("Player " + player.getName().getString() +
                     " resumed chat session with " + historyMessages.size() + " messages");
@@ -643,6 +631,85 @@ public class LLMChatCommand {
         player.sendMessage(Text.literal("💡 提示: 使用 /llmchat <子命令> help 查看具体功能的详细帮助").formatted(Formatting.YELLOW), false);
 
         return 1;
+    }
+
+    /**
+     * 显示消息预览
+     */
+    private static void showMessagePreview(PlayerEntity player, List<LLMMessage> messages, String sessionInfo) {
+        if (messages == null || messages.isEmpty()) {
+            return;
+        }
+
+        // 配置预览参数
+        int maxPreviewCount = 5; // 显示最多5条消息
+        int maxContentLength = 150; // 消息内容最大长度
+
+        int previewCount = Math.min(maxPreviewCount, messages.size());
+
+        // 显示标题
+        player.sendMessage(Text.literal("📋 最近的对话内容" +
+            (sessionInfo != null ? " (" + sessionInfo + ")" : "") +
+            " (显示最后" + previewCount + "条):").formatted(Formatting.AQUA), false);
+
+        // 显示消息
+        for (int i = messages.size() - previewCount; i < messages.size(); i++) {
+            LLMMessage msg = messages.get(i);
+            if (msg == null || msg.getContent() == null) {
+                continue;
+            }
+
+            // 确定角色显示
+            String roleIcon;
+            String roleText;
+            Formatting roleColor;
+
+            switch (msg.getRole()) {
+                case USER:
+                    roleIcon = "🙋";
+                    roleText = "你";
+                    roleColor = Formatting.GREEN;
+                    break;
+                case ASSISTANT:
+                    roleIcon = "🤖";
+                    roleText = "AI";
+                    roleColor = Formatting.BLUE;
+                    break;
+                case SYSTEM:
+                    roleIcon = "⚙️";
+                    roleText = "系统";
+                    roleColor = Formatting.YELLOW;
+                    break;
+                default:
+                    roleIcon = "❓";
+                    roleText = "未知";
+                    roleColor = Formatting.GRAY;
+                    break;
+            }
+
+            // 处理消息内容
+            String content = msg.getContent().trim();
+            if (content.length() > maxContentLength) {
+                // 智能截断：尽量在句号、问号、感叹号后截断
+                int cutPoint = maxContentLength;
+                for (int j = Math.min(maxContentLength - 10, content.length() - 1); j >= maxContentLength - 30 && j > 0; j--) {
+                    char c = content.charAt(j);
+                    if (c == '。' || c == '？' || c == '！' || c == '.' || c == '?' || c == '!') {
+                        cutPoint = j + 1;
+                        break;
+                    }
+                }
+                content = content.substring(0, cutPoint) + "...";
+            }
+
+            // 显示消息
+            int messageIndex = i - (messages.size() - previewCount) + 1;
+            player.sendMessage(Text.literal("  [" + messageIndex + "] " + roleIcon + " " + roleText + ": " + content)
+                .formatted(roleColor), false);
+        }
+
+        // 添加分隔线
+        player.sendMessage(Text.literal("").formatted(Formatting.GRAY), false);
     }
 
     /**

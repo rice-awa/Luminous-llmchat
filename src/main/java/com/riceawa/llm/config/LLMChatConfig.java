@@ -45,6 +45,10 @@ public class LLMChatConfig {
     private String compressionModel = ConfigDefaults.DEFAULT_COMPRESSION_MODEL;
     private boolean enableCompressionNotification = ConfigDefaults.DEFAULT_ENABLE_COMPRESSION_NOTIFICATION;
 
+    // 消息预览配置
+    private int messagePreviewCount = ConfigDefaults.DEFAULT_MESSAGE_PREVIEW_COUNT;
+    private int messagePreviewMaxLength = ConfigDefaults.DEFAULT_MESSAGE_PREVIEW_MAX_LENGTH;
+
     // 全局上下文配置
     private boolean enableGlobalContext = ConfigDefaults.DEFAULT_ENABLE_GLOBAL_CONTEXT;
     private String globalContextPrompt = ConfigDefaults.DEFAULT_GLOBAL_CONTEXT_PROMPT;
@@ -590,6 +594,25 @@ public class LLMChatConfig {
 
     public void setEnableCompressionNotification(boolean enableCompressionNotification) {
         this.enableCompressionNotification = enableCompressionNotification;
+        saveConfig();
+    }
+
+    // 消息预览配置的getter和setter方法
+    public int getMessagePreviewCount() {
+        return messagePreviewCount;
+    }
+
+    public void setMessagePreviewCount(int messagePreviewCount) {
+        this.messagePreviewCount = Math.max(1, Math.min(10, messagePreviewCount)); // 限制在1-10之间
+        saveConfig();
+    }
+
+    public int getMessagePreviewMaxLength() {
+        return messagePreviewMaxLength;
+    }
+
+    public void setMessagePreviewMaxLength(int messagePreviewMaxLength) {
+        this.messagePreviewMaxLength = Math.max(50, Math.min(500, messagePreviewMaxLength)); // 限制在50-500之间
         saveConfig();
     }
 
