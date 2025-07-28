@@ -1,6 +1,10 @@
 package com.riceawa.llm.context;
 
+import com.riceawa.llm.config.LLMChatConfig;
+import com.riceawa.llm.logging.LogManager;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -41,7 +45,12 @@ public class ChatContextManager {
      * 获取玩家的聊天上下文
      */
     public ChatContext getContext(UUID playerId) {
-        return contexts.computeIfAbsent(playerId, ChatContext::new);
+        return contexts.computeIfAbsent(playerId, id -> {
+            ChatContext context = new ChatContext(id);
+            // 设置事件监听器
+            context.setEventListener(new CompressionNotificationListener());
+            return context;
+        });
     }
 
     /**
@@ -76,6 +85,31 @@ public class ChatContextManager {
     }
 
     /**
+     * 更新所有上下文的最大字符长度配置
+     */
+    public void updateMaxContextLength() {
+        LLMChatConfig config = LLMChatConfig.getInstance();
+        int newMaxContextCharacters = config.getMaxContextCharacters();
+
+        for (ChatContext context : contexts.values()) {
+            context.setMaxContextCharacters(newMaxContextCharacters);
+        }
+        LogManager.getInstance().system("Updated max context characters to " + newMaxContextCharacters +
+            " for " + contexts.size() + " active contexts");
+    }
+
+    /**
+     * 更新指定玩家的最大上下文字符长度
+     */
+    public void updateMaxContextLength(UUID playerId) {
+        ChatContext context = contexts.get(playerId);
+        if (context != null) {
+            LLMChatConfig config = LLMChatConfig.getInstance();
+            context.setMaxContextCharacters(config.getMaxContextCharacters());
+        }
+    }
+
+    /**
      * 清空指定玩家的聊天历史
      */
     public void clearContext(PlayerEntity player) {
@@ -87,6 +121,13 @@ public class ChatContextManager {
      */
     public int getActiveContextCount() {
         return contexts.size();
+    }
+
+    /**
+     * 获取调度器用于异步任务
+     */
+    public ScheduledExecutorService getScheduler() {
+        return scheduler;
     }
 
     /**
@@ -120,5 +161,105 @@ public class ChatContextManager {
             Thread.currentThread().interrupt();
         }
         contexts.clear();
+    }
+
+    /**
+     * 上下文压缩通知监听器
+     */
+    private class CompressionNotificationListener implements ChatContext.ContextEventListener {
+        @Override
+        public void onContextCompressionStarted(UUID playerId, int messagesToCompress) {
+            // 检查是否启用压缩通知
+            LLMChatConfig config = LLMChatConfig.getInstance();
+            if (!config.isEnableCompressionNotification()) {
+                return;
+            }
+
+            // 查找玩家并发送通知
+            PlayerEntity player = findPlayerByUuid(playerId);
+            if (player != null) {
+                player.sendMessage(Text.literal("⚠️ 已达到最大上下文长度，您的之前上下文将被压缩")
+                    .formatted(Formatting.YELLOW), false);
+
+                LogManager.getInstance().chat("Compression notification sent to player " +
+                    player.getName().getString() + " for " + messagesToCompress + " messages");
+            }
+        }
+
+        @Override
+        public void onContextCompressionStarted(UUID playerId, int messagesToCompress, PlayerEntity player) {
+            // 检查是否启用压缩通知
+            LLMChatConfig config = LLMChatConfig.getInstance();
+            if (!config.isEnableCompressionNotification()) {
+                return;
+            }
+
+            // 直接使用传入的玩家实体发送通知
+            if (player != null) {
+                LogManager.getInstance().chat("Compression started for player " +
+                    player.getName().getString() + " for " + messagesToCompress + " messages");
+            }
+        }
+
+        @Override
+        public void onContextCompressionCompleted(UUID playerId, boolean success, int originalCount, int compressedCount) {
+            // 检查是否启用压缩通知
+            LLMChatConfig config = LLMChatConfig.getInstance();
+            if (!config.isEnableCompressionNotification()) {
+                return;
+            }
+
+            // 查找玩家并发送完成通知
+            PlayerEntity player = findPlayerByUuid(playerId);
+            if (player != null) {
+                if (success) {
+                    player.sendMessage(Text.literal("✅ 上下文压缩完成，对话历史已优化")
+                        .formatted(Formatting.GREEN), false);
+                } else {
+                    player.sendMessage(Text.literal("⚠️ 上下文压缩失败，已删除部分旧消息")
+                        .formatted(Formatting.YELLOW), false);
+                }
+            }
+        }
+
+        @Override
+        public void onContextCompressionCompleted(UUID playerId, boolean success, int originalCount, int compressedCount, PlayerEntity player) {
+            // 检查是否启用压缩通知
+            LLMChatConfig config = LLMChatConfig.getInstance();
+            if (!config.isEnableCompressionNotification()) {
+                return;
+            }
+
+            // 直接使用传入的玩家实体发送通知
+            if (player != null) {
+                if (success) {
+                    player.sendMessage(Text.literal("✅ 上下文压缩完成，对话历史已优化")
+                        .formatted(Formatting.GREEN), false);
+                } else {
+                    player.sendMessage(Text.literal("⚠️ 上下文压缩失败，已删除部分旧消息")
+                        .formatted(Formatting.YELLOW), false);
+                }
+
+                LogManager.getInstance().chat("Compression completed for player " +
+                    player.getName().getString() + " - success: " + success +
+                    ", original: " + originalCount + ", compressed: " + compressedCount);
+            }
+        }
+
+        /**
+         * 根据UUID查找在线玩家
+         */
+        private PlayerEntity findPlayerByUuid(UUID playerId) {
+            // 遍历所有上下文，找到第一个有效的玩家来获取服务器实例
+            for (ChatContext context : contexts.values()) {
+                // 尝试通过其他方式获取服务器实例
+                // 这是一个简化的实现，在实际使用中可能需要更好的方法
+                break;
+            }
+
+            // 暂时返回null，实际的通知会在LLMChatCommand中处理
+            // 这样可以避免复杂的服务器实例获取问题
+            return null;
+        }
     }
 }

@@ -36,14 +36,22 @@ public interface LLMService {
     
     /**
      * 检查服务是否可用
-     * 
+     *
      * @return 是否可用
      */
     boolean isAvailable();
-    
+
+    /**
+     * 执行健康检查
+     * 发送最小token测试请求来验证服务连接
+     *
+     * @return 异步健康检查结果
+     */
+    CompletableFuture<Boolean> healthCheck();
+
     /**
      * 获取服务名称
-     * 
+     *
      * @return 服务名称
      */
     String getServiceName();

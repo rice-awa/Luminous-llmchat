@@ -6,6 +6,7 @@ import com.google.gson.reflect.TypeToken;
 import com.riceawa.llm.core.LLMMessage;
 import com.riceawa.llm.context.ChatContext;
 import com.riceawa.llm.logging.LogManager;
+import com.riceawa.llm.service.TitleGenerationService;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.*;
@@ -91,7 +92,10 @@ public class ChatHistory {
         );
 
         if (existingSession != null) {
-            // 更新现有会话
+            // 更新现有会话，保留原有标题
+            if (existingSession.getTitle() != null) {
+                newSession.setTitle(existingSession.getTitle());
+            }
             sessions.set(existingIndex, newSession);
             LogManager.getInstance().chat("Chat session updated for player " + playerId +
                     ", session: " + sessionId +
@@ -112,6 +116,43 @@ public class ChatHistory {
 
         // 保存到文件
         saveToFile(playerId, sessions);
+
+        // 异步生成标题（仅对新会话且没有标题的情况）
+        if (existingSession == null || newSession.getTitle() == null) {
+            generateTitleAsync(newSession, playerId, sessions);
+        }
+    }
+
+    /**
+     * 异步生成会话标题
+     */
+    private void generateTitleAsync(ChatSession session, UUID playerId, List<ChatSession> sessions) {
+        TitleGenerationService titleService = TitleGenerationService.getInstance();
+
+        // 检查是否应该生成标题
+        if (!titleService.shouldGenerateTitle(session.getMessages())) {
+            return;
+        }
+
+        // 异步生成标题
+        titleService.generateTitle(session.getMessages())
+            .thenAccept(title -> {
+                if (title != null && !title.trim().isEmpty()) {
+                    // 更新会话标题
+                    session.setTitle(title);
+
+                    // 重新保存到文件
+                    saveToFile(playerId, sessions);
+
+                    LogManager.getInstance().system("Generated title for session " +
+                        session.getSessionId() + ": " + title);
+                }
+            })
+            .exceptionally(throwable -> {
+                LogManager.getInstance().system("Failed to generate title for session " +
+                    session.getSessionId() + ": " + throwable.getMessage());
+                return null;
+            });
     }
 
     /**
@@ -140,6 +181,18 @@ public class ChatHistory {
             return null;
         }
         return sessions.get(sessions.size() - 1);
+    }
+
+    /**
+     * 通过索引获取玩家的会话（索引从1开始，1表示最新的会话）
+     */
+    public ChatSession getSessionByIndex(UUID playerId, int index) {
+        List<ChatSession> sessions = loadPlayerHistory(playerId);
+        if (sessions.isEmpty() || index < 1 || index > sessions.size()) {
+            return null;
+        }
+        // 索引1对应最新的会话，所以需要从后往前数
+        return sessions.get(sessions.size() - index);
     }
 
     /**
@@ -222,14 +275,21 @@ public class ChatHistory {
         private final List<LLMMessage> messages;
         private final LocalDateTime timestamp;
         private final String promptTemplate;
+        private String title; // 对话标题，可能为null（向后兼容）
 
-        public ChatSession(String sessionId, UUID playerId, List<LLMMessage> messages, 
+        public ChatSession(String sessionId, UUID playerId, List<LLMMessage> messages,
                           LocalDateTime timestamp, String promptTemplate) {
+            this(sessionId, playerId, messages, timestamp, promptTemplate, null);
+        }
+
+        public ChatSession(String sessionId, UUID playerId, List<LLMMessage> messages,
+                          LocalDateTime timestamp, String promptTemplate, String title) {
             this.sessionId = sessionId;
             this.playerId = playerId;
             this.messages = new ArrayList<>(messages);
             this.timestamp = timestamp;
             this.promptTemplate = promptTemplate;
+            this.title = title;
         }
 
         public String getSessionId() {
@@ -250,6 +310,26 @@ public class ChatHistory {
 
         public String getPromptTemplate() {
             return promptTemplate;
+        }
+
+        public String getTitle() {
+            return title;
+        }
+
+        public void setTitle(String title) {
+            this.title = title;
+        }
+
+        /**
+         * 获取显示标题，如果没有标题则返回默认格式
+         */
+        public String getDisplayTitle() {
+            if (title != null && !title.trim().isEmpty()) {
+                return title;
+            }
+            // 默认标题格式：基于时间和消息数量
+            return String.format("对话 %s (%d条消息)",
+                getFormattedTimestamp(), messages.size());
         }
 
         public String getFormattedTimestamp() {

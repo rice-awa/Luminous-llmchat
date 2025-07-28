@@ -185,7 +185,8 @@ public class HistoryCommand {
             }
             
             result.append("会话 ").append(count + 1).append(":\n");
-            result.append("  时间: ").append(session.getTimestamp()).append("\n");
+            result.append("  标题: ").append(session.getDisplayTitle()).append("\n");
+            result.append("  时间: ").append(session.getFormattedTimestamp()).append("\n");
             result.append("  模板: ").append(session.getPromptTemplate()).append("\n");
             result.append("  消息数: ").append(session.getMessages().size()).append("\n");
             result.append("\n");

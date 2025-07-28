@@ -2,6 +2,7 @@ package com.riceawa.llm.config;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonSyntaxException;
 import com.riceawa.llm.logging.LogConfig;
 
 import net.fabricmc.loader.api.FabricLoader;
@@ -17,31 +18,41 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * LLM聊天模组配置管理
+ * LLM聊天配置管理
  */
 public class LLMChatConfig {
     private static LLMChatConfig instance;
     private final Gson gson;
     private final Path configFile;
-    
-    // 配置版本，用于配置升级
-    private static final String CURRENT_CONFIG_VERSION = "1.5.1";
+    private boolean isInitializing = false;
+    private ProviderManager providerManager;
 
-    // 配置项
+    // 配置版本
+    private static final String CURRENT_CONFIG_VERSION = "2.0.0";
+
+    // 配置项 - 使用ConfigDefaults中的默认值
     private String configVersion = CURRENT_CONFIG_VERSION;
-    private String defaultPromptTemplate = "default";
-    private double defaultTemperature = 0.7;
-    private int defaultMaxTokens = 8192;
-    private int maxContextLength = 8192;
-    private boolean enableHistory = true;
-    private boolean enableFunctionCalling = false;
-    private boolean enableBroadcast = false;
-    private Set<String> broadcastPlayers = new HashSet<>();
-    private int historyRetentionDays = 30;
+    private String defaultPromptTemplate = ConfigDefaults.DEFAULT_PROMPT_TEMPLATE;
+    private double defaultTemperature = ConfigDefaults.DEFAULT_TEMPERATURE;
+    private int defaultMaxTokens = ConfigDefaults.DEFAULT_MAX_TOKENS;
+    private int maxContextCharacters = ConfigDefaults.DEFAULT_MAX_CONTEXT_CHARACTERS;
+    private boolean enableHistory = ConfigDefaults.DEFAULT_ENABLE_HISTORY;
+    private boolean enableFunctionCalling = ConfigDefaults.DEFAULT_ENABLE_FUNCTION_CALLING;
+    private boolean enableBroadcast = ConfigDefaults.DEFAULT_ENABLE_BROADCAST;
+    private Set<String> broadcastPlayers = ConfigDefaults.createDefaultBroadcastPlayers();
+    private int historyRetentionDays = ConfigDefaults.DEFAULT_HISTORY_RETENTION_DAYS;
+
+    // 上下文压缩配置
+    private String compressionModel = ConfigDefaults.DEFAULT_COMPRESSION_MODEL;
+    private boolean enableCompressionNotification = ConfigDefaults.DEFAULT_ENABLE_COMPRESSION_NOTIFICATION;
 
     // 全局上下文配置
-    private boolean enableGlobalContext = true;
-    private String globalContextPrompt = "=== 当前游戏环境信息 ===\n发起者：{{player_name}}\n当前时间：{{current_time}}\n在线玩家（{{player_count}}人）：{{online_players}}\n游戏版本：{{game_version}}";
+    private boolean enableGlobalContext = ConfigDefaults.DEFAULT_ENABLE_GLOBAL_CONTEXT;
+    private String globalContextPrompt = ConfigDefaults.DEFAULT_GLOBAL_CONTEXT_PROMPT;
+
+    // 标题生成配置
+    private boolean enableTitleGeneration = ConfigDefaults.DEFAULT_ENABLE_TITLE_GENERATION;
+    private String titleGenerationModel = ConfigDefaults.DEFAULT_TITLE_GENERATION_MODEL;
 
     // 并发配置
     private ConcurrencySettings concurrencySettings = ConcurrencySettings.createDefault();
@@ -51,24 +62,35 @@ public class LLMChatConfig {
 
     // Providers配置
     private List<Provider> providers = new ArrayList<>();
-    private String currentProvider = "";
-    private String currentModel = "";
+    private String currentProvider = ConfigDefaults.EMPTY_STRING;
+    private String currentModel = ConfigDefaults.EMPTY_STRING;
 
     private LLMChatConfig() {
+        this.isInitializing = true;
         this.gson = new GsonBuilder().setPrettyPrinting().create();
-        
+
         Path configDir = FabricLoader.getInstance().getConfigDir().resolve("lllmchat");
         this.configFile = configDir.resolve("config.json");
-        
+
         // 确保配置目录存在
         try {
             Files.createDirectories(configDir);
         } catch (IOException e) {
             throw new RuntimeException("Failed to create config directory", e);
         }
-        
+
         // 加载配置
         loadConfig();
+
+        // 初始化Provider管理器
+        this.providerManager = new ProviderManager(this.providers);
+
+        // 验证和修复配置
+        validateAndFixConfiguration();
+
+        this.isInitializing = false;
+
+        System.out.println("LLMChatConfig initialized successfully");
     }
 
     public static LLMChatConfig getInstance() {
@@ -88,8 +110,11 @@ public class LLMChatConfig {
     private void loadConfig() {
         if (!Files.exists(configFile)) {
             // 创建默认配置文件
+            System.out.println("Config file does not exist, creating default configuration...");
             createDefaultConfig();
+            System.out.println("Default configuration created with maxContextCharacters: " + this.maxContextCharacters);
             saveConfig();
+            System.out.println("Default configuration saved to file");
             return;
         }
 
@@ -97,15 +122,11 @@ public class LLMChatConfig {
                 Files.newInputStream(configFile), StandardCharsets.UTF_8)) {
             ConfigData data = gson.fromJson(reader, ConfigData.class);
             if (data != null) {
-                // 检查配置版本并升级
-                boolean needsUpgrade = upgradeConfigIfNeeded(data);
                 applyConfigData(data);
-
-                // 如果配置被升级，保存新配置
-                if (needsUpgrade) {
-                    System.out.println("Configuration upgraded to version " + CURRENT_CONFIG_VERSION);
-                    saveConfig();
-                }
+            } else {
+                System.err.println("Failed to parse config file, creating default configuration");
+                createDefaultConfig();
+                saveConfig();
             }
         } catch (Exception e) {
             System.err.println("Failed to load config: " + e.getMessage());
@@ -127,7 +148,9 @@ public class LLMChatConfig {
         try (OutputStreamWriter writer = new OutputStreamWriter(
                 Files.newOutputStream(configFile), StandardCharsets.UTF_8)) {
             ConfigData data = createConfigData();
+            System.out.println("Saving config with maxContextCharacters: " + data.maxContextCharacters);
             gson.toJson(data, writer);
+            System.out.println("Configuration saved successfully");
         } catch (IOException e) {
             System.err.println("Failed to save config: " + e.getMessage());
         }
@@ -138,93 +161,41 @@ public class LLMChatConfig {
      */
     public void reload() {
         loadConfig();
+
+        // 重载配置后，更新现有的上下文实例
+        if (!isInitializing) {
+            try {
+                com.riceawa.llm.context.ChatContextManager.getInstance().updateMaxContextLength();
+            } catch (Exception e) {
+                System.err.println("Failed to update existing contexts after reload: " + e.getMessage());
+            }
+
+            // 触发异步健康检查
+            triggerHealthCheck();
+        }
     }
 
     /**
-     * 检查并升级配置版本
+     * 触发provider健康检查
      */
-    private boolean upgradeConfigIfNeeded(ConfigData data) {
-        String loadedVersion = data.configVersion;
-
-        // 如果没有版本信息，说明是旧版本配置
-        if (loadedVersion == null || loadedVersion.isEmpty()) {
-            System.out.println("Upgrading configuration from legacy version to " + CURRENT_CONFIG_VERSION);
-            return upgradeFromLegacy(data);
-        }
-
-        // 检查是否需要升级
-        if (!CURRENT_CONFIG_VERSION.equals(loadedVersion)) {
-            System.out.println("Upgrading configuration from " + loadedVersion + " to " + CURRENT_CONFIG_VERSION);
-            return upgradeFromVersion(data, loadedVersion);
-        }
-
-        return false; // 不需要升级
-    }
-
-    /**
-     * 从旧版本升级配置
-     */
-    private boolean upgradeFromLegacy(ConfigData data) {
-        boolean upgraded = false;
-
-        // 设置配置版本
-        data.configVersion = CURRENT_CONFIG_VERSION;
-        upgraded = true;
-
-        // 添加缺失的并发配置
-        if (data.concurrencySettings == null) {
-            data.concurrencySettings = ConcurrencySettings.createDefault();
-            System.out.println("Added default concurrency settings");
-            upgraded = true;
-        }
-
-        // 确保日志配置存在
-        if (data.logConfig == null) {
-            data.logConfig = LogConfig.createDefault();
-            System.out.println("Added default log configuration");
-            upgraded = true;
-        }
-
-        // 确保providers配置存在
-        if (data.providers == null || data.providers.isEmpty()) {
-            createDefaultProviders();
-            data.providers = this.providers;
-            System.out.println("Added default providers configuration");
-            upgraded = true;
-        }
-
-        return upgraded;
-    }
-
-    /**
-     * 从指定版本升级配置
-     */
-    private boolean upgradeFromVersion(ConfigData data, String fromVersion) {
-        boolean upgraded = false;
-
-        // 设置新版本号
-        data.configVersion = CURRENT_CONFIG_VERSION;
-        upgraded = true;
-
-        // 根据版本进行特定升级
-        switch (fromVersion) {
-            case "1.5.0":
-                // 从1.5.0升级到1.5.1，添加并发配置
-                if (data.concurrencySettings == null) {
-                    data.concurrencySettings = ConcurrencySettings.createDefault();
-                    System.out.println("Added concurrency settings for version 1.5.1");
-                    upgraded = true;
+    private void triggerHealthCheck() {
+        try {
+            ProviderManager providerManager = new ProviderManager(this.providers);
+            providerManager.checkAllProvidersHealth().whenComplete((healthMap, throwable) -> {
+                if (throwable != null) {
+                    System.err.println("Provider health check failed: " + throwable.getMessage());
+                } else {
+                    System.out.println("Provider health check completed for " + healthMap.size() + " providers");
                 }
-                break;
-
-            default:
-                // 对于未知版本，执行完整升级
-                System.out.println("Unknown version " + fromVersion + ", performing full upgrade");
-                return upgradeFromLegacy(data);
+            });
+        } catch (Exception e) {
+            System.err.println("Failed to trigger health check: " + e.getMessage());
         }
-
-        return upgraded;
     }
+
+
+
+
 
     /**
      * 备份损坏的配置文件
@@ -243,82 +214,76 @@ public class LLMChatConfig {
      * 创建默认配置
      */
     private void createDefaultConfig() {
-        createDefaultProviders();
+        // 设置配置版本
+        this.configVersion = CURRENT_CONFIG_VERSION;
+
+        // 使用ConfigDefaults中的默认值（字段已经在声明时初始化）
+        // 只需要创建默认的Providers
+        this.providers = ConfigDefaults.createDefaultProviders();
+
+        // 自动选择第一个有效的Provider和Model
+        selectInitialProviderAndModel();
+
+        System.out.println("Created default configuration with " + this.providers.size() + " providers");
     }
 
     /**
-     * 创建默认的providers配置
+     * 选择初始的Provider和Model
      */
-    private void createDefaultProviders() {
-        // 创建默认的providers配置
-        List<Provider> defaultProviders = new ArrayList<>();
+    private void selectInitialProviderAndModel() {
+        ProviderManager manager = new ProviderManager(this.providers);
+        ProviderManager.ProviderModelResult result = manager.fixCurrentConfiguration("", "");
 
-        // OpenAI Provider示例
-        Provider openaiProvider = new Provider();
-        openaiProvider.setName("openai");
-        openaiProvider.setApiBaseUrl("https://api.openai.com/v1");
-        openaiProvider.setApiKey("your-openai-api-key-here");
-        openaiProvider.setModels(List.of("gpt-3.5-turbo", "gpt-4", "gpt-4-turbo", "gpt-4o"));
-        defaultProviders.add(openaiProvider);
-
-        // OpenRouter Provider示例
-        Provider openrouterProvider = new Provider();
-        openrouterProvider.setName("openrouter");
-        openrouterProvider.setApiBaseUrl("https://openrouter.ai/api/v1");
-        openrouterProvider.setApiKey("your-openrouter-api-key-here");
-        openrouterProvider.setModels(List.of(
-            "anthropic/claude-3.5-sonnet",
-            "google/gemini-2.5-pro-preview",
-            "anthropic/claude-sonnet-4"
-        ));
-        defaultProviders.add(openrouterProvider);
-
-        // DeepSeek Provider示例
-        Provider deepseekProvider = new Provider();
-        deepseekProvider.setName("deepseek");
-        deepseekProvider.setApiBaseUrl("https://api.deepseek.com/v1");
-        deepseekProvider.setApiKey("your-deepseek-api-key-here");
-        deepseekProvider.setModels(List.of("deepseek-chat", "deepseek-reasoner"));
-        defaultProviders.add(deepseekProvider);
-
-        this.providers = defaultProviders;
-        this.currentProvider = "openai"; // 默认使用OpenAI
-        this.currentModel = "gpt-3.5-turbo"; // 默认模型
+        if (result.isSuccess()) {
+            this.currentProvider = result.getProviderName();
+            this.currentModel = result.getModelName();
+            System.out.println("Selected initial provider: " + this.currentProvider + ", model: " + this.currentModel);
+        } else {
+            this.currentProvider = ConfigDefaults.EMPTY_STRING;
+            this.currentModel = ConfigDefaults.EMPTY_STRING;
+            System.out.println("No valid provider configuration found: " + result.getMessage());
+        }
     }
 
-    /**
-     * 获取当前provider的默认模型
-     */
-    private String getDefaultModelForCurrentProvider() {
-        if (currentProvider == null || currentProvider.isEmpty()) {
-            return "";
-        }
 
-        Provider provider = getProvider(currentProvider);
-        if (provider != null && provider.getModels() != null && !provider.getModels().isEmpty()) {
-            return provider.getModels().get(0);
-        }
-
-        return "";
-    }
 
     /**
      * 应用配置数据
      */
     private void applyConfigData(ConfigData data) {
+        // 使用ConfigDefaults提供默认值，避免硬编码
         this.configVersion = data.configVersion != null ? data.configVersion : CURRENT_CONFIG_VERSION;
-        this.defaultPromptTemplate = data.defaultPromptTemplate != null ? data.defaultPromptTemplate : "default";
-        this.defaultTemperature = data.defaultTemperature != null ? data.defaultTemperature : 0.7;
-        this.defaultMaxTokens = data.defaultMaxTokens != null ? data.defaultMaxTokens : 8192;
-        this.maxContextLength = data.maxContextLength != null ? data.maxContextLength : 8192;
-        this.enableHistory = data.enableHistory != null ? data.enableHistory : true;
-        this.enableFunctionCalling = data.enableFunctionCalling != null ? data.enableFunctionCalling : true;
-        this.enableBroadcast = data.enableBroadcast != null ? data.enableBroadcast : false;
-        this.broadcastPlayers = data.broadcastPlayers != null ? new HashSet<>(data.broadcastPlayers) : new HashSet<>();
-        this.historyRetentionDays = data.historyRetentionDays != null ? data.historyRetentionDays : 30;
-        this.enableGlobalContext = data.enableGlobalContext != null ? data.enableGlobalContext : true;
-        this.globalContextPrompt = data.globalContextPrompt != null ? data.globalContextPrompt :
-            "=== 当前游戏环境信息 ===\n发起者：{{player_name}}\n当前时间：{{current_time}}\n在线玩家（{{player_count}}人）：{{online_players}}\n游戏版本：{{game_version}}";
+        this.defaultPromptTemplate = data.defaultPromptTemplate != null ? data.defaultPromptTemplate : (String) ConfigDefaults.getDefaultValue("defaultPromptTemplate");
+        this.defaultTemperature = data.defaultTemperature != null ? data.defaultTemperature : (Double) ConfigDefaults.getDefaultValue("defaultTemperature");
+        this.defaultMaxTokens = data.defaultMaxTokens != null ? data.defaultMaxTokens : (Integer) ConfigDefaults.getDefaultValue("defaultMaxTokens");
+
+        // 兼容旧配置：如果有maxContextLength，使用它作为maxContextCharacters
+        if (data.maxContextLength != null) {
+            this.maxContextCharacters = data.maxContextLength;
+            System.out.println("Using legacy maxContextLength as maxContextCharacters: " + this.maxContextCharacters);
+        } else if (data.maxContextCharacters != null) {
+            this.maxContextCharacters = data.maxContextCharacters;
+            System.out.println("Loaded maxContextCharacters from config: " + this.maxContextCharacters);
+        } else {
+            this.maxContextCharacters = ConfigDefaults.DEFAULT_MAX_CONTEXT_CHARACTERS;
+            System.out.println("Applied default maxContextCharacters: " + this.maxContextCharacters);
+        }
+
+        this.enableHistory = data.enableHistory != null ? data.enableHistory : (Boolean) ConfigDefaults.getDefaultValue("enableHistory");
+        this.enableFunctionCalling = data.enableFunctionCalling != null ? data.enableFunctionCalling : (Boolean) ConfigDefaults.getDefaultValue("enableFunctionCalling");
+        this.enableBroadcast = data.enableBroadcast != null ? data.enableBroadcast : (Boolean) ConfigDefaults.getDefaultValue("enableBroadcast");
+        this.broadcastPlayers = data.broadcastPlayers != null ? new HashSet<>(data.broadcastPlayers) : ConfigDefaults.createDefaultBroadcastPlayers();
+        this.historyRetentionDays = data.historyRetentionDays != null ? data.historyRetentionDays : (Integer) ConfigDefaults.getDefaultValue("historyRetentionDays");
+        this.enableGlobalContext = data.enableGlobalContext != null ? data.enableGlobalContext : (Boolean) ConfigDefaults.getDefaultValue("enableGlobalContext");
+        this.globalContextPrompt = data.globalContextPrompt != null ? data.globalContextPrompt : (String) ConfigDefaults.getDefaultValue("globalContextPrompt");
+
+        // 处理上下文压缩配置
+        this.compressionModel = data.compressionModel != null ? data.compressionModel : (String) ConfigDefaults.getDefaultValue("compressionModel");
+        this.enableCompressionNotification = data.enableCompressionNotification != null ? data.enableCompressionNotification : (Boolean) ConfigDefaults.getDefaultValue("enableCompressionNotification");
+
+        // 处理标题生成配置
+        this.enableTitleGeneration = data.enableTitleGeneration != null ? data.enableTitleGeneration : (Boolean) ConfigDefaults.getDefaultValue("enableTitleGeneration");
+        this.titleGenerationModel = data.titleGenerationModel != null ? data.titleGenerationModel : (String) ConfigDefaults.getDefaultValue("titleGenerationModel");
 
         // 处理并发配置
         this.concurrencySettings = data.concurrencySettings != null ? data.concurrencySettings : ConcurrencySettings.createDefault();
@@ -328,40 +293,107 @@ public class LLMChatConfig {
 
         // 处理providers配置 - 如果为null或空，创建默认配置
         if (data.providers == null || data.providers.isEmpty()) {
-            createDefaultProviders();
+            this.providers = ConfigDefaults.createDefaultProviders();
         } else {
             this.providers = data.providers;
         }
 
         // 处理当前provider和model配置
-        this.currentProvider = data.currentProvider != null && !data.currentProvider.isEmpty() ?
-            data.currentProvider : (this.providers.isEmpty() ? "" : this.providers.get(0).getName());
-        this.currentModel = data.currentModel != null && !data.currentModel.isEmpty() ?
-            data.currentModel : getDefaultModelForCurrentProvider();
+        this.currentProvider = data.currentProvider != null ? data.currentProvider : (String) ConfigDefaults.getDefaultValue("currentProvider");
+        this.currentModel = data.currentModel != null ? data.currentModel : (String) ConfigDefaults.getDefaultValue("currentModel");
+
+        // 重新初始化Provider管理器
+        this.providerManager = new ProviderManager(this.providers);
     }
+
+    /**
+     * 验证和修复配置
+     */
+    private void validateAndFixConfiguration() {
+        boolean needsSave = false;
+
+        // 验证基础配置值
+        if (!ConfigDefaults.isValidConfigValue("maxContextCharacters", this.maxContextCharacters)) {
+            System.out.println("Invalid maxContextCharacters (" + this.maxContextCharacters + "), resetting to default");
+            this.maxContextCharacters = ConfigDefaults.DEFAULT_MAX_CONTEXT_CHARACTERS;
+            needsSave = true;
+        }
+
+        if (!ConfigDefaults.isValidConfigValue("defaultTemperature", this.defaultTemperature)) {
+            System.out.println("Invalid defaultTemperature (" + this.defaultTemperature + "), resetting to default");
+            this.defaultTemperature = ConfigDefaults.DEFAULT_TEMPERATURE;
+            needsSave = true;
+        }
+
+        if (!ConfigDefaults.isValidConfigValue("defaultMaxTokens", this.defaultMaxTokens)) {
+            System.out.println("Invalid defaultMaxTokens (" + this.defaultMaxTokens + "), resetting to default");
+            this.defaultMaxTokens = ConfigDefaults.DEFAULT_MAX_TOKENS;
+            needsSave = true;
+        }
+
+        // 验证和修复Provider配置
+        ProviderManager.ProviderModelResult result = providerManager.fixCurrentConfiguration(
+            this.currentProvider, this.currentModel);
+
+        if (result.isSuccess()) {
+            if (!result.getProviderName().equals(this.currentProvider) ||
+                !result.getModelName().equals(this.currentModel)) {
+                this.currentProvider = result.getProviderName();
+                this.currentModel = result.getModelName();
+                needsSave = true;
+                System.out.println("Provider configuration fixed: " + result.getMessage());
+            }
+        } else {
+            System.out.println("Provider configuration issue: " + result.getMessage());
+        }
+
+        // 如果有修复，保存配置
+        if (needsSave && !isInitializing) {
+            saveConfig();
+        }
+    }
+
+
 
     /**
      * 创建配置数据
      */
     private ConfigData createConfigData() {
         ConfigData data = new ConfigData();
+
+        // 基础配置
         data.configVersion = this.configVersion;
         data.defaultPromptTemplate = this.defaultPromptTemplate;
         data.defaultTemperature = this.defaultTemperature;
         data.defaultMaxTokens = this.defaultMaxTokens;
-        data.maxContextLength = this.maxContextLength;
+        data.maxContextCharacters = this.maxContextCharacters;
+
+        // 功能开关配置
         data.enableHistory = this.enableHistory;
         data.enableFunctionCalling = this.enableFunctionCalling;
         data.enableBroadcast = this.enableBroadcast;
         data.broadcastPlayers = new HashSet<>(this.broadcastPlayers);
         data.historyRetentionDays = this.historyRetentionDays;
+
+        // 全局上下文配置
         data.enableGlobalContext = this.enableGlobalContext;
         data.globalContextPrompt = this.globalContextPrompt;
+
+        // 压缩和标题生成功能配置
+        data.enableCompressionNotification = this.enableCompressionNotification;
+        data.enableTitleGeneration = this.enableTitleGeneration;
+
+        // 系统配置
         data.concurrencySettings = this.concurrencySettings;
         data.logConfig = this.logConfig;
         data.providers = this.providers;
+
+        // 模型相关配置（放在最后）
+        data.compressionModel = this.compressionModel;
+        data.titleGenerationModel = this.titleGenerationModel;
         data.currentProvider = this.currentProvider;
         data.currentModel = this.currentModel;
+
         return data;
     }
 
@@ -395,14 +427,36 @@ public class LLMChatConfig {
         saveConfig();
     }
 
+    public int getMaxContextCharacters() {
+        return maxContextCharacters;
+    }
+
+    public void setMaxContextCharacters(int maxContextCharacters) {
+        this.maxContextCharacters = maxContextCharacters;
+
+        // 只在非初始化状态时保存配置
+        if (!isInitializing) {
+            saveConfig();
+
+            // 更新现有的上下文实例
+            try {
+                com.riceawa.llm.context.ChatContextManager.getInstance().updateMaxContextLength();
+            } catch (Exception e) {
+                System.err.println("Failed to update existing contexts with new max context characters: " + e.getMessage());
+            }
+        }
+    }
+
+    // 保持向后兼容的方法名
     public int getMaxContextLength() {
-        return maxContextLength;
+        return maxContextCharacters;
     }
 
     public void setMaxContextLength(int maxContextLength) {
-        this.maxContextLength = maxContextLength;
-        saveConfig();
+        setMaxContextCharacters(maxContextLength);
     }
+
+
 
     public boolean isEnableHistory() {
         return enableHistory;
@@ -491,6 +545,65 @@ public class LLMChatConfig {
         saveConfig();
     }
 
+    // 标题生成配置相关方法
+    public boolean isEnableTitleGeneration() {
+        return enableTitleGeneration;
+    }
+
+    public void setEnableTitleGeneration(boolean enableTitleGeneration) {
+        this.enableTitleGeneration = enableTitleGeneration;
+        saveConfig();
+    }
+
+    public String getTitleGenerationModel() {
+        return titleGenerationModel;
+    }
+
+    public void setTitleGenerationModel(String titleGenerationModel) {
+        this.titleGenerationModel = titleGenerationModel != null ? titleGenerationModel : "";
+        saveConfig();
+    }
+
+    /**
+     * 获取有效的标题生成模型
+     * 如果未设置专门的标题生成模型，则使用当前模型
+     */
+    public String getEffectiveTitleGenerationModel() {
+        if (titleGenerationModel != null && !titleGenerationModel.trim().isEmpty()) {
+            return titleGenerationModel;
+        }
+        return getCurrentModel();
+    }
+
+    // 上下文压缩配置相关方法
+    public String getCompressionModel() {
+        return compressionModel;
+    }
+
+    public void setCompressionModel(String compressionModel) {
+        this.compressionModel = compressionModel != null ? compressionModel : "";
+        saveConfig();
+    }
+
+    public boolean isEnableCompressionNotification() {
+        return enableCompressionNotification;
+    }
+
+    public void setEnableCompressionNotification(boolean enableCompressionNotification) {
+        this.enableCompressionNotification = enableCompressionNotification;
+        saveConfig();
+    }
+
+    /**
+     * 获取用于压缩的模型，如果未设置则返回当前模型
+     */
+    public String getEffectiveCompressionModel() {
+        if (compressionModel == null || compressionModel.trim().isEmpty()) {
+            return getCurrentModel();
+        }
+        return compressionModel;
+    }
+
     // 并发配置相关方法
     public ConcurrencySettings getConcurrencySettings() {
         return concurrencySettings;
@@ -518,6 +631,13 @@ public class LLMChatConfig {
 
     public void setProviders(List<Provider> providers) {
         this.providers = providers != null ? new ArrayList<>(providers) : new ArrayList<>();
+
+        // 重新初始化Provider管理器
+        this.providerManager = new ProviderManager(this.providers);
+
+        // 验证和修复当前配置
+        validateAndFixConfiguration();
+
         saveConfig();
     }
 
@@ -526,12 +646,44 @@ public class LLMChatConfig {
             // 移除同名的provider
             providers.removeIf(p -> p.getName().equals(provider.getName()));
             providers.add(provider);
+
+            // 重新初始化Provider管理器
+            this.providerManager = new ProviderManager(this.providers);
+
+            // 如果当前没有有效配置，尝试使用新添加的provider
+            if (!isProviderModelValid(this.currentProvider, this.currentModel)) {
+                validateAndFixConfiguration();
+            }
+
             saveConfig();
         }
     }
 
     public void removeProvider(String providerName) {
+        // 检查是否要删除当前provider
+        boolean removingCurrentProvider = providerName.equals(currentProvider);
+
+        // 删除provider
         providers.removeIf(p -> p.getName().equals(providerName));
+
+        // 重新初始化Provider管理器
+        this.providerManager = new ProviderManager(this.providers);
+
+        // 如果删除的是当前provider，需要切换到其他provider
+        if (removingCurrentProvider) {
+            // 使用Provider管理器自动选择新的配置
+            ProviderManager.ProviderModelResult result = providerManager.fixCurrentConfiguration("", "");
+            if (result.isSuccess()) {
+                this.currentProvider = result.getProviderName();
+                this.currentModel = result.getModelName();
+                System.out.println("Switched to provider: " + this.currentProvider + ", model: " + this.currentModel);
+            } else {
+                this.currentProvider = ConfigDefaults.EMPTY_STRING;
+                this.currentModel = ConfigDefaults.EMPTY_STRING;
+                System.out.println("No valid provider available after removal");
+            }
+        }
+
         saveConfig();
     }
 
@@ -586,7 +738,114 @@ public class LLMChatConfig {
         return provider != null ? new ArrayList<>(provider.getModels()) : new ArrayList<>();
     }
 
+    /**
+     * 获取所有有效的Provider列表
+     */
+    public List<Provider> getValidProviders() {
+        return providerManager != null ? providerManager.getValidProviders() : new ArrayList<>();
+    }
 
+    /**
+     * 获取配置状态报告
+     */
+    public String getConfigurationReport() {
+        if (providerManager == null) {
+            return "Provider管理器未初始化";
+        }
+        return providerManager.getConfigurationReport().getReportText();
+    }
+
+    /**
+     * 自动修复当前的Provider和Model配置
+     * @return 修复结果信息
+     */
+    public String autoFixConfiguration() {
+        if (providerManager == null) {
+            return "Provider管理器未初始化";
+        }
+
+        ProviderManager.ProviderModelResult result = providerManager.fixCurrentConfiguration(
+            this.currentProvider, this.currentModel);
+
+        if (result.isSuccess()) {
+            boolean changed = false;
+            if (!result.getProviderName().equals(this.currentProvider)) {
+                this.currentProvider = result.getProviderName();
+                changed = true;
+            }
+            if (!result.getModelName().equals(this.currentModel)) {
+                this.currentModel = result.getModelName();
+                changed = true;
+            }
+
+            if (changed) {
+                saveConfig();
+            }
+
+            return result.getMessage();
+        } else {
+            return "配置修复失败: " + result.getMessage();
+        }
+    }
+
+    /**
+     * 检查指定的Provider和Model组合是否有效
+     */
+    public boolean isProviderModelValid(String providerName, String modelName) {
+        return providerManager != null &&
+               providerManager.isProviderModelValid(providerName, modelName);
+    }
+
+
+
+    /**
+     * 检查是否有任何有效的provider配置
+     */
+    public boolean hasAnyValidProvider() {
+        return providerManager != null && !providerManager.getValidProviders().isEmpty();
+    }
+
+    /**
+     * 获取第一个有效配置的provider
+     */
+    public Provider getFirstValidProvider() {
+        return providerManager != null ?
+            providerManager.getFirstValidProvider().orElse(null) : null;
+    }
+
+    /**
+     * 检查是否是第一次使用（所有API密钥都未配置）
+     */
+    public boolean isFirstTimeUse() {
+        return !hasAnyValidProvider();
+    }
+
+    /**
+     * 检查当前配置是否有效（用于配置验证）
+     */
+    public boolean isConfigurationValid() {
+        // 检查是否有任何有效的provider
+        if (!hasAnyValidProvider()) {
+            return false;
+        }
+
+        // 使用Provider管理器检查和修复配置
+        ProviderManager.ProviderModelResult result = providerManager.fixCurrentConfiguration(
+            this.currentProvider, this.currentModel);
+
+        if (result.isSuccess()) {
+            // 如果配置被修复，更新并保存
+            if (!result.getProviderName().equals(this.currentProvider) ||
+                !result.getModelName().equals(this.currentModel)) {
+                this.currentProvider = result.getProviderName();
+                this.currentModel = result.getModelName();
+                saveConfig();
+            }
+            return true;
+        }
+
+        return false;
+    }
 
     /**
      * 简化的配置恢复功能
@@ -606,27 +865,32 @@ public class LLMChatConfig {
         }
 
         if (providers == null || providers.isEmpty()) {
-            createDefaultProviders();
+            providers = ConfigDefaults.createDefaultProviders();
             updated = true;
         }
 
-        if (currentProvider == null || currentProvider.isEmpty()) {
-            if (!providers.isEmpty()) {
-                currentProvider = providers.get(0).getName();
-                updated = true;
-            }
-        }
+        // 重新初始化Provider管理器
+        this.providerManager = new ProviderManager(this.providers);
 
-        if (currentModel == null || currentModel.isEmpty()) {
-            String defaultModel = getDefaultModelForCurrentProvider();
-            if (!defaultModel.isEmpty()) {
-                currentModel = defaultModel;
+        // 使用Provider管理器修复配置
+        ProviderManager.ProviderModelResult result = providerManager.fixCurrentConfiguration(
+            this.currentProvider, this.currentModel);
+
+        if (result.isSuccess()) {
+            if (!result.getProviderName().equals(this.currentProvider) ||
+                !result.getModelName().equals(this.currentModel)) {
+                this.currentProvider = result.getProviderName();
+                this.currentModel = result.getModelName();
                 updated = true;
             }
+        } else {
+            // 如果没有有效配置，清空
+            this.currentProvider = ConfigDefaults.EMPTY_STRING;
+            this.currentModel = ConfigDefaults.EMPTY_STRING;
         }
 
         if (broadcastPlayers == null) {
-            broadcastPlayers = new HashSet<>();
+            broadcastPlayers = ConfigDefaults.createDefaultBroadcastPlayers();
             updated = true;
         }
 
@@ -649,11 +913,15 @@ public class LLMChatConfig {
      * 配置数据类
      */
     private static class ConfigData {
+        // 基础配置
         String configVersion;
         String defaultPromptTemplate;
         Double defaultTemperature;
         Integer defaultMaxTokens;
-        Integer maxContextLength;
+        Integer maxContextLength; // 保留用于向后兼容
+        Integer maxContextCharacters;
+
+        // 功能开关配置
         Boolean enableHistory;
         Boolean enableFunctionCalling;
         Boolean enableBroadcast;
@@ -664,14 +932,18 @@ public class LLMChatConfig {
         Boolean enableGlobalContext;
         String globalContextPrompt;
 
-        // 并发配置
+        // 压缩和标题生成功能配置
+        Boolean enableCompressionNotification;
+        Boolean enableTitleGeneration;
+
+        // 系统配置
         ConcurrencySettings concurrencySettings;
-
-        // 日志配置
         LogConfig logConfig;
-
-        // Providers配置
         List<Provider> providers;
+
+        // 模型相关配置（放在最后）
+        String compressionModel;
+        String titleGenerationModel;
         String currentProvider;
         String currentModel;
     }
