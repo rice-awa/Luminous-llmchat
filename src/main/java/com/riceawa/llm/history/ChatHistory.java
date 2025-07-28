@@ -33,15 +33,21 @@ public class ChatHistory {
                 .setPrettyPrinting()
                 .registerTypeAdapter(LocalDateTime.class, new LocalDateTimeAdapter())
                 .create();
-        
-        this.historyDir = FabricLoader.getInstance()
-                .getConfigDir()
-                .resolve("lllmchat")
-                .resolve("history");
-        
+
+        // 检查是否有测试目录设置
+        String testHistoryDir = System.getProperty("lllmchat.history.dir");
+        if (testHistoryDir != null) {
+            this.historyDir = Path.of(testHistoryDir);
+        } else {
+            this.historyDir = FabricLoader.getInstance()
+                    .getConfigDir()
+                    .resolve("lllmchat")
+                    .resolve("history");
+        }
+
         this.playerHistories = new ConcurrentHashMap<>();
         this.maxSessionsPerPlayer = 100; // 每个玩家最多保存100个会话
-        
+
         // 确保目录存在
         try {
             Files.createDirectories(historyDir);
@@ -59,6 +65,13 @@ public class ChatHistory {
             }
         }
         return instance;
+    }
+
+    /**
+     * 重置单例实例（仅用于测试）
+     */
+    public static synchronized void resetInstance() {
+        instance = null;
     }
 
     /**

@@ -2,7 +2,6 @@ package com.riceawa.llm.config;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonSyntaxException;
 import com.riceawa.llm.logging.LogConfig;
 
 import net.fabricmc.loader.api.FabricLoader;

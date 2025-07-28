@@ -3,7 +3,7 @@ package com.riceawa.llm.command;
 import com.riceawa.llm.history.ChatHistory;
 import com.riceawa.llm.history.ChatHistory.ChatSession;
 import com.riceawa.llm.core.LLMMessage;
-import com.riceawa.llm.core.MessageRole;
+import com.riceawa.llm.core.LLMMessage.MessageRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -29,6 +29,8 @@ public class ResumeCommandTest {
 
     @BeforeEach
     void setUp() {
+        // 重置单例实例
+        ChatHistory.resetInstance();
         // 使用临时目录初始化ChatHistory
         System.setProperty("lllmchat.history.dir", tempDir.toString());
         chatHistory = ChatHistory.getInstance();
