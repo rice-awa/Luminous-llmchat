@@ -39,7 +39,9 @@
 ### 常用命令
 ```bash
 /llmchat clear                    # 清空聊天历史
-/llmchat resume                   # 恢复上次对话内容
+/llmchat resume                   # 恢复最近的对话内容
+/llmchat resume list              # 列出所有历史对话记录
+/llmchat resume 2                 # 恢复指定ID的对话（如#2）
 /llmchat template set creative    # 切换到创造模式助手模板
 /llmchat help                     # 显示帮助信息
 ```
@@ -58,7 +60,7 @@
 
 ### 功能详细文档
 - 📖 [配置指南](docs/CONFIGURATION_GUIDE.md) - 完整的配置选项和多Provider设置
-- 💻 [命令指南](docs/COMMANDS_GUIDE.md) - 所有可用命令和详细用法
+- 💻 [命令指南](docs/COMMANDS_GUIDE.md) - 所有可用命令和详细用法（包含Resume命令扩展功能）
 - 🔧 [Function Calling开发](docs/FUNCTION_CALLING_DEVELOPMENT.md) - Function Calling功能详解
 - 🛡️ [Function Call安全](docs/FUNCTION_CALL_SECURITY.md) - 权限控制和安全机制
 - 🎮 [Function演示](docs/FUNCTION_DEMO.md) - 实际使用示例和效果展示
@@ -89,6 +91,12 @@
 
 /llmchat 我的背包里有什么物品？
 # AI会调用get_inventory函数查看背包内容
+
+/llmchat resume list
+# 查看所有历史对话记录，选择要恢复的对话
+
+/llmchat resume 3
+# 恢复第3个历史对话，继续之前的讨论
 ```
 
 > 📖 **详细功能文档**: 查看 [Function演示](docs/FUNCTION_DEMO.md) 和 [Function Call安全](docs/FUNCTION_CALL_SECURITY.md) 了解完整功能列表和安全机制
@@ -117,6 +125,12 @@
 - **对话恢复** - 使用 `/llmchat resume` 快速恢复上次对话
 - **压缩通知** - 友好的用户提示，可配置开启/关闭
 - **成本优化** - 支持配置专用压缩模型降低费用
+
+### 增强的历史记录管理
+- **智能会话列表** - 使用 `/llmchat resume list` 查看所有历史对话
+- **精确对话恢复** - 通过数字ID（如 `/llmchat resume 2`）恢复指定对话
+- **会话标题显示** - AI自动生成的对话标题，便于识别内容
+- **时间和统计信息** - 显示对话时间、消息数量和使用的模板
 
 > ⚠️ **重要配置提醒**: 建议将 `maxContextCharacters` 设置为比模型默认上下文长度低的值，以确保系统有足够空间进行压缩和处理。例如，对于支持128k上下文的模型，建议设置为100,000字符。
 
@@ -147,7 +161,16 @@
 
 ## 📝 更新日志
 
-### v1.6.0 (2025-07-27) - 最新版本
+### v1.6.1 (2025-07-28) - 最新版本
+- 🔥 **Resume命令功能扩展** - 全面升级的历史对话管理系统
+- ✨ 新增 `/llmchat resume list` - 列出所有历史对话记录，显示标题和详细信息
+- ✨ 新增 `/llmchat resume <数字>` - 通过简单的数字ID精确恢复指定对话
+- 🎯 **智能会话索引** - 最新对话为#1，直观的数字ID系统
+- 📋 **丰富的会话信息** - 显示AI生成的标题、时间戳、消息数量和模板
+- 🛡️ **完善的错误处理** - 友好的用户提示和异常处理机制
+- 📚 **完整文档支持** - 新增详细的使用指南和优化总结文档
+
+### v1.6.0 (2025-07-27)
 - 🔥 **智能上下文管理升级** - 32k默认上下文长度，智能压缩替代简单删除
 - 🔥 **压缩通知系统** - 友好的用户提示，可配置开启/关闭
 - 🔥 **自定义压缩模型** - 支持配置专用压缩模型，优化成本控制

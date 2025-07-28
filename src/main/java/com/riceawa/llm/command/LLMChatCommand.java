@@ -1,6 +1,7 @@
 package com.riceawa.llm.command;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.riceawa.llm.config.LLMChatConfig;
@@ -63,7 +64,11 @@ public class LLMChatCommand {
                 .then(CommandManager.literal("clear")
                         .executes(LLMChatCommand::handleClearHistory))
                 .then(CommandManager.literal("resume")
-                        .executes(LLMChatCommand::handleResume))
+                        .executes(LLMChatCommand::handleResume)
+                        .then(CommandManager.literal("list")
+                                .executes(LLMChatCommand::handleResumeList))
+                        .then(CommandManager.argument("id", IntegerArgumentType.integer(1))
+                                .executes(LLMChatCommand::handleResumeById)))
                 .then(CommandManager.literal("template")
                         .then(CommandManager.literal("list")
                                 .executes(LLMChatCommand::handleListTemplates))
@@ -252,6 +257,129 @@ public class LLMChatCommand {
             player.sendMessage(Text.literal("恢复对话时发生错误: " + e.getMessage())
                 .formatted(Formatting.RED), false);
             LogManager.getInstance().error("Error resuming chat for player " + player.getName().getString(), e);
+        }
+
+        return 1;
+    }
+
+    /**
+     * 处理列出历史对话记录
+     */
+    private static int handleResumeList(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        try {
+            ChatHistory chatHistory = ChatHistory.getInstance();
+            List<ChatSession> sessions = chatHistory.loadPlayerHistory(player.getUuid());
+
+            if (sessions == null || sessions.isEmpty()) {
+                player.sendMessage(Text.literal("没有找到历史对话记录").formatted(Formatting.YELLOW), false);
+                return 1;
+            }
+
+            // 构建历史记录列表显示
+            StringBuilder message = new StringBuilder();
+            message.append("=== 历史对话记录 ===\n");
+            message.append("共找到 ").append(sessions.size()).append(" 个会话\n\n");
+
+            // 按时间倒序显示（最新的在前面）
+            for (int i = sessions.size() - 1; i >= 0; i--) {
+                ChatSession session = sessions.get(i);
+                int displayIndex = sessions.size() - i; // 最新的是#1
+
+                message.append("#").append(displayIndex).append(" ");
+                message.append(session.getDisplayTitle()).append("\n");
+                message.append("   时间: ").append(session.getFormattedTimestamp()).append("\n");
+                message.append("   消息数: ").append(session.getMessages().size()).append(" 条");
+                if (session.getPromptTemplate() != null && !session.getPromptTemplate().equals("default")) {
+                    message.append("   模板: ").append(session.getPromptTemplate());
+                }
+                message.append("\n\n");
+            }
+
+            message.append("使用 /llmchat resume <数字> 来恢复指定对话");
+
+            player.sendMessage(Text.literal(message.toString()).formatted(Formatting.AQUA), false);
+
+            LogManager.getInstance().chat("Player " + player.getName().getString() +
+                " listed " + sessions.size() + " chat sessions");
+
+        } catch (Exception e) {
+            player.sendMessage(Text.literal("获取历史记录时发生错误: " + e.getMessage())
+                .formatted(Formatting.RED), false);
+            LogManager.getInstance().error("Error listing chat history for player " + player.getName().getString(), e);
+        }
+
+        return 1;
+    }
+
+    /**
+     * 处理通过ID恢复指定对话
+     */
+    private static int handleResumeById(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        int sessionId = IntegerArgumentType.getInteger(context, "id");
+
+        try {
+            ChatHistory chatHistory = ChatHistory.getInstance();
+            ChatSession targetSession = chatHistory.getSessionByIndex(player.getUuid(), sessionId);
+
+            if (targetSession == null) {
+                player.sendMessage(Text.literal("没有找到ID为 #" + sessionId + " 的对话记录")
+                    .formatted(Formatting.RED), false);
+                return 0;
+            }
+
+            // 获取当前上下文
+            ChatContextManager contextManager = ChatContextManager.getInstance();
+            ChatContext currentContext = contextManager.getContext(player);
+
+            // 检查当前上下文是否为空
+            if (currentContext.getMessageCount() > 0) {
+                player.sendMessage(Text.literal("当前对话不为空，请先使用 /llmchat clear 清空当前对话")
+                    .formatted(Formatting.RED), false);
+                return 0;
+            }
+
+            // 恢复指定的历史对话
+            List<LLMMessage> historyMessages = targetSession.getMessages();
+            if (historyMessages != null && !historyMessages.isEmpty()) {
+                // 将历史消息添加到当前上下文
+                for (LLMMessage message : historyMessages) {
+                    currentContext.addMessage(message);
+                }
+
+                // 设置提示词模板
+                if (targetSession.getPromptTemplate() != null && !targetSession.getPromptTemplate().isEmpty()) {
+                    currentContext.setCurrentPromptTemplate(targetSession.getPromptTemplate());
+                }
+
+                player.sendMessage(Text.literal("已恢复对话 #" + sessionId + ": " + targetSession.getDisplayTitle() +
+                    "，共 " + historyMessages.size() + " 条消息").formatted(Formatting.GREEN), false);
+
+                LogManager.getInstance().chat("Player " + player.getName().getString() +
+                    " resumed chat session #" + sessionId + " with " + historyMessages.size() + " messages");
+            } else {
+                player.sendMessage(Text.literal("指定的对话记录为空").formatted(Formatting.YELLOW), false);
+            }
+
+        } catch (Exception e) {
+            player.sendMessage(Text.literal("恢复对话时发生错误: " + e.getMessage())
+                .formatted(Formatting.RED), false);
+            LogManager.getInstance().error("Error resuming chat by ID for player " + player.getName().getString(), e);
         }
 
         return 1;

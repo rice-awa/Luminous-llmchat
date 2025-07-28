@@ -184,6 +184,18 @@ public class ChatHistory {
     }
 
     /**
+     * 通过索引获取玩家的会话（索引从1开始，1表示最新的会话）
+     */
+    public ChatSession getSessionByIndex(UUID playerId, int index) {
+        List<ChatSession> sessions = loadPlayerHistory(playerId);
+        if (sessions.isEmpty() || index < 1 || index > sessions.size()) {
+            return null;
+        }
+        // 索引1对应最新的会话，所以需要从后往前数
+        return sessions.get(sessions.size() - index);
+    }
+
+    /**
      * 删除玩家的所有历史记录
      */
     public void clearPlayerHistory(UUID playerId) {
