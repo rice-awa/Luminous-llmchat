@@ -120,17 +120,21 @@ public class TemplateEditor {
         
         player.sendMessage(Text.literal("🔧 变量管理:").formatted(Formatting.YELLOW), false);
         player.sendMessage(Text.literal("  📋 /llmchat template var list - 列出所有变量").formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("  ➕ /llmchat template var set <名称> <值> - 设置变量").formatted(Formatting.WHITE), false);
-        player.sendMessage(Text.literal("  ➖ /llmchat template var remove <名称> - 删除变量").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  ➕ /llmchat template var set <名称> <值> - 设置自定义变量").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  ➖ /llmchat template var remove <名称> - 删除自定义变量").formatted(Formatting.WHITE), false);
         player.sendMessage(Text.literal("").formatted(Formatting.GRAY), false);
-        
+
         player.sendMessage(Text.literal("🔍 其他操作:").formatted(Formatting.YELLOW), false);
         player.sendMessage(Text.literal("  👁️ /llmchat template preview - 预览当前模板").formatted(Formatting.WHITE), false);
         player.sendMessage(Text.literal("  💾 /llmchat template save - 保存并应用模板").formatted(Formatting.WHITE), false);
         player.sendMessage(Text.literal("  ❌ /llmchat template cancel - 取消编辑").formatted(Formatting.WHITE), false);
         player.sendMessage(Text.literal("").formatted(Formatting.GRAY), false);
-        
-        player.sendMessage(Text.literal("💡 提示: 使用 {{变量名}} 格式在模板中引用变量").formatted(Formatting.GRAY), false);
+
+        player.sendMessage(Text.literal("💡 变量使用提示:").formatted(Formatting.YELLOW), false);
+        player.sendMessage(Text.literal("  • 使用 {{变量名}} 格式在模板中引用变量").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • 内置变量: {{player}}, {{time}}, {{date}}, {{x}}, {{y}}, {{z}} 等").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • 内置变量会自动获取当前值，无需手动设置").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • 使用 preview 命令查看所有可用变量及其当前值").formatted(Formatting.GRAY), false);
     }
 
     /**
@@ -190,15 +194,29 @@ public class TemplateEditor {
         }
         
         player.sendMessage(Text.literal("").formatted(Formatting.GRAY), false);
-        player.sendMessage(Text.literal("🔧 变量 (" + template.getVariables().size() + "个):").formatted(Formatting.YELLOW), false);
+
+        // 显示内置变量
+        player.sendMessage(Text.literal("🔧 内置变量 (自动获取):").formatted(Formatting.YELLOW), false);
+        player.sendMessage(Text.literal("  {{player}} = " + player.getName().getString() + " (玩家名)").formatted(Formatting.GREEN), false);
+        player.sendMessage(Text.literal("  {{time}} = " + java.time.LocalDateTime.now().format(
+            java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) + " (当前时间)").formatted(Formatting.GREEN), false);
+        player.sendMessage(Text.literal("  {{date}} = " + java.time.LocalDate.now().format(
+            java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")) + " (当前日期)").formatted(Formatting.GREEN), false);
+        player.sendMessage(Text.literal("  {{world}} = " + player.getWorld().getRegistryKey().getValue().toString() + " (世界)").formatted(Formatting.GREEN), false);
+        player.sendMessage(Text.literal("  {{x}}, {{y}}, {{z}} = " + (int)player.getX() + ", " + (int)player.getY() + ", " + (int)player.getZ() + " (坐标)").formatted(Formatting.GREEN), false);
+        player.sendMessage(Text.literal("  {{health}}, {{level}} = " + (int)player.getHealth() + ", " + player.experienceLevel + " (生命值, 等级)").formatted(Formatting.GREEN), false);
+        player.sendMessage(Text.literal("  更多内置变量: {{hour}}, {{minute}}, {{dimension}}, {{gamemode}}, {{weather}}, {{server}}").formatted(Formatting.GREEN), false);
+
+        player.sendMessage(Text.literal("").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("🔧 自定义变量 (" + template.getVariables().size() + "个):").formatted(Formatting.YELLOW), false);
         if (!template.getVariables().isEmpty()) {
             for (Map.Entry<String, String> entry : template.getVariables().entrySet()) {
                 player.sendMessage(Text.literal("  {{" + entry.getKey() + "}} = " + entry.getValue()).formatted(Formatting.AQUA), false);
             }
         } else {
-            player.sendMessage(Text.literal("  (无变量)").formatted(Formatting.GRAY), false);
+            player.sendMessage(Text.literal("  (无自定义变量)").formatted(Formatting.GRAY), false);
         }
-        
+
         player.sendMessage(Text.literal("").formatted(Formatting.GRAY), false);
     }
 

@@ -1265,7 +1265,7 @@ public class LLMChatCommand {
         }
 
         // 处理用户消息
-        String processedMessage = template != null ? template.renderUserMessage(message) : message;
+        String processedMessage = template != null ? template.renderUserMessage(message, serverPlayer) : message;
 
         chatContext.addUserMessage(processedMessage);
 
@@ -2144,6 +2144,17 @@ public class LLMChatCommand {
         player.sendMessage(Text.literal("  • 使用 {{变量名}} 格式在模板中引用变量").formatted(Formatting.GRAY), false);
         player.sendMessage(Text.literal("  • 编辑模式支持热编辑，修改后自动保存").formatted(Formatting.GRAY), false);
         player.sendMessage(Text.literal("  • 内置模板包括: default, creative, survival, redstone, mod等").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal(""), false);
+
+        player.sendMessage(Text.literal("🔧 内置变量 (自动获取):").formatted(Formatting.YELLOW), false);
+        player.sendMessage(Text.literal("  • {{player}} - 玩家名称").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • {{time}} - 当前时间 (yyyy-MM-dd HH:mm:ss)").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • {{date}} - 当前日期 (yyyy-MM-dd)").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • {{x}}, {{y}}, {{z}} - 玩家坐标").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • {{health}}, {{level}} - 生命值和等级").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • {{world}}, {{dimension}} - 世界和维度信息").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • {{gamemode}}, {{weather}} - 游戏模式和天气").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • {{hour}}, {{minute}}, {{server}} - 时间和服务器信息").formatted(Formatting.GRAY), false);
 
         return 1;
     }
