@@ -5,6 +5,7 @@ import com.riceawa.llm.core.LLMConfig;
 import com.riceawa.llm.core.LLMMessage;
 import com.riceawa.llm.core.LLMResponse;
 import com.riceawa.llm.core.LLMService;
+import com.riceawa.llm.core.LLMContext;
 import com.riceawa.llm.core.LLMMessage.MessageRole;
 import com.riceawa.llm.logging.LogManager;
 
@@ -84,8 +85,14 @@ public class TitleGenerationService {
             titleConfig.setTemperature(0.3); // 使用较低的温度获得更一致的结果
             titleConfig.setMaxTokens(50); // 限制输出长度
             
+            // 创建标题生成上下文
+            LLMContext titleContext = LLMContext.builder()
+                    .metadata("operation", "title_generation")
+                    .metadata("message_count", messages.size())
+                    .build();
+
             // 异步生成标题
-            return llmService.chat(titleMessages, titleConfig)
+            return llmService.chat(titleMessages, titleConfig, titleContext)
                 .thenApply(this::extractTitleFromResponse)
                 .completeOnTimeout(null, 10, TimeUnit.SECONDS) // 10秒超时
                 .exceptionally(throwable -> {

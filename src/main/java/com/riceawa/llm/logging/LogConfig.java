@@ -21,6 +21,13 @@ public class LogConfig {
     private boolean enableErrorLog = true;
     private boolean enablePerformanceLog = true;
     private boolean enableAuditLog = true;
+    private boolean enableLLMRequestLog = true;
+
+    // LLM请求日志特殊配置
+    private boolean logFullRequestBody = true;
+    private boolean logFullResponseBody = true;
+    private int maxLogContentLength = 10000; // 最大日志内容长度
+    private boolean sanitizeSensitiveData = true; // 是否脱敏敏感数据
 
     public LogLevel getLogLevel() {
         return logLevel;
@@ -134,12 +141,52 @@ public class LogConfig {
         this.enableAuditLog = enableAuditLog;
     }
 
+    public boolean isEnableLLMRequestLog() {
+        return enableLLMRequestLog;
+    }
+
+    public void setEnableLLMRequestLog(boolean enableLLMRequestLog) {
+        this.enableLLMRequestLog = enableLLMRequestLog;
+    }
+
+    public boolean isLogFullRequestBody() {
+        return logFullRequestBody;
+    }
+
+    public void setLogFullRequestBody(boolean logFullRequestBody) {
+        this.logFullRequestBody = logFullRequestBody;
+    }
+
+    public boolean isLogFullResponseBody() {
+        return logFullResponseBody;
+    }
+
+    public void setLogFullResponseBody(boolean logFullResponseBody) {
+        this.logFullResponseBody = logFullResponseBody;
+    }
+
+    public int getMaxLogContentLength() {
+        return maxLogContentLength;
+    }
+
+    public void setMaxLogContentLength(int maxLogContentLength) {
+        this.maxLogContentLength = maxLogContentLength;
+    }
+
+    public boolean isSanitizeSensitiveData() {
+        return sanitizeSensitiveData;
+    }
+
+    public void setSanitizeSensitiveData(boolean sanitizeSensitiveData) {
+        this.sanitizeSensitiveData = sanitizeSensitiveData;
+    }
+
     /**
      * 检查指定类别的日志是否启用
      */
     public boolean isCategoryEnabled(String category) {
         if (category == null) return true;
-        
+
         switch (category.toLowerCase()) {
             case "system":
                 return enableSystemLog;
@@ -151,6 +198,8 @@ public class LogConfig {
                 return enablePerformanceLog;
             case "audit":
                 return enableAuditLog;
+            case "llm_request":
+                return enableLLMRequestLog;
             default:
                 return true;
         }

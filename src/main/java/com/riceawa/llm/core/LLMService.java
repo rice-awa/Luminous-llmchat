@@ -10,12 +10,25 @@ public interface LLMService {
     
     /**
      * 发送聊天请求并获取响应
-     * 
+     *
      * @param messages 消息列表
      * @param config 请求配置
      * @return 异步响应结果
      */
     CompletableFuture<LLMResponse> chat(List<LLMMessage> messages, LLMConfig config);
+
+    /**
+     * 发送聊天请求并获取响应（带上下文信息）
+     *
+     * @param messages 消息列表
+     * @param config 请求配置
+     * @param context 上下文信息
+     * @return 异步响应结果
+     */
+    default CompletableFuture<LLMResponse> chat(List<LLMMessage> messages, LLMConfig config, LLMContext context) {
+        // 默认实现，忽略上下文信息
+        return chat(messages, config);
+    }
     
     /**
      * 流式聊天请求

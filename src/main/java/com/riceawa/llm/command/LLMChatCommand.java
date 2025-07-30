@@ -817,7 +817,15 @@ public class LLMChatCommand {
             serverPlayer.sendMessage(Text.literal("正在思考...").formatted(Formatting.GRAY), false);
         }
         
-        llmService.chat(chatContext.getMessages(), llmConfig)
+        // 创建LLM上下文信息
+        LLMContext llmContext = LLMContext.builder()
+                .playerName(serverPlayer.getName().getString())
+                .playerUuid(serverPlayer.getUuidAsString())
+                .sessionId(chatContext.getSessionId())
+                .metadata("server", serverPlayer.getServer().getName())
+                .build();
+
+        llmService.chat(chatContext.getMessages(), llmConfig, llmContext)
                 .thenAccept(response -> {
                     long endTime = System.currentTimeMillis();
                     if (response.isSuccess()) {
@@ -998,8 +1006,16 @@ public class LLMChatCommand {
             llmConfig.setTemperature(config.getDefaultTemperature());
             llmConfig.setMaxTokens(config.getDefaultMaxTokens());
 
+            // 创建LLM上下文信息
+            LLMContext llmContext = LLMContext.builder()
+                    .playerName(player.getName().getString())
+                    .playerUuid(player.getUuidAsString())
+                    .sessionId(chatContext.getSessionId())
+                    .metadata("server", player.getServer().getName())
+                    .build();
+
             // 发送请求获取最终响应
-            llmService.chat(chatContext.getMessages(), llmConfig)
+            llmService.chat(chatContext.getMessages(), llmConfig, llmContext)
                     .thenAccept(response -> {
                         if (response.isSuccess()) {
                             String content = response.getContent();

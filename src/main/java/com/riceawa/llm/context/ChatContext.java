@@ -5,6 +5,7 @@ import com.riceawa.llm.core.LLMMessage.MessageRole;
 import com.riceawa.llm.core.LLMService;
 import com.riceawa.llm.core.LLMConfig;
 import com.riceawa.llm.core.LLMResponse;
+import com.riceawa.llm.core.LLMContext;
 import com.riceawa.llm.service.LLMServiceManager;
 import com.riceawa.llm.config.LLMChatConfig;
 import com.riceawa.llm.logging.LogManager;
@@ -424,8 +425,15 @@ public class ChatContext {
             compressionConfig.setTemperature(0.3); // 使用较低的温度以获得更一致的摘要
             compressionConfig.setMaxTokens(512); // 限制摘要长度
 
+            // 创建压缩上下文
+            LLMContext compressionContext = LLMContext.builder()
+                    .sessionId(this.sessionId)
+                    .metadata("operation", "compression")
+                    .metadata("original_message_count", messagesToCompress.size())
+                    .build();
+
             // 同步调用LLM进行压缩
-            CompletableFuture<LLMResponse> future = llmService.chat(compressionMessages, compressionConfig);
+            CompletableFuture<LLMResponse> future = llmService.chat(compressionMessages, compressionConfig, compressionContext);
             LLMResponse response = future.get(); // 等待结果
 
             if (response.isSuccess()) {

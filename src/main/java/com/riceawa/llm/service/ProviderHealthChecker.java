@@ -5,6 +5,7 @@ import com.riceawa.llm.core.LLMConfig;
 import com.riceawa.llm.core.LLMMessage;
 import com.riceawa.llm.core.LLMResponse;
 import com.riceawa.llm.core.LLMService;
+import com.riceawa.llm.core.LLMContext;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -140,7 +141,13 @@ public class ProviderHealthChecker {
             testConfig.setMaxTokens(1); // 最小token数
             testConfig.setTemperature(0.1);
             
-            CompletableFuture<LLMResponse> future = service.chat(List.of(testMessage), testConfig);
+            // 创建健康检查上下文
+            LLMContext healthContext = LLMContext.builder()
+                    .metadata("operation", "health_check")
+                    .metadata("provider", provider.getName())
+                    .build();
+
+            CompletableFuture<LLMResponse> future = service.chat(List.of(testMessage), testConfig, healthContext);
             LLMResponse response = future.get(10, TimeUnit.SECONDS); // 10秒超时
             
             if (response.isSuccess()) {
