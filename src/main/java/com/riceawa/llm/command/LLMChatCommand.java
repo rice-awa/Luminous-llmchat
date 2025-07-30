@@ -20,6 +20,7 @@ import com.riceawa.llm.logging.LogManager;
 import com.riceawa.llm.service.LLMServiceManager;
 import com.riceawa.llm.template.PromptTemplate;
 import com.riceawa.llm.template.PromptTemplateManager;
+import com.riceawa.llm.template.TemplateEditor;
 import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.command.CommandManager;
@@ -75,6 +76,50 @@ public class LLMChatCommand {
                         .then(CommandManager.literal("set")
                                 .then(CommandManager.argument("template", StringArgumentType.word())
                                         .executes(LLMChatCommand::handleSetTemplate)))
+                        .then(CommandManager.literal("show")
+                                .then(CommandManager.argument("template", StringArgumentType.word())
+                                        .executes(LLMChatCommand::handleShowTemplate)))
+                        .then(CommandManager.literal("edit")
+                                .then(CommandManager.argument("template", StringArgumentType.word())
+                                        .executes(LLMChatCommand::handleEditTemplate))
+                                .then(CommandManager.literal("name")
+                                        .then(CommandManager.argument("name", StringArgumentType.greedyString())
+                                                .executes(LLMChatCommand::handleEditTemplateName)))
+                                .then(CommandManager.literal("desc")
+                                        .then(CommandManager.argument("description", StringArgumentType.greedyString())
+                                                .executes(LLMChatCommand::handleEditTemplateDesc)))
+                                .then(CommandManager.literal("system")
+                                        .then(CommandManager.argument("prompt", StringArgumentType.greedyString())
+                                                .executes(LLMChatCommand::handleEditTemplateSystem)))
+                                .then(CommandManager.literal("prefix")
+                                        .then(CommandManager.argument("prefix", StringArgumentType.greedyString())
+                                                .executes(LLMChatCommand::handleEditTemplatePrefix)))
+                                .then(CommandManager.literal("suffix")
+                                        .then(CommandManager.argument("suffix", StringArgumentType.greedyString())
+                                                .executes(LLMChatCommand::handleEditTemplateSuffix))))
+                        .then(CommandManager.literal("create")
+                                .then(CommandManager.argument("template", StringArgumentType.word())
+                                        .executes(LLMChatCommand::handleCreateTemplate)))
+                        .then(CommandManager.literal("var")
+                                .then(CommandManager.literal("list")
+                                        .executes(LLMChatCommand::handleListTemplateVars))
+                                .then(CommandManager.literal("set")
+                                        .then(CommandManager.argument("name", StringArgumentType.word())
+                                                .then(CommandManager.argument("value", StringArgumentType.greedyString())
+                                                        .executes(LLMChatCommand::handleSetTemplateVar))))
+                                .then(CommandManager.literal("remove")
+                                        .then(CommandManager.argument("name", StringArgumentType.word())
+                                                .executes(LLMChatCommand::handleRemoveTemplateVar))))
+                        .then(CommandManager.literal("preview")
+                                .executes(LLMChatCommand::handlePreviewTemplate))
+                        .then(CommandManager.literal("save")
+                                .executes(LLMChatCommand::handleSaveTemplate))
+                        .then(CommandManager.literal("cancel")
+                                .executes(LLMChatCommand::handleCancelTemplate))
+                        .then(CommandManager.literal("copy")
+                                .then(CommandManager.argument("from", StringArgumentType.word())
+                                        .then(CommandManager.argument("to", StringArgumentType.word())
+                                                .executes(LLMChatCommand::handleCopyTemplate))))
                         .then(CommandManager.literal("help")
                                 .executes(LLMChatCommand::handleTemplateHelp)))
 
@@ -444,7 +489,462 @@ public class LLMChatCommand {
         return 1;
     }
 
+    /**
+     * 处理显示模板详情
+     */
+    private static int handleShowTemplate(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
 
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        String templateId = StringArgumentType.getString(context, "template");
+        PromptTemplateManager templateManager = PromptTemplateManager.getInstance();
+
+        if (!templateManager.hasTemplate(templateId)) {
+            player.sendMessage(Text.literal("模板不存在: " + templateId).formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        PromptTemplate template = templateManager.getTemplate(templateId);
+
+        player.sendMessage(Text.literal("").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("=== 模板详情 ===").formatted(Formatting.GOLD), false);
+        player.sendMessage(Text.literal("ID: " + template.getId()).formatted(Formatting.AQUA), false);
+        player.sendMessage(Text.literal("名称: " + template.getName()).formatted(Formatting.AQUA), false);
+        player.sendMessage(Text.literal("描述: " + template.getDescription()).formatted(Formatting.AQUA), false);
+        player.sendMessage(Text.literal("状态: " + (template.isEnabled() ? "启用" : "禁用")).formatted(
+            template.isEnabled() ? Formatting.GREEN : Formatting.RED), false);
+        player.sendMessage(Text.literal("").formatted(Formatting.GRAY), false);
+
+        player.sendMessage(Text.literal("📋 系统提示词:").formatted(Formatting.YELLOW), false);
+        String systemPrompt = template.getSystemPrompt();
+        if (systemPrompt != null && !systemPrompt.trim().isEmpty()) {
+            String[] lines = systemPrompt.split("\n");
+            for (String line : lines) {
+                if (line.length() > 80) {
+                    for (int i = 0; i < line.length(); i += 80) {
+                        int end = Math.min(i + 80, line.length());
+                        player.sendMessage(Text.literal("  " + line.substring(i, end)).formatted(Formatting.WHITE), false);
+                    }
+                } else {
+                    player.sendMessage(Text.literal("  " + line).formatted(Formatting.WHITE), false);
+                }
+            }
+        } else {
+            player.sendMessage(Text.literal("  (未设置)").formatted(Formatting.GRAY), false);
+        }
+
+        player.sendMessage(Text.literal("").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("📝 用户消息前缀:").formatted(Formatting.YELLOW), false);
+        String prefix = template.getUserPromptPrefix();
+        if (prefix != null && !prefix.trim().isEmpty()) {
+            player.sendMessage(Text.literal("  " + prefix).formatted(Formatting.WHITE), false);
+        } else {
+            player.sendMessage(Text.literal("  (未设置)").formatted(Formatting.GRAY), false);
+        }
+
+        player.sendMessage(Text.literal("📝 用户消息后缀:").formatted(Formatting.YELLOW), false);
+        String suffix = template.getUserPromptSuffix();
+        if (suffix != null && !suffix.trim().isEmpty()) {
+            player.sendMessage(Text.literal("  " + suffix).formatted(Formatting.WHITE), false);
+        } else {
+            player.sendMessage(Text.literal("  (未设置)").formatted(Formatting.GRAY), false);
+        }
+
+        player.sendMessage(Text.literal("").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("🔧 变量 (" + template.getVariables().size() + "个):").formatted(Formatting.YELLOW), false);
+        if (!template.getVariables().isEmpty()) {
+            for (java.util.Map.Entry<String, String> entry : template.getVariables().entrySet()) {
+                player.sendMessage(Text.literal("  {{" + entry.getKey() + "}} = " + entry.getValue()).formatted(Formatting.AQUA), false);
+            }
+        } else {
+            player.sendMessage(Text.literal("  (无变量)").formatted(Formatting.GRAY), false);
+        }
+
+        player.sendMessage(Text.literal("").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("💡 使用 /llmchat template edit " + templateId + " 来编辑此模板").formatted(Formatting.GRAY), false);
+
+        return 1;
+    }
+
+    /**
+     * 处理开始编辑模板
+     */
+    private static int handleEditTemplate(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        String templateId = StringArgumentType.getString(context, "template");
+        TemplateEditor editor = TemplateEditor.getInstance();
+
+        editor.startEditSession(player, templateId, false);
+        return 1;
+    }
+
+    /**
+     * 处理创建新模板
+     */
+    private static int handleCreateTemplate(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        String templateId = StringArgumentType.getString(context, "template");
+        PromptTemplateManager templateManager = PromptTemplateManager.getInstance();
+
+        if (templateManager.hasTemplate(templateId)) {
+            player.sendMessage(Text.literal("模板已存在: " + templateId + "，请使用 edit 命令编辑").formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        TemplateEditor editor = TemplateEditor.getInstance();
+        editor.startEditSession(player, templateId, true);
+        return 1;
+    }
+
+    /**
+     * 处理编辑模板名称
+     */
+    private static int handleEditTemplateName(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        TemplateEditor editor = TemplateEditor.getInstance();
+        TemplateEditor.EditSession session = editor.getEditSession(player);
+
+        if (session == null) {
+            player.sendMessage(Text.literal("❌ 没有正在编辑的模板，请先使用 /llmchat template edit <模板ID>").formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        String name = StringArgumentType.getString(context, "name");
+        session.getTemplate().setName(name);
+
+        player.sendMessage(Text.literal("✅ 模板名称已更新为: " + name).formatted(Formatting.GREEN), false);
+        return 1;
+    }
+
+    /**
+     * 处理编辑模板描述
+     */
+    private static int handleEditTemplateDesc(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        TemplateEditor editor = TemplateEditor.getInstance();
+        TemplateEditor.EditSession session = editor.getEditSession(player);
+
+        if (session == null) {
+            player.sendMessage(Text.literal("❌ 没有正在编辑的模板，请先使用 /llmchat template edit <模板ID>").formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        String description = StringArgumentType.getString(context, "description");
+        session.getTemplate().setDescription(description);
+
+        player.sendMessage(Text.literal("✅ 模板描述已更新").formatted(Formatting.GREEN), false);
+        return 1;
+    }
+
+    /**
+     * 处理编辑系统提示词
+     */
+    private static int handleEditTemplateSystem(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        TemplateEditor editor = TemplateEditor.getInstance();
+        TemplateEditor.EditSession session = editor.getEditSession(player);
+
+        if (session == null) {
+            player.sendMessage(Text.literal("❌ 没有正在编辑的模板，请先使用 /llmchat template edit <模板ID>").formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        String prompt = StringArgumentType.getString(context, "prompt");
+        session.getTemplate().setSystemPrompt(prompt);
+
+        player.sendMessage(Text.literal("✅ 系统提示词已更新").formatted(Formatting.GREEN), false);
+        return 1;
+    }
+
+    /**
+     * 处理编辑用户消息前缀
+     */
+    private static int handleEditTemplatePrefix(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        TemplateEditor editor = TemplateEditor.getInstance();
+        TemplateEditor.EditSession session = editor.getEditSession(player);
+
+        if (session == null) {
+            player.sendMessage(Text.literal("❌ 没有正在编辑的模板，请先使用 /llmchat template edit <模板ID>").formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        String prefix = StringArgumentType.getString(context, "prefix");
+        session.getTemplate().setUserPromptPrefix(prefix);
+
+        player.sendMessage(Text.literal("✅ 用户消息前缀已更新").formatted(Formatting.GREEN), false);
+        return 1;
+    }
+
+    /**
+     * 处理编辑用户消息后缀
+     */
+    private static int handleEditTemplateSuffix(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        TemplateEditor editor = TemplateEditor.getInstance();
+        TemplateEditor.EditSession session = editor.getEditSession(player);
+
+        if (session == null) {
+            player.sendMessage(Text.literal("❌ 没有正在编辑的模板，请先使用 /llmchat template edit <模板ID>").formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        String suffix = StringArgumentType.getString(context, "suffix");
+        session.getTemplate().setUserPromptSuffix(suffix);
+
+        player.sendMessage(Text.literal("✅ 用户消息后缀已更新").formatted(Formatting.GREEN), false);
+        return 1;
+    }
+
+    /**
+     * 处理列出模板变量
+     */
+    private static int handleListTemplateVars(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        TemplateEditor editor = TemplateEditor.getInstance();
+        TemplateEditor.EditSession session = editor.getEditSession(player);
+
+        if (session == null) {
+            player.sendMessage(Text.literal("❌ 没有正在编辑的模板，请先使用 /llmchat template edit <模板ID>").formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        PromptTemplate template = session.getTemplate();
+        player.sendMessage(Text.literal("").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("🔧 模板变量 (" + template.getVariables().size() + "个):").formatted(Formatting.YELLOW), false);
+
+        if (!template.getVariables().isEmpty()) {
+            for (java.util.Map.Entry<String, String> entry : template.getVariables().entrySet()) {
+                player.sendMessage(Text.literal("  {{" + entry.getKey() + "}} = " + entry.getValue()).formatted(Formatting.AQUA), false);
+            }
+        } else {
+            player.sendMessage(Text.literal("  (无变量)").formatted(Formatting.GRAY), false);
+        }
+
+        player.sendMessage(Text.literal("").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("💡 使用 /llmchat template var set <名称> <值> 来添加变量").formatted(Formatting.GRAY), false);
+        return 1;
+    }
+
+    /**
+     * 处理设置模板变量
+     */
+    private static int handleSetTemplateVar(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        TemplateEditor editor = TemplateEditor.getInstance();
+        TemplateEditor.EditSession session = editor.getEditSession(player);
+
+        if (session == null) {
+            player.sendMessage(Text.literal("❌ 没有正在编辑的模板，请先使用 /llmchat template edit <模板ID>").formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        String name = StringArgumentType.getString(context, "name");
+        String value = StringArgumentType.getString(context, "value");
+
+        session.getTemplate().setVariable(name, value);
+        player.sendMessage(Text.literal("✅ 变量已设置: {{" + name + "}} = " + value).formatted(Formatting.GREEN), false);
+        return 1;
+    }
+
+    /**
+     * 处理删除模板变量
+     */
+    private static int handleRemoveTemplateVar(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        TemplateEditor editor = TemplateEditor.getInstance();
+        TemplateEditor.EditSession session = editor.getEditSession(player);
+
+        if (session == null) {
+            player.sendMessage(Text.literal("❌ 没有正在编辑的模板，请先使用 /llmchat template edit <模板ID>").formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        String name = StringArgumentType.getString(context, "name");
+
+        if (!session.getTemplate().getVariables().containsKey(name)) {
+            player.sendMessage(Text.literal("❌ 变量不存在: " + name).formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        session.getTemplate().removeVariable(name);
+        player.sendMessage(Text.literal("✅ 变量已删除: {{" + name + "}}").formatted(Formatting.GREEN), false);
+        return 1;
+    }
+
+    /**
+     * 处理预览模板
+     */
+    private static int handlePreviewTemplate(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        TemplateEditor editor = TemplateEditor.getInstance();
+        editor.previewTemplate(player);
+        return 1;
+    }
+
+    /**
+     * 处理保存模板
+     */
+    private static int handleSaveTemplate(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        TemplateEditor editor = TemplateEditor.getInstance();
+        editor.saveTemplate(player);
+        return 1;
+    }
+
+    /**
+     * 处理取消编辑
+     */
+    private static int handleCancelTemplate(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        TemplateEditor editor = TemplateEditor.getInstance();
+        if (editor.isEditing(player)) {
+            editor.endEditSession(player);
+            player.sendMessage(Text.literal("❌ 编辑已取消，所有更改未保存").formatted(Formatting.YELLOW), false);
+        } else {
+            player.sendMessage(Text.literal("❌ 没有正在编辑的模板").formatted(Formatting.RED), false);
+        }
+        return 1;
+    }
+
+    /**
+     * 处理复制模板
+     */
+    private static int handleCopyTemplate(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        String fromId = StringArgumentType.getString(context, "from");
+        String toId = StringArgumentType.getString(context, "to");
+
+        PromptTemplateManager templateManager = PromptTemplateManager.getInstance();
+
+        if (!templateManager.hasTemplate(fromId)) {
+            player.sendMessage(Text.literal("❌ 源模板不存在: " + fromId).formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        if (templateManager.hasTemplate(toId)) {
+            player.sendMessage(Text.literal("❌ 目标模板已存在: " + toId).formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        try {
+            PromptTemplate sourceTemplate = templateManager.getTemplate(fromId);
+            PromptTemplate newTemplate = sourceTemplate.copy();
+            newTemplate.setId(toId);
+            newTemplate.setName(sourceTemplate.getName() + " (副本)");
+
+            templateManager.addTemplate(newTemplate);
+            player.sendMessage(Text.literal("✅ 模板已复制: " + fromId + " → " + toId).formatted(Formatting.GREEN), false);
+
+        } catch (Exception e) {
+            player.sendMessage(Text.literal("❌ 复制模板失败: " + e.getMessage()).formatted(Formatting.RED), false);
+        }
+
+        return 1;
+    }
 
     /**
      * 处理重新加载配置命令（简化版恢复功能）
@@ -1606,14 +2106,44 @@ public class LLMChatCommand {
 
         player.sendMessage(Text.literal("=== 提示词模板管理 ===").formatted(Formatting.GOLD), false);
         player.sendMessage(Text.literal(""), false);
-        player.sendMessage(Text.literal("📝 可用命令:").formatted(Formatting.AQUA), false);
+
+        player.sendMessage(Text.literal("📋 基本命令:").formatted(Formatting.AQUA), false);
         player.sendMessage(Text.literal("  /llmchat template list - 列出所有可用的提示词模板").formatted(Formatting.WHITE), false);
         player.sendMessage(Text.literal("  /llmchat template set <模板ID> - 切换到指定的提示词模板").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat template show <模板ID> - 显示模板详细信息").formatted(Formatting.WHITE), false);
         player.sendMessage(Text.literal(""), false);
+
+        player.sendMessage(Text.literal("✏️ 编辑命令:").formatted(Formatting.AQUA), false);
+        player.sendMessage(Text.literal("  /llmchat template create <模板ID> - 创建新模板").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat template edit <模板ID> - 开始编辑模板").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat template copy <源ID> <目标ID> - 复制模板").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal(""), false);
+
+        player.sendMessage(Text.literal("🔧 编辑模式命令 (需要先进入编辑模式):").formatted(Formatting.AQUA), false);
+        player.sendMessage(Text.literal("  /llmchat template edit name <新名称> - 修改模板名称").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat template edit desc <新描述> - 修改模板描述").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat template edit system <系统提示词> - 修改系统提示词").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat template edit prefix <前缀> - 修改用户消息前缀").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat template edit suffix <后缀> - 修改用户消息后缀").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal(""), false);
+
+        player.sendMessage(Text.literal("🔧 变量管理 (编辑模式):").formatted(Formatting.AQUA), false);
+        player.sendMessage(Text.literal("  /llmchat template var list - 列出所有变量").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat template var set <名称> <值> - 设置变量").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat template var remove <名称> - 删除变量").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal(""), false);
+
+        player.sendMessage(Text.literal("💾 编辑控制 (编辑模式):").formatted(Formatting.AQUA), false);
+        player.sendMessage(Text.literal("  /llmchat template preview - 预览当前编辑的模板").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat template save - 保存并应用模板").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat template cancel - 取消编辑").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal(""), false);
+
         player.sendMessage(Text.literal("💡 说明:").formatted(Formatting.YELLOW), false);
         player.sendMessage(Text.literal("  • 提示词模板定义了AI的角色和行为风格").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • 使用 {{变量名}} 格式在模板中引用变量").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • 编辑模式支持热编辑，修改后自动保存").formatted(Formatting.GRAY), false);
         player.sendMessage(Text.literal("  • 内置模板包括: default, creative, survival, redstone, mod等").formatted(Formatting.GRAY), false);
-        player.sendMessage(Text.literal("  • 可在 config/lllmchat/prompt_templates.json 中自定义模板").formatted(Formatting.GRAY), false);
 
         return 1;
     }
