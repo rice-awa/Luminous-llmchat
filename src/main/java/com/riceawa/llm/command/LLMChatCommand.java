@@ -356,8 +356,11 @@ public class LLMChatCommand {
                     currentContext.setCurrentPromptTemplate(targetSession.getPromptTemplate());
                 }
 
-                player.sendMessage(Text.literal("已恢复对话 #" + sessionId + ": " + targetSession.getDisplayTitle() +
+                player.sendMessage(Text.literal("✅ 已恢复对话 #" + sessionId + ": " + targetSession.getDisplayTitle() +
                     "，共 " + historyMessages.size() + " 条消息").formatted(Formatting.GREEN), false);
+
+                // 显示消息预览
+                showMessagePreview(player, historyMessages, "对话 #" + sessionId);
 
                 LogManager.getInstance().chat("Player " + player.getName().getString() +
                     " resumed chat session #" + sessionId + " with " + historyMessages.size() + " messages");
