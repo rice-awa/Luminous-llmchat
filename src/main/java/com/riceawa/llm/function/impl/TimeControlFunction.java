@@ -21,7 +21,7 @@ public class TimeControlFunction implements LLMFunction {
     
     @Override
     public String getDescription() {
-        return "控制游戏时间（仅OP可用）";
+        return "控制游戏时间";
     }
     
     @Override

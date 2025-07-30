@@ -21,7 +21,7 @@ public class WeatherControlFunction implements LLMFunction {
     
     @Override
     public String getDescription() {
-        return "控制天气（仅OP可用）";
+        return "控制天气";
     }
     
     @Override
