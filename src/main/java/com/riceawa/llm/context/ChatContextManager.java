@@ -128,10 +128,13 @@ public class ChatContextManager {
         ChatContext newContext = new ChatContext(playerId);
         newContext.setEventListener(new CompressionNotificationListener());
 
-        // 复制历史消息
+        // 复制历史消息，但跳过旧的系统消息
         List<LLMMessage> oldMessages = oldContext.getMessages();
         for (LLMMessage message : oldMessages) {
-            newContext.addMessage(message);
+            // 跳过系统消息，因为我们要使用新模板的系统提示词
+            if (message.getRole() != LLMMessage.MessageRole.SYSTEM) {
+                newContext.addMessage(message);
+            }
         }
 
         // 设置新的提示词模板

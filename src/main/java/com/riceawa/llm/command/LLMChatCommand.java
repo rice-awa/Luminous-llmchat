@@ -129,6 +129,10 @@ public class LLMChatCommand {
                         .then(CommandManager.literal("switch")
                                 .then(CommandManager.argument("provider", StringArgumentType.word())
                                         .executes(LLMChatCommand::handleSwitchProvider)))
+                        .then(CommandManager.literal("check")
+                                .executes(LLMChatCommand::handleCheckProviders)
+                                .then(CommandManager.argument("provider", StringArgumentType.word())
+                                        .executes(LLMChatCommand::handleCheckSpecificProvider)))
                         .then(CommandManager.literal("help")
                                 .executes(LLMChatCommand::handleProviderHelp)))
                 .then(CommandManager.literal("model")
@@ -476,10 +480,32 @@ public class LLMChatCommand {
         if (currentContext.getMessageCount() > 0) {
             // 如果有历史消息，创建新会话并复制历史
             contextManager.createNewSessionWithHistory(player.getUuid(), templateId);
+
+            // 获取新的上下文并添加系统提示词
+            ChatContext newContext = contextManager.getContext(player);
+            PromptTemplate template = templateManager.getTemplate(templateId);
+            if (template != null) {
+                LLMChatConfig config = LLMChatConfig.getInstance();
+                String systemPrompt = template.renderSystemPromptWithContext((ServerPlayerEntity) player, config);
+                if (systemPrompt != null && !systemPrompt.trim().isEmpty()) {
+                    newContext.updateSystemMessage(systemPrompt);
+                }
+            }
+
             player.sendMessage(Text.literal("已切换到模板并创建新会话，历史消息已复制").formatted(Formatting.GREEN), false);
         } else {
-            // 如果没有历史消息，直接设置模板
+            // 如果没有历史消息，直接设置模板并更新系统提示词
             currentContext.setCurrentPromptTemplate(templateId);
+
+            PromptTemplate template = templateManager.getTemplate(templateId);
+            if (template != null) {
+                LLMChatConfig config = LLMChatConfig.getInstance();
+                String systemPrompt = template.renderSystemPromptWithContext((ServerPlayerEntity) player, config);
+                if (systemPrompt != null && !systemPrompt.trim().isEmpty()) {
+                    currentContext.updateSystemMessage(systemPrompt);
+                }
+            }
+
             player.sendMessage(Text.literal("已切换到模板").formatted(Formatting.GREEN), false);
         }
 
@@ -1256,11 +1282,29 @@ public class LLMChatCommand {
             template = templateManager.getDefaultTemplate();
         }
 
-        // 如果是新会话，添加系统提示词
-        if (chatContext.getMessageCount() == 0 && template != null) {
-            String systemPrompt = template.renderSystemPromptWithContext(serverPlayer, config);
-            if (systemPrompt != null && !systemPrompt.trim().isEmpty()) {
-                chatContext.addSystemMessage(systemPrompt);
+        // 检查是否需要添加或更新系统提示词
+        if (template != null) {
+            boolean needsSystemPrompt = false;
+
+            if (chatContext.getMessageCount() == 0) {
+                // 新会话，需要添加系统提示词
+                needsSystemPrompt = true;
+            } else {
+                // 检查是否有系统消息，如果没有则需要添加
+                List<LLMMessage> messages = chatContext.getMessages();
+                boolean hasSystemMessage = messages.stream()
+                    .anyMatch(msg -> msg.getRole() == LLMMessage.MessageRole.SYSTEM);
+
+                if (!hasSystemMessage) {
+                    needsSystemPrompt = true;
+                }
+            }
+
+            if (needsSystemPrompt) {
+                String systemPrompt = template.renderSystemPromptWithContext(serverPlayer, config);
+                if (systemPrompt != null && !systemPrompt.trim().isEmpty()) {
+                    chatContext.addSystemMessage(systemPrompt);
+                }
             }
         }
 
@@ -1709,6 +1753,172 @@ public class LLMChatCommand {
             player.sendMessage(Text.literal("切换失败，provider配置无效: " + providerName).formatted(Formatting.RED), false);
             return 0;
         }
+
+        return 1;
+    }
+
+    /**
+     * 处理强制检测所有providers命令
+     */
+    private static int handleCheckProviders(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        LLMChatConfig config = LLMChatConfig.getInstance();
+        com.riceawa.llm.config.ProviderManager providerManager =
+            new com.riceawa.llm.config.ProviderManager(config.getProviders());
+
+        List<Provider> providers = config.getProviders();
+        if (providers.isEmpty()) {
+            player.sendMessage(Text.literal("❌ 没有配置任何providers").formatted(Formatting.RED), false);
+            return 1;
+        }
+
+        player.sendMessage(Text.literal("🔍 正在强制检测所有Provider状态...").formatted(Formatting.YELLOW), false);
+        player.sendMessage(Text.literal("⏱️ 检测超时时间已提高到30秒，请耐心等待").formatted(Formatting.GRAY), false);
+
+        // 清除缓存以强制重新检测
+        providerManager.clearHealthCache();
+
+        // 异步强制检测所有providers
+        providerManager.checkAllProvidersHealth().whenComplete((healthMap, throwable) -> {
+            if (throwable != null) {
+                player.sendMessage(Text.literal("❌ 强制检测失败: " + throwable.getMessage())
+                    .formatted(Formatting.RED), false);
+                return;
+            }
+
+            player.sendMessage(Text.literal("").formatted(Formatting.GRAY), false);
+            player.sendMessage(Text.literal("📡 强制检测结果:").formatted(Formatting.AQUA), false);
+
+            int onlineCount = 0;
+            int totalCount = providers.size();
+
+            for (Provider provider : providers) {
+                com.riceawa.llm.service.ProviderHealthChecker.HealthStatus health = healthMap.get(provider.getName());
+                String status;
+                Formatting color;
+
+                if (health != null) {
+                    if (health.isHealthy()) {
+                        status = "🟢 在线";
+                        color = Formatting.GREEN;
+                        onlineCount++;
+                    } else {
+                        status = "🔴 离线 - " + health.getMessage();
+                        color = Formatting.RED;
+                    }
+
+                    String checkTime = health.getFormattedCheckTime();
+                    player.sendMessage(Text.literal("  " + provider.getName() + ": " + status + " (检测时间: " + checkTime + ")")
+                        .formatted(color), false);
+                } else {
+                    player.sendMessage(Text.literal("  " + provider.getName() + ": ❓ 检测失败")
+                        .formatted(Formatting.GRAY), false);
+                }
+            }
+
+            player.sendMessage(Text.literal("").formatted(Formatting.GRAY), false);
+            player.sendMessage(Text.literal("📊 检测汇总: " + onlineCount + "/" + totalCount + " 个Provider在线")
+                .formatted(onlineCount > 0 ? Formatting.GREEN : Formatting.RED), false);
+
+            if (onlineCount == 0) {
+                player.sendMessage(Text.literal("⚠️ 所有Provider都离线，请检查网络连接和API密钥配置")
+                    .formatted(Formatting.YELLOW), false);
+            }
+        });
+
+        return 1;
+    }
+
+    /**
+     * 处理强制检测指定provider命令
+     */
+    private static int handleCheckSpecificProvider(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        String providerName = StringArgumentType.getString(context, "provider");
+        LLMChatConfig config = LLMChatConfig.getInstance();
+
+        Provider provider = config.getProvider(providerName);
+        if (provider == null) {
+            player.sendMessage(Text.literal("❌ Provider不存在: " + providerName).formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        com.riceawa.llm.config.ProviderManager providerManager =
+            new com.riceawa.llm.config.ProviderManager(config.getProviders());
+
+        player.sendMessage(Text.literal("🔍 正在强制检测Provider: " + providerName + "...").formatted(Formatting.YELLOW), false);
+        player.sendMessage(Text.literal("⏱️ 检测超时时间已提高到30秒，请耐心等待").formatted(Formatting.GRAY), false);
+
+        // 清除指定provider的缓存以强制重新检测
+        com.riceawa.llm.service.ProviderHealthChecker.getInstance().clearCache(providerName);
+
+        // 异步强制检测指定provider
+        providerManager.checkProviderHealth(providerName).whenComplete((health, throwable) -> {
+            if (throwable != null) {
+                player.sendMessage(Text.literal("❌ 检测失败: " + throwable.getMessage())
+                    .formatted(Formatting.RED), false);
+                return;
+            }
+
+            player.sendMessage(Text.literal("").formatted(Formatting.GRAY), false);
+            player.sendMessage(Text.literal("📡 检测结果:").formatted(Formatting.AQUA), false);
+
+            String status;
+            Formatting color;
+
+            if (health.isHealthy()) {
+                status = "🟢 在线";
+                color = Formatting.GREEN;
+                player.sendMessage(Text.literal("  " + providerName + ": " + status).formatted(color), false);
+                player.sendMessage(Text.literal("  检测时间: " + health.getFormattedCheckTime()).formatted(Formatting.GRAY), false);
+                player.sendMessage(Text.literal("  ✅ Provider工作正常，可以正常使用").formatted(Formatting.GREEN), false);
+            } else {
+                status = "🔴 离线";
+                color = Formatting.RED;
+                player.sendMessage(Text.literal("  " + providerName + ": " + status).formatted(color), false);
+                player.sendMessage(Text.literal("  检测时间: " + health.getFormattedCheckTime()).formatted(Formatting.GRAY), false);
+                player.sendMessage(Text.literal("  ❌ 错误信息: " + health.getMessage()).formatted(Formatting.RED), false);
+
+                // 根据错误类型提供建议
+                switch (health.getErrorType()) {
+                    case AUTH_ERROR:
+                        player.sendMessage(Text.literal("  💡 建议: 检查API密钥是否正确配置").formatted(Formatting.YELLOW), false);
+                        break;
+                    case NETWORK_ERROR:
+                        player.sendMessage(Text.literal("  💡 建议: 检查网络连接和防火墙设置").formatted(Formatting.YELLOW), false);
+                        break;
+                    case CONFIG_ERROR:
+                        player.sendMessage(Text.literal("  💡 建议: 检查Provider配置是否完整").formatted(Formatting.YELLOW), false);
+                        break;
+                    case RATE_LIMIT_ERROR:
+                        player.sendMessage(Text.literal("  💡 建议: API调用频率过高，请稍后再试").formatted(Formatting.YELLOW), false);
+                        break;
+                    case MODEL_ERROR:
+                        player.sendMessage(Text.literal("  💡 建议: 检查模型名称是否正确").formatted(Formatting.YELLOW), false);
+                        break;
+                    case API_ERROR:
+                        player.sendMessage(Text.literal("  💡 建议: 检查API服务状态").formatted(Formatting.YELLOW), false);
+                        break;
+                    default:
+                        player.sendMessage(Text.literal("  💡 建议: 请检查配置文件和网络连接").formatted(Formatting.YELLOW), false);
+                        break;
+                }
+            }
+        });
 
         return 1;
     }
@@ -2176,11 +2386,20 @@ public class LLMChatCommand {
         player.sendMessage(Text.literal("📡 可用命令:").formatted(Formatting.AQUA), false);
         player.sendMessage(Text.literal("  /llmchat provider list - 列出所有配置的AI服务提供商").formatted(Formatting.WHITE), false);
         player.sendMessage(Text.literal("  /llmchat provider switch <provider> - 切换到指定的服务提供商 (仅OP)").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat provider check - 强制检测所有Provider状态").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat provider check <provider> - 强制检测指定Provider状态").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal(""), false);
+        player.sendMessage(Text.literal("🔍 健康检查功能:").formatted(Formatting.AQUA), false);
+        player.sendMessage(Text.literal("  • 检测超时时间: 30秒 (已提高)").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • 强制检测会清除缓存，获取最新状态").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • 显示详细的错误信息和解决建议").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • 支持错误类型分类: 配置、认证、网络、API等").formatted(Formatting.GRAY), false);
         player.sendMessage(Text.literal(""), false);
         player.sendMessage(Text.literal("💡 说明:").formatted(Formatting.YELLOW), false);
         player.sendMessage(Text.literal("  • 支持多个AI服务: OpenAI, OpenRouter, DeepSeek等").formatted(Formatting.GRAY), false);
         player.sendMessage(Text.literal("  • 每个provider需要配置API密钥和支持的模型").formatted(Formatting.GRAY), false);
         player.sendMessage(Text.literal("  • 切换provider会自动设置为该provider的第一个模型").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • list命令会显示缓存的健康状态，check命令强制重新检测").formatted(Formatting.GRAY), false);
 
         return 1;
     }

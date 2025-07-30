@@ -148,7 +148,7 @@ public class ProviderHealthChecker {
                     .build();
 
             CompletableFuture<LLMResponse> future = service.chat(List.of(testMessage), testConfig, healthContext);
-            LLMResponse response = future.get(10, TimeUnit.SECONDS); // 10秒超时
+            LLMResponse response = future.get(30, TimeUnit.SECONDS); // 30秒超时
             
             if (response.isSuccess()) {
                 return new HealthStatus(true, "连接正常", HealthStatus.ErrorType.NONE, checkTime);

@@ -109,6 +109,30 @@ public class ChatContext {
     }
 
     /**
+     * 更新或添加系统消息（用于模板切换）
+     * 如果已存在系统消息，则替换第一个系统消息；否则在开头添加
+     */
+    public void updateSystemMessage(String content) {
+        synchronized (messages) {
+            // 查找第一个系统消息
+            for (int i = 0; i < messages.size(); i++) {
+                if (messages.get(i).getRole() == MessageRole.SYSTEM) {
+                    // 替换现有的系统消息
+                    messages.set(i, new LLMMessage(MessageRole.SYSTEM, content));
+                    invalidateCharacterCache();
+                    updateLastActivity();
+                    return;
+                }
+            }
+
+            // 如果没有找到系统消息，在开头添加
+            messages.add(0, new LLMMessage(MessageRole.SYSTEM, content));
+            invalidateCharacterCache();
+            updateLastActivity();
+        }
+    }
+
+    /**
      * 获取所有消息
      */
     public List<LLMMessage> getMessages() {
