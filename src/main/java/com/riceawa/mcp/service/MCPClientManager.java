@@ -80,6 +80,11 @@ public class MCPClientManager {
             return CompletableFuture.completedFuture(null);
         }
         
+        if (config == null) {
+            return CompletableFuture.failedFuture(
+                new IllegalArgumentException("配置不能为空"));
+        }
+        
         this.config = config;
         
         return CompletableFuture.runAsync(() -> {
@@ -264,15 +269,15 @@ public class MCPClientManager {
      * 重新加载配置
      */
     public synchronized CompletableFuture<Void> reloadConfig(MCPConfig newConfig) {
+        // 如果新配置禁用了MCP功能
+        if (!newConfig.isEnabled()) {
+            return stop().thenRun(() -> {
+                this.config = newConfig;
+            });
+        }
+        
         return CompletableFuture.runAsync(() -> {
             try {
-                // 如果新配置禁用了MCP功能
-                if (!newConfig.isEnabled()) {
-                    // 停止所有客户端
-                    stop().join();
-                    this.config = newConfig;
-                    return;
-                }
                 
                 this.config = newConfig;
                 

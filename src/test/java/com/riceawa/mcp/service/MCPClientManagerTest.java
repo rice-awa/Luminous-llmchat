@@ -9,13 +9,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -39,7 +42,10 @@ class MCPClientManagerTest {
     private MCPClientFactory mockClientFactory;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
+        // 重置单例实例
+        resetSingleton();
+        
         // 创建测试配置
         config = MCPConfig.createDefault();
         config.setEnabled(true);
@@ -55,6 +61,64 @@ class MCPClientManagerTest {
         
         // 获取管理器实例
         clientManager = MCPClientManager.getInstance();
+        
+        // 注入mock工厂
+        injectMockFactory();
+        
+        // 设置mock客户端行为
+        setupMockClients();
+    }
+    
+    private void resetSingleton() throws Exception {
+        Field instanceField = MCPClientManager.class.getDeclaredField("instance");
+        instanceField.setAccessible(true);
+        instanceField.set(null, null);
+    }
+    
+    private void injectMockFactory() throws Exception {
+        Field factoryField = MCPClientManager.class.getDeclaredField("clientFactory");
+        factoryField.setAccessible(true);
+        factoryField.set(clientManager, mockClientFactory);
+    }
+    
+    private void setupMockClients() throws Exception {
+        // 设置mock客户端状态
+        MCPClientStatus status1 = new MCPClientStatus("test-server1");
+        status1.setStatus(MCPClientStatus.ConnectionStatus.CONNECTED);
+        MCPClientStatus status2 = new MCPClientStatus("test-server2");
+        status2.setStatus(MCPClientStatus.ConnectionStatus.CONNECTED);
+        
+        // 使用lenient()来避免不必要的stubbing警告
+        lenient().when(mockClient1.getStatus()).thenReturn(status1);
+        lenient().when(mockClient2.getStatus()).thenReturn(status2);
+        lenient().when(mockClient1.getServerName()).thenReturn("test-server1");
+        lenient().when(mockClient2.getServerName()).thenReturn("test-server2");
+        lenient().when(mockClient1.isConnected()).thenReturn(true);
+        lenient().when(mockClient2.isConnected()).thenReturn(true);
+        lenient().when(mockClient1.isHealthy()).thenReturn(true);
+        lenient().when(mockClient2.isHealthy()).thenReturn(true);
+        
+        // 设置连接操作返回成功的Future
+        lenient().when(mockClient1.connect()).thenReturn(CompletableFuture.completedFuture(null));
+        lenient().when(mockClient2.connect()).thenReturn(CompletableFuture.completedFuture(null));
+        lenient().when(mockClient1.disconnect()).thenReturn(CompletableFuture.completedFuture(null));
+        lenient().when(mockClient2.disconnect()).thenReturn(CompletableFuture.completedFuture(null));
+        lenient().when(mockClient1.reconnect()).thenReturn(CompletableFuture.completedFuture(null));
+        lenient().when(mockClient2.reconnect()).thenReturn(CompletableFuture.completedFuture(null));
+        lenient().when(mockClient1.ping()).thenReturn(CompletableFuture.completedFuture(true));
+        lenient().when(mockClient2.ping()).thenReturn(CompletableFuture.completedFuture(true));
+        
+        // 设置工厂返回mock客户端
+        lenient().when(mockClientFactory.createClient(any(MCPServerConfig.class), any(MCPConfig.class)))
+            .thenAnswer(invocation -> {
+                MCPServerConfig serverConfig = invocation.getArgument(0);
+                if ("test-server1".equals(serverConfig.getName())) {
+                    return mockClient1;
+                } else if ("test-server2".equals(serverConfig.getName())) {
+                    return mockClient2;
+                }
+                return mockClient1; // 默认返回
+            });
     }
 
     @Test
@@ -69,10 +133,6 @@ class MCPClientManagerTest {
     @Test
     @DisplayName("测试初始化管理器")
     void testInitializeManager() throws Exception {
-        // 模拟客户端创建
-        when(mockClient1.connect()).thenReturn(CompletableFuture.completedFuture(null));
-        when(mockClient2.connect()).thenReturn(CompletableFuture.completedFuture(null));
-        
         // 初始化管理器
         CompletableFuture<Void> initFuture = clientManager.initialize(config);
         initFuture.get(5, TimeUnit.SECONDS);
@@ -91,6 +151,9 @@ class MCPClientManagerTest {
         
         assertTrue(clientManager.isInitialized());
         assertEquals(0, clientManager.getTotalClientCount());
+        
+        // 验证没有创建客户端
+        verify(mockClientFactory, never()).createClient(any(), any());
     }
 
     @Test
@@ -240,7 +303,9 @@ class MCPClientManagerTest {
 
     @Test
     @DisplayName("测试未初始化时的操作")
-    void testOperationsBeforeInitialization() {
+    void testOperationsBeforeInitialization() throws Exception {
+        // 创建一个新的管理器实例用于测试
+        resetSingleton();
         MCPClientManager freshManager = MCPClientManager.getInstance();
         
         assertFalse(freshManager.isInitialized());
