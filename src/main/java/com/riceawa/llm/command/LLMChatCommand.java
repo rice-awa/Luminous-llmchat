@@ -200,6 +200,17 @@ public class LLMChatCommand {
                                         .executes(LLMChatCommand::handleMCPConfigValidate))
                                 .then(CommandManager.literal("report")
                                         .executes(LLMChatCommand::handleMCPConfigReport)))
+                        .then(CommandManager.literal("health")
+                                .executes(LLMChatCommand::handleMCPHealth)
+                                .then(CommandManager.argument("client", StringArgumentType.word())
+                                        .executes(LLMChatCommand::handleMCPHealthClient)))
+                        .then(CommandManager.literal("errors")
+                                .executes(LLMChatCommand::handleMCPErrors)
+                                .then(CommandManager.literal("reset")
+                                        .executes(LLMChatCommand::handleMCPErrorsReset)))
+                        .then(CommandManager.literal("recover")
+                                .then(CommandManager.argument("client", StringArgumentType.word())
+                                        .executes(LLMChatCommand::handleMCPRecover)))
                         .then(CommandManager.literal("help")
                                 .executes(LLMChatCommand::handleMCPHelp)))
                 .then(CommandManager.literal("reload")
@@ -3501,11 +3512,234 @@ public class LLMChatCommand {
         player.sendMessage(Text.literal("  /llmchat mcp config report - 生成配置状态报告").formatted(Formatting.WHITE), false);
         player.sendMessage(Text.literal(""), false);
 
+        player.sendMessage(Text.literal("🏥 健康监控:").formatted(Formatting.AQUA), false);
+        player.sendMessage(Text.literal("  /llmchat mcp health - 查看所有客户端健康状态").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat mcp health <client> - 查看指定客户端健康状态").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat mcp errors - 查看错误统计").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat mcp errors reset - 重置错误统计 (仅OP)").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat mcp recover <client> - 手动恢复客户端 (仅OP)").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal(""), false);
+
         player.sendMessage(Text.literal("💡 说明:").formatted(Formatting.YELLOW), false);
         player.sendMessage(Text.literal("  • MCP允许AI模型访问外部工具和资源").formatted(Formatting.GRAY), false);
         player.sendMessage(Text.literal("  • 工具将自动集成到AI对话的Function Calling中").formatted(Formatting.GRAY), false);
         player.sendMessage(Text.literal("  • 支持STDIO和SSE两种连接方式").formatted(Formatting.GRAY), false);
         player.sendMessage(Text.literal("  • 配置文件位于 config/lllmchat/config.json").formatted(Formatting.GRAY), false);
+
+        return 1;
+    }
+
+    /**
+     * 处理MCP健康检查命令
+     */
+    private static int handleMCPHealth(CommandContext<ServerCommandSource> context) {
+        ServerPlayerEntity player = context.getSource().getPlayer();
+        if (player == null) return 0;
+
+        LLMServiceManager manager = LLMServiceManager.getInstance();
+        MCPService mcpService = manager.getMCPService();
+        if (mcpService == null) {
+            player.sendMessage(Text.literal("❌ MCP服务未启用").formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        try {
+            // 获取健康管理器
+            var healthManager = mcpService.getHealthManager();
+            if (healthManager == null) {
+                player.sendMessage(Text.literal("❌ 健康监控未启用").formatted(Formatting.RED), false);
+                return 0;
+            }
+
+            // 显示健康统计
+            String healthStats = healthManager.getHealthStatistics();
+            
+            player.sendMessage(Text.literal("=== MCP健康状态 ===").formatted(Formatting.AQUA), false);
+            player.sendMessage(Text.literal(""), false);
+            
+            String[] lines = healthStats.split("\n");
+            for (String line : lines) {
+                if (line.trim().isEmpty()) continue;
+                
+                Formatting color = Formatting.WHITE;
+                if (line.contains("健康")) {
+                    color = Formatting.GREEN;
+                } else if (line.contains("不健康") || line.contains("失败")) {
+                    color = Formatting.RED;
+                } else if (line.contains("恢复中") || line.contains("降级")) {
+                    color = Formatting.YELLOW;
+                }
+                
+                player.sendMessage(Text.literal(line).formatted(color), false);
+            }
+            
+        } catch (Exception e) {
+            player.sendMessage(Text.literal("❌ 获取健康状态失败: " + e.getMessage()).formatted(Formatting.RED), false);
+            LogManager.getInstance().logError("MCP健康检查命令失败", e.getMessage(), e);
+        }
+
+        return 1;
+    }
+
+    /**
+     * 处理指定客户端的健康检查命令
+     */
+    private static int handleMCPHealthClient(CommandContext<ServerCommandSource> context) {
+        ServerPlayerEntity player = context.getSource().getPlayer();
+        if (player == null) return 0;
+
+        String clientName = StringArgumentType.getString(context, "client");
+
+        LLMServiceManager manager = LLMServiceManager.getInstance();
+        MCPService mcpService = manager.getMCPService();
+        if (mcpService == null) {
+            player.sendMessage(Text.literal("❌ MCP服务未启用").formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        try {
+            var healthManager = mcpService.getHealthManager();
+            if (healthManager == null) {
+                player.sendMessage(Text.literal("❌ 健康监控未启用").formatted(Formatting.RED), false);
+                return 0;
+            }
+
+            var healthStatus = healthManager.getClientHealth(clientName);
+            
+            player.sendMessage(Text.literal("=== " + clientName + " 健康状态 ===").formatted(Formatting.AQUA), false);
+            player.sendMessage(Text.literal(""), false);
+            
+            Formatting statusColor = switch (healthStatus) {
+                case HEALTHY -> Formatting.GREEN;
+                case UNHEALTHY -> Formatting.RED;
+                case DEGRADED, RECOVERING -> Formatting.YELLOW;
+                case DISABLED -> Formatting.GRAY;
+            };
+            
+            player.sendMessage(Text.literal("状态: " + healthStatus.getDisplayName()).formatted(statusColor), false);
+            
+            // 显示错误计数
+            long errorCount = MCPErrorHandler.getClientErrorCount(clientName);
+            if (errorCount > 0) {
+                player.sendMessage(Text.literal("错误次数: " + errorCount).formatted(Formatting.YELLOW), false);
+            }
+            
+        } catch (Exception e) {
+            player.sendMessage(Text.literal("❌ 获取客户端健康状态失败: " + e.getMessage()).formatted(Formatting.RED), false);
+            LogManager.getInstance().logError("MCP客户端健康检查命令失败", e.getMessage(), e);
+        }
+
+        return 1;
+    }
+
+    /**
+     * 处理MCP错误统计命令
+     */
+    private static int handleMCPErrors(CommandContext<ServerCommandSource> context) {
+        ServerPlayerEntity player = context.getSource().getPlayer();
+        if (player == null) return 0;
+
+        try {
+            String errorStats = MCPErrorHandler.getErrorStatistics();
+            
+            player.sendMessage(Text.literal("=== MCP错误统计 ===").formatted(Formatting.AQUA), false);
+            player.sendMessage(Text.literal(""), false);
+            
+            String[] lines = errorStats.split("\n");
+            for (String line : lines) {
+                if (line.trim().isEmpty()) continue;
+                
+                Formatting color = Formatting.WHITE;
+                if (line.contains("无错误记录")) {
+                    color = Formatting.GREEN;
+                } else if (line.matches(".*\\d+次.*")) {
+                    color = Formatting.YELLOW;
+                }
+                
+                player.sendMessage(Text.literal(line).formatted(color), false);
+            }
+            
+        } catch (Exception e) {
+            player.sendMessage(Text.literal("❌ 获取错误统计失败: " + e.getMessage()).formatted(Formatting.RED), false);
+            LogManager.getInstance().logError("MCP错误统计命令失败", e.getMessage(), e);
+        }
+
+        return 1;
+    }
+
+    /**
+     * 处理重置MCP错误统计命令
+     */
+    private static int handleMCPErrorsReset(CommandContext<ServerCommandSource> context) {
+        ServerPlayerEntity player = context.getSource().getPlayer();
+        if (player == null) return 0;
+
+        // 检查OP权限
+        if (!context.getSource().hasPermissionLevel(2)) {
+            player.sendMessage(Text.literal("❌ 只有OP可以重置错误统计").formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        try {
+            MCPErrorHandler.resetStatistics();
+            player.sendMessage(Text.literal("✅ MCP错误统计已重置").formatted(Formatting.GREEN), false);
+            
+        } catch (Exception e) {
+            player.sendMessage(Text.literal("❌ 重置错误统计失败: " + e.getMessage()).formatted(Formatting.RED), false);
+            LogManager.getInstance().logError("重置MCP错误统计命令失败", e.getMessage(), e);
+        }
+
+        return 1;
+    }
+
+    /**
+     * 处理手动恢复客户端命令
+     */
+    private static int handleMCPRecover(CommandContext<ServerCommandSource> context) {
+        ServerPlayerEntity player = context.getSource().getPlayer();
+        if (player == null) return 0;
+
+        // 检查OP权限
+        if (!context.getSource().hasPermissionLevel(2)) {
+            player.sendMessage(Text.literal("❌ 只有OP可以手动恢复客户端").formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        String clientName = StringArgumentType.getString(context, "client");
+
+        LLMServiceManager manager = LLMServiceManager.getInstance();
+        MCPService mcpService = manager.getMCPService();
+        if (mcpService == null) {
+            player.sendMessage(Text.literal("❌ MCP服务未启用").formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        try {
+            var healthManager = mcpService.getHealthManager();
+            if (healthManager == null) {
+                player.sendMessage(Text.literal("❌ 健康监控未启用").formatted(Formatting.RED), false);
+                return 0;
+            }
+
+            player.sendMessage(Text.literal("🔄 正在恢复客户端: " + clientName).formatted(Formatting.YELLOW), false);
+
+            healthManager.recoverClient(clientName)
+                .thenAccept(success -> {
+                    if (success) {
+                        player.sendMessage(Text.literal("✅ 客户端 " + clientName + " 恢复成功").formatted(Formatting.GREEN), false);
+                    } else {
+                        player.sendMessage(Text.literal("❌ 客户端 " + clientName + " 恢复失败").formatted(Formatting.RED), false);
+                    }
+                })
+                .exceptionally(throwable -> {
+                    player.sendMessage(Text.literal("❌ 恢复客户端时发生异常: " + throwable.getMessage()).formatted(Formatting.RED), false);
+                    return null;
+                });
+
+        } catch (Exception e) {
+            player.sendMessage(Text.literal("❌ 手动恢复客户端失败: " + e.getMessage()).formatted(Formatting.RED), false);
+            LogManager.getInstance().logError("手动恢复MCP客户端命令失败", e.getMessage(), e);
+        }
 
         return 1;
     }

@@ -5,6 +5,7 @@
 ## ✨ 核心功能
 
 - 🤖 **多LLM服务支持** - OpenAI、OpenRouter、DeepSeek等，可扩展架构，强制健康检查
+- 🔌 **MCP集成支持** - Model Context Protocol集成，扩展AI能力边界
 - 💬 **智能上下文管理** - 基于字符长度的精确控制，智能压缩，对话恢复
 - 📝 **热编辑提示词模板系统** - 内置多种预设，支持游戏内热编辑，内置变量系统
 - 🔧 **Function Calling** - 13个内置游戏API，智能权限控制
@@ -77,6 +78,7 @@
 
 ### 功能详细文档
 - 📖 [配置指南](docs/CONFIGURATION_GUIDE.md) - 完整的配置选项和多Provider设置
+- 🔌 [MCP配置指南](docs/MCP_CONFIGURATION_GUIDE.md) - Model Context Protocol集成配置详解
 - 💻 [命令指南](docs/COMMANDS_GUIDE.md) - 所有可用命令和详细用法（包含Resume命令扩展功能）
 - 🔧 [热编辑模板系统](docs/TEMPLATE_HOT_EDITING_SYSTEM_SUMMARY.md) - 游戏内模板编辑完整指南
 - 🔧 [内置变量系统](docs/BUILTIN_VARIABLES_SYSTEM_SUMMARY.md) - 15+内置变量详细说明
@@ -205,6 +207,38 @@
 7. 使用 `/llmchat provider check` 定期检查Provider连接状态
 8. 热编辑模板时使用 `{{变量名}}` 格式引用内置和自定义变量
 9. 建议运行测试验证功能正确性：`./gradlew test`
+
+### 🔌 MCP功能环境要求
+**如果需要使用MCP (Model Context Protocol) 功能，请确保安装以下环境:**
+
+#### Node.js 环境 (npm/npx)
+```bash
+# 安装 Node.js (推荐使用 LTS 版本)
+# Windows: 从 https://nodejs.org 下载安装
+# macOS: brew install node
+# Linux: sudo apt install nodejs npm
+
+# 验证安装
+node --version
+npm --version
+npx --version
+```
+
+#### Python 环境 (uv/uvx) - 推荐
+```bash
+# 安装 uv (现代Python包管理工具)
+# Windows:
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# macOS/Linux:
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 验证安装
+uv --version
+uvx --version
+```
+
+> 📖 **MCP配置详解**: 查看 [MCP配置指南](docs/MCP_CONFIGURATION_GUIDE.md) 了解如何配置和使用MCP服务器扩展AI能力
 
 ## 📝 更新日志
 

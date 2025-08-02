@@ -39,6 +39,9 @@ public class MCPServerConfig {
     // 工具权限策略
     private String toolPermissionPolicy = "INHERIT_CLIENT";
     
+    // 自动批准的工具列表
+    private List<String> autoApprove = new ArrayList<>();
+    
     // 服务器描述
     private String description = "";
 
@@ -51,6 +54,8 @@ public class MCPServerConfig {
         config.type = "stdio";
         config.command = command;
         config.args = args != null ? new ArrayList<>(args) : new ArrayList<>();
+        config.env = new HashMap<>(); // 默认空环境变量
+        config.autoApprove = new ArrayList<>(); // 默认空自动批准列表
         return config;
     }
 
@@ -62,6 +67,7 @@ public class MCPServerConfig {
         config.name = name;
         config.type = "sse";
         config.url = url;
+        config.autoApprove = new ArrayList<>(); // 默认空自动批准列表
         return config;
     }
 
@@ -79,7 +85,8 @@ public class MCPServerConfig {
     }
 
     public void setType(String type) {
-        this.type = type;
+        // 如果没有指定类型，默认为stdio
+        this.type = (type != null && !type.trim().isEmpty()) ? type : "stdio";
     }
 
     public String getCommand() {
@@ -203,6 +210,30 @@ public class MCPServerConfig {
     public void setDescription(String description) {
         this.description = description != null ? description : "";
     }
+    
+    public List<String> getAutoApprove() {
+        return Collections.unmodifiableList(new ArrayList<>(autoApprove));
+    }
+    
+    public void setAutoApprove(List<String> autoApprove) {
+        this.autoApprove = autoApprove != null ? new ArrayList<>(autoApprove) : new ArrayList<>();
+    }
+    
+    public void addAutoApprove(String toolName) {
+        if (toolName != null && !toolName.trim().isEmpty()) {
+            this.autoApprove.add(toolName.trim());
+        }
+    }
+    
+    public void removeAutoApprove(String toolName) {
+        if (toolName != null) {
+            this.autoApprove.remove(toolName.trim());
+        }
+    }
+    
+    public boolean isAutoApproved(String toolName) {
+        return toolName != null && autoApprove.contains(toolName);
+    }
 
     /**
      * 验证服务器配置是否有效
@@ -212,16 +243,15 @@ public class MCPServerConfig {
             return false;
         }
         
-        if (type == null) {
-            return false;
-        }
+        // 如果没有指定type，默认为stdio
+        String actualType = (type != null && !type.trim().isEmpty()) ? type : "stdio";
         
-        switch (type.toLowerCase()) {
+        switch (actualType.toLowerCase()) {
             case "stdio":
                 return command != null && !command.trim().isEmpty();
             case "sse":
                 return url != null && !url.trim().isEmpty() && 
-                       (url.startsWith("http://") || url.startsWith("https://"));
+                       (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("localhost"));
             default:
                 return false;
         }
@@ -231,14 +261,16 @@ public class MCPServerConfig {
      * 检查是否为STDIO类型
      */
     public boolean isStdioType() {
-        return "stdio".equalsIgnoreCase(type);
+        String actualType = (type != null && !type.trim().isEmpty()) ? type : "stdio";
+        return "stdio".equalsIgnoreCase(actualType);
     }
 
     /**
      * 检查是否为SSE类型
      */
     public boolean isSseType() {
-        return "sse".equalsIgnoreCase(type);
+        String actualType = (type != null && !type.trim().isEmpty()) ? type : "stdio";
+        return "sse".equalsIgnoreCase(actualType);
     }
 
     @Override

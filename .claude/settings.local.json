@@ -3,7 +3,8 @@
     "allow": [
       "Bash(./gradlew compileJava:*)",
       "Bash(find:*)",
-      "Bash(./gradlew test:*)"
+      "Bash(./gradlew test:*)",
+      "Bash(npx:*)"
     ],
     "deny": []
   }

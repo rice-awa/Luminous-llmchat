@@ -150,8 +150,10 @@ public class MCPConfigValidator {
      * 验证基础配置
      */
     private static void validateBasicConfig(MCPConfig config, List<ValidationIssue> issues, List<String> suggestions) {
+        List<MCPServerConfig> allServers = new ArrayList<>(config.getMcpServers().values());
+        
         // 检查是否启用但没有服务器配置
-        if (config.isEnabled() && config.getServers().isEmpty()) {
+        if (config.isEnabled() && allServers.isEmpty()) {
             issues.add(new ValidationIssue(
                 ValidationSeverity.ERROR,
                 "基础配置",
@@ -161,7 +163,7 @@ public class MCPConfigValidator {
         }
         
         // 检查是否有服务器配置但功能未启用
-        if (!config.isEnabled() && !config.getServers().isEmpty()) {
+        if (!config.isEnabled() && !allServers.isEmpty()) {
             issues.add(new ValidationIssue(
                 ValidationSeverity.WARNING,
                 "基础配置",
@@ -185,12 +187,14 @@ public class MCPConfigValidator {
      * 验证服务器配置
      */
     private static void validateServerConfigs(MCPConfig config, List<ValidationIssue> issues, List<String> suggestions) {
-        Set<String> serverNames = config.getServers().stream()
+        List<MCPServerConfig> allServers = new ArrayList<>(config.getMcpServers().values());
+        
+        Set<String> serverNames = allServers.stream()
                 .map(MCPServerConfig::getName)
                 .collect(Collectors.toSet());
         
         // 检查服务器名称重复
-        if (serverNames.size() != config.getServers().size()) {
+        if (serverNames.size() != allServers.size()) {
             issues.add(new ValidationIssue(
                 ValidationSeverity.ERROR,
                 "服务器配置",
@@ -200,15 +204,15 @@ public class MCPConfigValidator {
         }
         
         // 验证每个服务器配置
-        for (MCPServerConfig serverConfig : config.getServers()) {
+        for (MCPServerConfig serverConfig : allServers) {
             validateServerConfig(serverConfig, issues, suggestions);
         }
         
         // 检查是否有推荐的服务器类型分布
-        long stdioCount = config.getServers().stream()
+        long stdioCount = allServers.stream()
                 .filter(MCPServerConfig::isStdioType)
                 .count();
-        long sseCount = config.getServers().stream()
+        long sseCount = allServers.stream()
                 .filter(MCPServerConfig::isSseType)
                 .count();
         
@@ -296,12 +300,12 @@ public class MCPConfigValidator {
                 "SSE服务器URL为空",
                 "请指定有效的SSE服务器URL"
             ));
-        } else if (!url.startsWith("http://") && !url.startsWith("https://")) {
+        } else if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("localhost")) {
             issues.add(new ValidationIssue(
                 ValidationSeverity.ERROR,
                 "SSE配置 - " + serverName,
                 "SSE服务器URL格式无效",
-                "URL必须以http://或https://开头"
+                "URL必须以http://、https://开头，或使用localhost"
             ));
         } else if (url.startsWith("http://")) {
             issues.add(new ValidationIssue(
@@ -328,6 +332,11 @@ public class MCPConfigValidator {
                 "工具权限策略未设置",
                 "建议明确设置工具权限策略"
             ));
+        }
+        
+        // 验证autoApprove配置
+        if (!serverConfig.getAutoApprove().isEmpty()) {
+            suggestions.add("服务器 " + serverName + " 配置了自动批准工具，请确保这些工具是安全的");
         }
         
         // 检查是否配置了工具和资源限制
@@ -467,18 +476,26 @@ public class MCPConfigValidator {
         
         // 基础状态
         report.append("功能状态: ").append(config.isEnabled() ? "已启用" : "已禁用").append("\n");
-        report.append("服务器总数: ").append(config.getServers().size()).append("\n");
+        
+        List<MCPServerConfig> allServers = new ArrayList<>(config.getMcpServers().values());
+        
+        report.append("服务器总数: ").append(allServers.size()).append("\n");
         report.append("启用的服务器: ").append(config.getEnabledServers().size()).append("\n");
         
         // 服务器详情
-        if (!config.getServers().isEmpty()) {
+        if (!allServers.isEmpty()) {
             report.append("\n服务器配置:\n");
-            for (MCPServerConfig server : config.getServers()) {
+            for (MCPServerConfig server : allServers) {
                 report.append("  - ").append(server.getName())
                       .append(" (").append(server.getType().toUpperCase()).append(")")
                       .append(" - ").append(server.isEnabled() ? "启用" : "禁用")
-                      .append(" - ").append(server.isValid() ? "有效" : "无效")
-                      .append("\n");
+                      .append(" - ").append(server.isValid() ? "有效" : "无效");
+                
+                // 显示autoApprove信息
+                if (!server.getAutoApprove().isEmpty()) {
+                    report.append(" - 自动批准: ").append(server.getAutoApprove().size()).append("个工具");
+                }
+                report.append("\n");
             }
         }
         
@@ -567,7 +584,7 @@ public class MCPConfigValidator {
         fixedConfig.setEnableResourceChangeNotifications(config.isEnableResourceChangeNotifications());
         
         // 修复服务器配置
-        for (MCPServerConfig serverConfig : config.getServers()) {
+        for (MCPServerConfig serverConfig : config.getMcpServers().values()) {
             if (serverConfig.isValid()) {
                 fixedConfig.addServer(serverConfig);
             }

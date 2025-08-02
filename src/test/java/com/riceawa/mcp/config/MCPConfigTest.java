@@ -6,8 +6,10 @@ import org.junit.jupiter.api.DisplayName;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 
 /**
  * MCPConfig类的单元测试
@@ -29,6 +31,7 @@ class MCPConfigTest {
         assertNotNull(defaultConfig);
         assertFalse(defaultConfig.isEnabled());
         assertTrue(defaultConfig.getServers().isEmpty());
+        assertTrue(defaultConfig.getMcpServers().isEmpty());
         assertEquals(30000, defaultConfig.getConnectionTimeoutMs());
         assertEquals(10000, defaultConfig.getRequestTimeoutMs());
         assertEquals(3, defaultConfig.getMaxRetries());
@@ -53,6 +56,35 @@ class MCPConfigTest {
     }
 
     @Test
+    @DisplayName("测试字典格式服务器配置管理")
+    void testMcpServersManagement() {
+        assertTrue(config.getMcpServers().isEmpty());
+        
+        // 直接设置字典格式配置
+        Map<String, MCPServerConfig> servers = new HashMap<>();
+        
+        MCPServerConfig stdioServer = MCPServerConfig.createStdioConfig(
+            "test-stdio", "uvx", Arrays.asList("test-server@latest"));
+        servers.put("test-stdio", stdioServer);
+        
+        MCPServerConfig sseServer = MCPServerConfig.createSseConfig(
+            "test-sse", "https://example.com/mcp");
+        servers.put("test-sse", sseServer);
+        
+        config.setMcpServers(servers);
+        
+        assertEquals(2, config.getMcpServers().size());
+        assertEquals(2, config.getServers().size()); // getServers()应该返回字典中的值
+        
+        assertTrue(config.getMcpServers().containsKey("test-stdio"));
+        assertTrue(config.getMcpServers().containsKey("test-sse"));
+        
+        // 验证服务器名称已正确设置
+        assertEquals("test-stdio", config.getMcpServers().get("test-stdio").getName());
+        assertEquals("test-sse", config.getMcpServers().get("test-sse").getName());
+    }
+
+    @Test
     @DisplayName("测试服务器配置管理")
     void testServerManagement() {
         assertTrue(config.getServers().isEmpty());
@@ -63,6 +95,7 @@ class MCPConfigTest {
         config.addServer(stdioServer);
         
         assertEquals(1, config.getServers().size());
+        assertEquals(1, config.getMcpServers().size());
         assertEquals("test-stdio", config.getServers().get(0).getName());
         
         // 添加SSE服务器
@@ -71,6 +104,7 @@ class MCPConfigTest {
         config.addServer(sseServer);
         
         assertEquals(2, config.getServers().size());
+        assertEquals(2, config.getMcpServers().size());
         
         // 获取特定服务器
         MCPServerConfig retrieved = config.getServer("test-stdio");
@@ -80,6 +114,7 @@ class MCPConfigTest {
         // 移除服务器
         config.removeServer("test-stdio");
         assertEquals(1, config.getServers().size());
+        assertEquals(1, config.getMcpServers().size());
         assertNull(config.getServer("test-stdio"));
     }
 
@@ -294,6 +329,7 @@ class MCPConfigTest {
         // 测试添加null服务器
         config.addServer(null);
         assertTrue(config.getServers().isEmpty());
+        assertTrue(config.getMcpServers().isEmpty());
         
         // 测试获取不存在的服务器
         assertNull(config.getServer("nonexistent"));

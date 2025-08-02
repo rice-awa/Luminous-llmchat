@@ -16,8 +16,8 @@ public class MCPConfig {
     // MCP功能总开关
     private boolean enabled = false;
     
-    // MCP服务器配置列表
-    private List<MCPServerConfig> servers = new ArrayList<>();
+    // MCP服务器配置字典
+    private Map<String, MCPServerConfig> mcpServers = new HashMap<>();
     
     // 连接超时时间（毫秒）
     private int connectionTimeoutMs = 30000;
@@ -52,7 +52,7 @@ public class MCPConfig {
     public static MCPConfig createDefault() {
         MCPConfig config = new MCPConfig();
         config.enabled = false;
-        config.servers = new ArrayList<>();
+        config.mcpServers = new HashMap<>();
         return config;
     }
 
@@ -66,30 +66,47 @@ public class MCPConfig {
     }
 
     public List<MCPServerConfig> getServers() {
-        return Collections.unmodifiableList(new ArrayList<>(servers));
+        return new ArrayList<>(mcpServers.values());
     }
 
     public void setServers(List<MCPServerConfig> servers) {
-        this.servers = servers != null ? new ArrayList<>(servers) : new ArrayList<>();
+        this.mcpServers.clear();
+        if (servers != null) {
+            for (MCPServerConfig server : servers) {
+                if (server != null && server.getName() != null) {
+                    this.mcpServers.put(server.getName(), server);
+                }
+            }
+        }
+    }
+    
+    public Map<String, MCPServerConfig> getMcpServers() {
+        return Collections.unmodifiableMap(new HashMap<>(mcpServers));
+    }
+    
+    public void setMcpServers(Map<String, MCPServerConfig> mcpServers) {
+        this.mcpServers = mcpServers != null ? new HashMap<>(mcpServers) : new HashMap<>();
+        // 设置服务器名称与键匹配
+        for (Map.Entry<String, MCPServerConfig> entry : this.mcpServers.entrySet()) {
+            MCPServerConfig config = entry.getValue();
+            if (config != null) {
+                config.setName(entry.getKey());
+            }
+        }
     }
 
     public void addServer(MCPServerConfig server) {
         if (server != null && server.isValid()) {
-            // 移除同名服务器配置
-            servers.removeIf(s -> s.getName().equals(server.getName()));
-            servers.add(server);
+            mcpServers.put(server.getName(), server);
         }
     }
 
     public void removeServer(String serverName) {
-        servers.removeIf(s -> s.getName().equals(serverName));
+        mcpServers.remove(serverName);
     }
 
     public MCPServerConfig getServer(String serverName) {
-        return servers.stream()
-                .filter(s -> s.getName().equals(serverName))
-                .findFirst()
-                .orElse(null);
+        return mcpServers.get(serverName);
     }
 
     public int getConnectionTimeoutMs() {
@@ -174,14 +191,14 @@ public class MCPConfig {
         }
         
         // 检查是否至少有一个有效的服务器配置
-        return servers.stream().anyMatch(MCPServerConfig::isValid);
+        return mcpServers.values().stream().anyMatch(MCPServerConfig::isValid);
     }
 
     /**
      * 获取所有启用的服务器配置
      */
     public List<MCPServerConfig> getEnabledServers() {
-        return servers.stream()
+        return mcpServers.values().stream()
                 .filter(MCPServerConfig::isEnabled)
                 .filter(MCPServerConfig::isValid)
                 .toList();
