@@ -421,6 +421,23 @@ public class MCPClientManager {
     }
     
     /**
+     * 获取所有已连接客户端的名称
+     */
+    public List<String> getConnectedClients() {
+        return clientStatuses.values().stream()
+                .filter(MCPClientStatus::isConnected)
+                .map(MCPClientStatus::getClientName)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
+     * 检查是否有已连接的客户端
+     */
+    public boolean hasConnectedClients() {
+        return getConnectedClientCount() > 0;
+    }
+
+    /**
      * 获取连接的客户端数量
      */
     public int getConnectedClientCount() {

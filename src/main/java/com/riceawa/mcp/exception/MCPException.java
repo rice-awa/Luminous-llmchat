@@ -137,11 +137,57 @@ public class MCPException extends Exception {
     }
 
     /**
+     * 创建工具未找到异常（不指定客户端）
+     */
+    public static MCPException toolNotFound(String toolName) {
+        return new MCPException(MCPErrorType.TOOL_NOT_FOUND, 
+                              "工具 '" + toolName + "' 未找到");
+    }
+
+    /**
      * 创建资源未找到异常
      */
     public static MCPException resourceNotFound(String clientName, String resourceUri) {
         return new MCPException(MCPErrorType.RESOURCE_NOT_FOUND, clientName, 
                               "资源 '" + resourceUri + "' 未找到");
+    }
+
+    /**
+     * 创建资源未找到异常（不指定客户端）
+     */
+    public static MCPException resourceNotFound(String resourceUri) {
+        return new MCPException(MCPErrorType.RESOURCE_NOT_FOUND, 
+                              "资源 '" + resourceUri + "' 未找到");
+    }
+
+    /**
+     * 创建提示词未找到异常
+     */
+    public static MCPException promptNotFound(String promptName) {
+        return new MCPException(MCPErrorType.TOOL_NOT_FOUND, 
+                              "提示词 '" + promptName + "' 未找到");
+    }
+
+    /**
+     * 创建客户端未找到异常
+     */
+    public static MCPException clientNotFound(String clientName) {
+        return new MCPException(MCPErrorType.CONNECTION_FAILED, clientName, 
+                              "客户端 '" + clientName + "' 未找到或未连接");
+    }
+
+    /**
+     * 创建操作失败异常
+     */
+    public static MCPException operationFailed(String message) {
+        return new MCPException(MCPErrorType.SERVER_ERROR, message);
+    }
+
+    /**
+     * 创建操作失败异常（带原因）
+     */
+    public static MCPException operationFailed(String message, Throwable cause) {
+        return new MCPException(MCPErrorType.SERVER_ERROR, message, cause);
     }
 
     /**
