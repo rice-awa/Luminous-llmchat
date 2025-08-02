@@ -158,6 +158,21 @@ Update `LLMChatConfig` class, increment config version, add migration logic for 
 ### Testing Requirements
 All new functionality must include unit tests. Use mock objects for Minecraft components. Test both success and failure scenarios, especially for permission-controlled features.
 
+### Post-Development Testing
+After implementing new features, always perform core functionality testing:
+
+1. **Build Verification**
+   ```bash
+   # Ensure clean build
+   ./gradlew clean build
+   ```
+
+2. **Unit Test Execution**
+   ```bash
+   # Run all tests to ensure no regressions
+   ./gradlew test
+   ```
+
 ## Important File Locations
 
 **Source Code:** `src/main/java/com/riceawa/`

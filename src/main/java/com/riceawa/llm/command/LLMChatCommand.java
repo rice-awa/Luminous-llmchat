@@ -1359,6 +1359,47 @@ public class LLMChatCommand {
         // 处理用户消息
         String processedMessage = template != null ? template.renderUserMessage(message, serverPlayer) : message;
 
+        // 处理MCP资源引用（如果可用）
+        try {
+            com.riceawa.mcp.integration.MCPContextProvider mcpContextProvider = 
+                com.riceawa.mcp.integration.MCPContextProvider.getInstance();
+            
+            if (mcpContextProvider != null && mcpContextProvider.hasResourceReferences(processedMessage)) {
+                // 异步处理资源引用，但等待结果，设置较短的超时时间
+                String enhancedMessage = mcpContextProvider.processMessageWithResources(
+                    processedMessage, chatContext, serverPlayer
+                ).get(10, java.util.concurrent.TimeUnit.SECONDS);
+                
+                // 只有在成功获取到增强消息时才使用
+                if (enhancedMessage != null && !enhancedMessage.equals(processedMessage)) {
+                    processedMessage = enhancedMessage;
+                    // 可选：通知用户资源已被处理
+                    if (enhancedMessage.length() > processedMessage.length() + 100) {
+                        serverPlayer.sendMessage(
+                            Text.literal("已加载相关MCP资源信息").formatted(Formatting.GREEN), 
+                            false
+                        );
+                    }
+                }
+            }
+        } catch (java.util.concurrent.TimeoutException e) {
+            // 超时不影响正常聊天，但给用户提示
+            serverPlayer.sendMessage(
+                Text.literal("MCP资源加载超时，将继续处理您的消息").formatted(Formatting.YELLOW), 
+                false
+            );
+        } catch (Exception e) {
+            // MCP资源处理失败不应该阻止正常聊天
+            System.err.println("MCP资源处理失败: " + e.getMessage());
+            // 可选：给用户一个简短的提示
+            if (e.getMessage() != null && e.getMessage().contains("not available")) {
+                serverPlayer.sendMessage(
+                    Text.literal("MCP服务暂时不可用，将继续处理您的消息").formatted(Formatting.YELLOW), 
+                    false
+                );
+            }
+        }
+
         chatContext.addUserMessage(processedMessage);
 
         // 构建LLM配置
