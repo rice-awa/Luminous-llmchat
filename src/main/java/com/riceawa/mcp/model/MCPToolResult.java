@@ -1,5 +1,8 @@
 package com.riceawa.mcp.model;
 
+import com.riceawa.mcp.exception.MCPException;
+import com.riceawa.mcp.util.MCPJsonUtils;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -103,7 +106,7 @@ public class MCPToolResult {
 
     public void setErrorMessage(String errorMessage) {
         this.errorMessage = errorMessage;
-        if (errorMessage != null && !errorMessage.trim().isEmpty()) {
+        if (errorMessage != null) {
             this.isError = true;
         }
     }
@@ -162,5 +165,28 @@ public class MCPToolResult {
             return String.format("MCPToolResult{contentCount=%d, hasStructured=%s}", 
                                content.size(), structuredContent != null);
         }
+    }
+
+    // ==================== JSON序列化支持 ====================
+
+    /**
+     * 将当前对象序列化为JSON字符串
+     */
+    public String toJson() throws MCPException {
+        return MCPJsonUtils.toJson(this);
+    }
+
+    /**
+     * 从JSON字符串创建MCPToolResult对象
+     */
+    public static MCPToolResult fromJson(String json) throws MCPException {
+        return MCPJsonUtils.fromJsonToToolResult(json);
+    }
+
+    /**
+     * 创建当前对象的深度拷贝
+     */
+    public MCPToolResult deepCopy() throws MCPException {
+        return fromJson(toJson());
     }
 }

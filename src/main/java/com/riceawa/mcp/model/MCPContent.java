@@ -1,5 +1,8 @@
 package com.riceawa.mcp.model;
 
+import com.riceawa.mcp.exception.MCPException;
+import com.riceawa.mcp.util.MCPJsonUtils;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -212,5 +215,28 @@ public class MCPContent {
     public String toString() {
         return String.format("MCPContent{type='%s', hasText=%s, hasData=%s, uri='%s'}", 
                            type, text != null, data != null, uri);
+    }
+
+    // ==================== JSON序列化支持 ====================
+
+    /**
+     * 将当前对象序列化为JSON字符串
+     */
+    public String toJson() throws MCPException {
+        return MCPJsonUtils.toJson(this);
+    }
+
+    /**
+     * 从JSON字符串创建MCPContent对象
+     */
+    public static MCPContent fromJson(String json) throws MCPException {
+        return MCPJsonUtils.fromJsonToContent(json);
+    }
+
+    /**
+     * 创建当前对象的深度拷贝
+     */
+    public MCPContent deepCopy() throws MCPException {
+        return fromJson(toJson());
     }
 }

@@ -1,6 +1,9 @@
 package com.riceawa.mcp.model;
 
 import com.google.gson.JsonObject;
+import com.riceawa.mcp.exception.MCPException;
+import com.riceawa.mcp.util.MCPJsonUtils;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -151,5 +154,28 @@ public class MCPTool {
     @Override
     public int hashCode() {
         return name != null ? name.hashCode() : 0;
+    }
+
+    // ==================== JSON序列化支持 ====================
+
+    /**
+     * 将当前对象序列化为JSON字符串
+     */
+    public String toJson() throws MCPException {
+        return MCPJsonUtils.toJson(this);
+    }
+
+    /**
+     * 从JSON字符串创建MCPTool对象
+     */
+    public static MCPTool fromJson(String json) throws MCPException {
+        return MCPJsonUtils.fromJsonToTool(json);
+    }
+
+    /**
+     * 创建当前对象的深度拷贝
+     */
+    public MCPTool deepCopy() throws MCPException {
+        return fromJson(toJson());
     }
 }

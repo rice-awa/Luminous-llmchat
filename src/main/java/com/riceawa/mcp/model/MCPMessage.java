@@ -1,5 +1,8 @@
 package com.riceawa.mcp.model;
 
+import com.riceawa.mcp.exception.MCPException;
+import com.riceawa.mcp.util.MCPJsonUtils;
+
 /**
  * MCP消息模型
  * 表示MCP提示词结果中的单个消息
@@ -97,5 +100,28 @@ public class MCPMessage {
     public String toString() {
         return String.format("MCPMessage{role='%s', content='%s'}", 
                            role, content != null ? content.getContentString() : "null");
+    }
+
+    // ==================== JSON序列化支持 ====================
+
+    /**
+     * 将当前对象序列化为JSON字符串
+     */
+    public String toJson() throws MCPException {
+        return MCPJsonUtils.toJson(this);
+    }
+
+    /**
+     * 从JSON字符串创建MCPMessage对象
+     */
+    public static MCPMessage fromJson(String json) throws MCPException {
+        return MCPJsonUtils.fromJsonToMessage(json);
+    }
+
+    /**
+     * 创建当前对象的深度拷贝
+     */
+    public MCPMessage deepCopy() throws MCPException {
+        return fromJson(toJson());
     }
 }

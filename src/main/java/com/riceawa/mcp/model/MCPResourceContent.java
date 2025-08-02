@@ -1,5 +1,8 @@
 package com.riceawa.mcp.model;
 
+import com.riceawa.mcp.exception.MCPException;
+import com.riceawa.mcp.util.MCPJsonUtils;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -184,5 +187,28 @@ public class MCPResourceContent {
     public String toString() {
         return String.format("MCPResourceContent{uri='%s', hasText=%s, hasData=%s, mimeType='%s'}", 
                            uri, text != null, data != null, mimeType);
+    }
+
+    // ==================== JSON序列化支持 ====================
+
+    /**
+     * 将当前对象序列化为JSON字符串
+     */
+    public String toJson() throws MCPException {
+        return MCPJsonUtils.toJson(this);
+    }
+
+    /**
+     * 从JSON字符串创建MCPResourceContent对象
+     */
+    public static MCPResourceContent fromJson(String json) throws MCPException {
+        return MCPJsonUtils.fromJsonToResourceContent(json);
+    }
+
+    /**
+     * 创建当前对象的深度拷贝
+     */
+    public MCPResourceContent deepCopy() throws MCPException {
+        return fromJson(toJson());
     }
 }

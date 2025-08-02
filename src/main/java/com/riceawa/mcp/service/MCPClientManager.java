@@ -3,7 +3,7 @@ package com.riceawa.mcp.service;
 import com.riceawa.mcp.config.MCPConfig;
 import com.riceawa.mcp.config.MCPServerConfig;
 import com.riceawa.mcp.exception.MCPException;
-import com.riceawa.mcp.exception.MCPException.MCPErrorType;
+import com.riceawa.mcp.exception.MCPErrorType;
 import com.riceawa.mcp.model.MCPClientStatus;
 
 import java.time.LocalDateTime;

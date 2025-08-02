@@ -1,5 +1,8 @@
 package com.riceawa.mcp.model;
 
+import com.riceawa.mcp.exception.MCPException;
+import com.riceawa.mcp.util.MCPJsonUtils;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -124,5 +127,28 @@ public class MCPPromptResult {
     public String toString() {
         return String.format("MCPPromptResult{description='%s', messageCount=%d}", 
                            description, messages.size());
+    }
+
+    // ==================== JSON序列化支持 ====================
+
+    /**
+     * 将当前对象序列化为JSON字符串
+     */
+    public String toJson() throws MCPException {
+        return MCPJsonUtils.toJson(this);
+    }
+
+    /**
+     * 从JSON字符串创建MCPPromptResult对象
+     */
+    public static MCPPromptResult fromJson(String json) throws MCPException {
+        return MCPJsonUtils.fromJsonToPromptResult(json);
+    }
+
+    /**
+     * 创建当前对象的深度拷贝
+     */
+    public MCPPromptResult deepCopy() throws MCPException {
+        return fromJson(toJson());
     }
 }

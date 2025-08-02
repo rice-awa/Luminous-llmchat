@@ -14,31 +14,6 @@ public class MCPException extends Exception {
     // 详细信息
     private final String details;
 
-    /**
-     * MCP错误类型枚举
-     */
-    public enum MCPErrorType {
-        CONNECTION_FAILED("连接失败"),
-        PROTOCOL_ERROR("协议错误"),
-        TOOL_NOT_FOUND("工具未找到"),
-        RESOURCE_NOT_FOUND("资源未找到"),
-        PERMISSION_DENIED("权限被拒绝"),
-        TIMEOUT("超时"),
-        INVALID_PARAMETERS("参数无效"),
-        SERVER_ERROR("服务器错误"),
-        CLIENT_ERROR("客户端错误"),
-        CONFIGURATION_ERROR("配置错误");
-        
-        private final String displayName;
-        
-        MCPErrorType(String displayName) {
-            this.displayName = displayName;
-        }
-        
-        public String getDisplayName() {
-            return displayName;
-        }
-    }
 
     public MCPException(MCPErrorType errorType, String message) {
         super(message);
@@ -204,6 +179,20 @@ public class MCPException extends Exception {
      */
     public static MCPException configurationError(String message) {
         return new MCPException(MCPErrorType.CONFIGURATION_ERROR, message);
+    }
+
+    /**
+     * 检查错误是否可以重试
+     */
+    public boolean isRetryable() {
+        return errorType.isRetryable();
+    }
+
+    /**
+     * 获取错误严重程度等级
+     */
+    public int getSeverityLevel() {
+        return errorType.getSeverityLevel();
     }
 
     @Override

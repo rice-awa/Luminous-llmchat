@@ -1,6 +1,9 @@
 package com.riceawa.mcp.model;
 
 import com.google.gson.JsonObject;
+import com.riceawa.mcp.exception.MCPException;
+import com.riceawa.mcp.util.MCPJsonUtils;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -147,5 +150,28 @@ public class MCPPrompt {
     @Override
     public int hashCode() {
         return name != null ? name.hashCode() : 0;
+    }
+
+    // ==================== JSON序列化支持 ====================
+
+    /**
+     * 将当前对象序列化为JSON字符串
+     */
+    public String toJson() throws MCPException {
+        return MCPJsonUtils.toJson(this);
+    }
+
+    /**
+     * 从JSON字符串创建MCPPrompt对象
+     */
+    public static MCPPrompt fromJson(String json) throws MCPException {
+        return MCPJsonUtils.fromJsonToPrompt(json);
+    }
+
+    /**
+     * 创建当前对象的深度拷贝
+     */
+    public MCPPrompt deepCopy() throws MCPException {
+        return fromJson(toJson());
     }
 }
