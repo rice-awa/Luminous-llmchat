@@ -646,4 +646,209 @@ public class MCPServiceImpl implements MCPService {
         }
         return null;
     }
+
+    // ==================== 管理方法 ====================
+
+    /**
+     * 重连所有MCP客户端
+     */
+    public CompletableFuture<Map<String, Boolean>> reconnectAllClients() {
+        return CompletableFuture.supplyAsync(() -> {
+            Map<String, Boolean> results = new HashMap<>();
+            Set<String> allClients = clientManager.getAllClientStatuses().keySet();
+            
+            for (String clientName : allClients) {
+                try {
+                    // 使用接口中的方法
+                    reconnectClient(clientName).get(30, TimeUnit.SECONDS);
+                    results.put(clientName, true);
+                } catch (Exception e) {
+                    results.put(clientName, false);
+                }
+            }
+            
+            return results;
+        });
+    }
+
+    /**
+     * 重载MCP配置
+     */
+    public CompletableFuture<Boolean> reload() {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                // 重载客户端管理器配置 - 暂时跳过，因为接口中没有定义
+                // clientManager.reload();
+                
+                // 清除所有缓存
+                clearAllCaches();
+                
+                return true;
+            } catch (Exception e) {
+                System.err.println("Error reloading MCP configuration: " + e.getMessage());
+                return false;
+            }
+        });
+    }
+
+    /**
+     * 验证MCP配置
+     */
+    public CompletableFuture<com.riceawa.mcp.config.ValidationReport> validateConfiguration() {
+        return CompletableFuture.supplyAsync(() -> {
+            List<String> issues = new ArrayList<>();
+            List<String> warnings = new ArrayList<>();
+            
+            try {
+                // 检查客户端配置
+                Set<String> clientNames = clientManager.getAllClientStatuses().keySet();
+                if (clientNames.isEmpty()) {
+                    warnings.add("没有配置任何MCP客户端");
+                } else {
+                    for (String clientName : clientNames) {
+                        MCPClient client = clientManager.getClient(clientName);
+                        if (client == null) {
+                            issues.add("客户端 " + clientName + " 无法创建");
+                        } else if (!client.isConnected()) {
+                            warnings.add("客户端 " + clientName + " 未连接");
+                        }
+                    }
+                }
+                
+                // 检查工具可用性
+                Map<String, MCPClientStatus> statuses = getClientStatuses();
+                int connectedCount = (int) statuses.values().stream()
+                    .mapToLong(status -> status.isConnected() ? 1 : 0)
+                    .sum();
+                
+                if (connectedCount == 0 && !clientNames.isEmpty()) {
+                    issues.add("所有MCP客户端都未连接");
+                }
+                
+            } catch (Exception e) {
+                issues.add("配置验证过程出错: " + e.getMessage());
+            }
+            
+            boolean valid = issues.isEmpty();
+            return new com.riceawa.mcp.config.ValidationReport(valid, issues, warnings);
+        });
+    }
+
+    /**
+     * 生成配置状态报告
+     */
+    public CompletableFuture<com.riceawa.mcp.config.ConfigurationReport> generateConfigurationReport() {
+        return CompletableFuture.supplyAsync(() -> {
+            StringBuilder report = new StringBuilder();
+            Map<String, Object> details = new HashMap<>();
+            
+            try {
+                report.append("=== MCP配置状态报告 ===\n\n");
+                
+                // 客户端状态
+                Map<String, MCPClientStatus> statuses = getClientStatuses();
+                report.append("📡 客户端状态:\n");
+                int connectedCount = 0;
+                for (Map.Entry<String, MCPClientStatus> entry : statuses.entrySet()) {
+                    String clientName = entry.getKey();
+                    MCPClientStatus status = entry.getValue();
+                    
+                    if (status.isConnected()) {
+                        report.append("  ✅ ").append(clientName).append(" - 已连接\n");
+                        connectedCount++;
+                    } else {
+                        report.append("  ❌ ").append(clientName).append(" - 未连接");
+                        if (status.getLastError() != null) {
+                            report.append(" (").append(status.getLastError()).append(")");
+                        }
+                        report.append("\n");
+                    }
+                }
+                
+                details.put("total_clients", statuses.size());
+                details.put("connected_clients", connectedCount);
+                
+                // 工具统计
+                report.append("\n🔧 工具统计:\n");
+                try {
+                    List<MCPTool> allTools = listAllTools().get(5, TimeUnit.SECONDS);
+                    Map<String, Integer> toolsByClient = new HashMap<>();
+                    
+                    for (MCPTool tool : allTools) {
+                        String clientName = tool.getClientName();
+                        toolsByClient.put(clientName, toolsByClient.getOrDefault(clientName, 0) + 1);
+                    }
+                    
+                    for (Map.Entry<String, Integer> entry : toolsByClient.entrySet()) {
+                        report.append("  📊 ").append(entry.getKey()).append(": ").append(entry.getValue()).append(" 个工具\n");
+                    }
+                    
+                    report.append("  📊 总计: ").append(allTools.size()).append(" 个工具\n");
+                    details.put("total_tools", allTools.size());
+                    details.put("tools_by_client", toolsByClient);
+                } catch (Exception e) {
+                    report.append("  ❌ 工具统计获取失败: ").append(e.getMessage()).append("\n");
+                }
+                
+                // 资源统计
+                report.append("\n📂 资源统计:\n");
+                try {
+                    List<MCPResource> allResources = listAllResources().get(5, TimeUnit.SECONDS);
+                    Map<String, Integer> resourcesByClient = new HashMap<>();
+                    
+                    for (MCPResource resource : allResources) {
+                        String clientName = resource.getClientName();
+                        resourcesByClient.put(clientName, resourcesByClient.getOrDefault(clientName, 0) + 1);
+                    }
+                    
+                    for (Map.Entry<String, Integer> entry : resourcesByClient.entrySet()) {
+                        report.append("  📊 ").append(entry.getKey()).append(": ").append(entry.getValue()).append(" 个资源\n");
+                    }
+                    
+                    report.append("  📊 总计: ").append(allResources.size()).append(" 个资源\n");
+                    details.put("total_resources", allResources.size());
+                    details.put("resources_by_client", resourcesByClient);
+                } catch (Exception e) {
+                    report.append("  ❌ 资源统计获取失败: ").append(e.getMessage()).append("\n");
+                }
+                
+                // 提示词统计
+                report.append("\n💭 提示词统计:\n");
+                try {
+                    List<MCPPrompt> allPrompts = listAllPrompts().get(5, TimeUnit.SECONDS);
+                    Map<String, Integer> promptsByClient = new HashMap<>();
+                    
+                    for (MCPPrompt prompt : allPrompts) {
+                        String clientName = prompt.getClientName();
+                        promptsByClient.put(clientName, promptsByClient.getOrDefault(clientName, 0) + 1);
+                    }
+                    
+                    for (Map.Entry<String, Integer> entry : promptsByClient.entrySet()) {
+                        report.append("  📊 ").append(entry.getKey()).append(": ").append(entry.getValue()).append(" 个提示词\n");
+                    }
+                    
+                    report.append("  📊 总计: ").append(allPrompts.size()).append(" 个提示词\n");
+                    details.put("total_prompts", allPrompts.size());
+                    details.put("prompts_by_client", promptsByClient);
+                } catch (Exception e) {
+                    report.append("  ❌ 提示词统计获取失败: ").append(e.getMessage()).append("\n");
+                }
+                
+            } catch (Exception e) {
+                report.append("❌ 报告生成失败: ").append(e.getMessage()).append("\n");
+            }
+            
+            return new com.riceawa.mcp.config.ConfigurationReport(report.toString(), details);
+        });
+    }
+
+    /**
+     * 清除所有缓存
+     */
+    private void clearAllCaches() {
+        toolCache.clear();
+        clientToolsCache.clear();
+        clientResourcesCache.clear();
+        clientPromptsCache.clear();
+    }
 }

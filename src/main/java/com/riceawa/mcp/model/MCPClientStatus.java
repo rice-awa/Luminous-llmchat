@@ -113,6 +113,13 @@ public class MCPClientStatus {
         return errorMessage;
     }
 
+    /**
+     * 获取最后的错误信息（别名方法，兼容性用途）
+     */
+    public String getLastError() {
+        return errorMessage;
+    }
+
     public void setErrorMessage(String errorMessage) {
         this.errorMessage = errorMessage;
     }

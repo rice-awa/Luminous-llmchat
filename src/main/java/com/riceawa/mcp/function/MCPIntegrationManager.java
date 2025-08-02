@@ -4,6 +4,8 @@ import com.riceawa.mcp.service.MCPService;
 import com.riceawa.mcp.service.MCPServiceImpl;
 import com.riceawa.mcp.service.MCPClientManager;
 import com.riceawa.mcp.model.MCPTool;
+import com.riceawa.mcp.config.ValidationReport;
+import com.riceawa.mcp.config.ConfigurationReport;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -185,6 +187,68 @@ public class MCPIntegrationManager {
         var permissionStats = permissionManager.getStatistics();
         
         return new IntegrationStatus(true, registeredTools, connectedClients, permissionStats);
+    }
+
+    /**
+     * 重连所有MCP客户端
+     */
+    public CompletableFuture<Map<String, Boolean>> reconnectAllClients() {
+        if (!initialized || !(mcpService instanceof MCPServiceImpl)) {
+            return CompletableFuture.failedFuture(new IllegalStateException("MCP集成未初始化"));
+        }
+        
+        MCPServiceImpl serviceImpl = (MCPServiceImpl) mcpService;
+        return serviceImpl.reconnectAllClients();
+    }
+
+    /**
+     * 重连指定MCP客户端
+     */
+    public CompletableFuture<Boolean> reconnectClient(String clientName) {
+        if (!initialized || !(mcpService instanceof MCPServiceImpl)) {
+            return CompletableFuture.completedFuture(false);
+        }
+        
+        MCPServiceImpl serviceImpl = (MCPServiceImpl) mcpService;
+        return serviceImpl.reconnectClient(clientName)
+            .thenApply(v -> true)
+            .exceptionally(throwable -> false);
+    }
+
+    /**
+     * 重载MCP配置
+     */
+    public CompletableFuture<Boolean> reload() {
+        if (!initialized || !(mcpService instanceof MCPServiceImpl)) {
+            return CompletableFuture.failedFuture(new IllegalStateException("MCP集成未初始化"));
+        }
+        
+        MCPServiceImpl serviceImpl = (MCPServiceImpl) mcpService;
+        return serviceImpl.reload();
+    }
+
+    /**
+     * 验证MCP配置
+     */
+    public CompletableFuture<ValidationReport> validateConfiguration() {
+        if (!initialized || !(mcpService instanceof MCPServiceImpl)) {
+            return CompletableFuture.failedFuture(new IllegalStateException("MCP集成未初始化"));
+        }
+        
+        MCPServiceImpl serviceImpl = (MCPServiceImpl) mcpService;
+        return serviceImpl.validateConfiguration();
+    }
+
+    /**
+     * 生成配置状态报告
+     */
+    public CompletableFuture<ConfigurationReport> generateConfigurationReport() {
+        if (!initialized || !(mcpService instanceof MCPServiceImpl)) {
+            return CompletableFuture.failedFuture(new IllegalStateException("MCP集成未初始化"));
+        }
+        
+        MCPServiceImpl serviceImpl = (MCPServiceImpl) mcpService;
+        return serviceImpl.generateConfigurationReport();
     }
     
     // ==================== 私有方法 ====================
