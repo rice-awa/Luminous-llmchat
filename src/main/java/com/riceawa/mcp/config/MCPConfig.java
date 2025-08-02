@@ -1,6 +1,7 @@
 package com.riceawa.mcp.config;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -65,7 +66,7 @@ public class MCPConfig {
     }
 
     public List<MCPServerConfig> getServers() {
-        return new ArrayList<>(servers);
+        return Collections.unmodifiableList(new ArrayList<>(servers));
     }
 
     public void setServers(List<MCPServerConfig> servers) {
@@ -144,7 +145,8 @@ public class MCPConfig {
     }
 
     public void setDefaultPermissionPolicy(String defaultPermissionPolicy) {
-        this.defaultPermissionPolicy = defaultPermissionPolicy != null ? defaultPermissionPolicy : "OP_ONLY";
+        this.defaultPermissionPolicy = (defaultPermissionPolicy != null && !defaultPermissionPolicy.trim().isEmpty()) 
+            ? defaultPermissionPolicy : "OP_ONLY";
     }
 
     public boolean isEnableToolChangeNotifications() {
@@ -190,5 +192,71 @@ public class MCPConfig {
      */
     public boolean hasEnabledServers() {
         return !getEnabledServers().isEmpty();
+    }
+
+    /**
+     * 验证配置并返回验证结果
+     */
+    public MCPConfigValidator.ValidationResult validate() {
+        return MCPConfigValidator.validateConfig(this);
+    }
+
+    /**
+     * 生成配置状态报告
+     */
+    public String generateStatusReport() {
+        return MCPConfigValidator.generateStatusReport(this);
+    }
+
+    /**
+     * 自动修复配置问题
+     */
+    public MCPConfig autoFix() {
+        return MCPConfigValidator.autoFixConfig(this);
+    }
+
+    /**
+     * 检查配置是否有错误
+     */
+    public boolean hasErrors() {
+        return validate().hasErrors();
+    }
+
+    /**
+     * 检查配置是否有警告
+     */
+    public boolean hasWarnings() {
+        return validate().hasWarnings();
+    }
+
+    /**
+     * 获取配置诊断信息
+     */
+    public String getDiagnosticInfo() {
+        MCPConfigValidator.ValidationResult result = validate();
+        StringBuilder info = new StringBuilder();
+        
+        if (result.hasErrors()) {
+            info.append("错误:\n");
+            for (MCPConfigValidator.ValidationIssue error : result.getErrors()) {
+                info.append("  - ").append(error.getMessage()).append("\n");
+            }
+        }
+        
+        if (result.hasWarnings()) {
+            info.append("警告:\n");
+            for (MCPConfigValidator.ValidationIssue warning : result.getWarnings()) {
+                info.append("  - ").append(warning.getMessage()).append("\n");
+            }
+        }
+        
+        if (!result.getSuggestions().isEmpty()) {
+            info.append("建议:\n");
+            for (String suggestion : result.getSuggestions()) {
+                info.append("  - ").append(suggestion).append("\n");
+            }
+        }
+        
+        return info.toString();
     }
 }

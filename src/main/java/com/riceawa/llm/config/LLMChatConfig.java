@@ -3,6 +3,7 @@ package com.riceawa.llm.config;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.riceawa.llm.logging.LogConfig;
+import com.riceawa.mcp.config.MCPConfig;
 
 import net.fabricmc.loader.api.FabricLoader;
 
@@ -62,6 +63,9 @@ public class LLMChatConfig {
 
     // 日志配置
     private LogConfig logConfig = LogConfig.createDefault();
+
+    // MCP配置
+    private MCPConfig mcpConfig = MCPConfig.createDefault();
 
     // Providers配置
     private List<Provider> providers = new ArrayList<>();
@@ -294,6 +298,9 @@ public class LLMChatConfig {
         // 处理日志配置
         this.logConfig = data.logConfig != null ? data.logConfig : LogConfig.createDefault();
 
+        // 处理MCP配置
+        this.mcpConfig = data.mcpConfig != null ? data.mcpConfig : MCPConfig.createDefault();
+
         // 处理providers配置 - 如果为null或空，创建默认配置
         if (data.providers == null || data.providers.isEmpty()) {
             this.providers = ConfigDefaults.createDefaultProviders();
@@ -389,6 +396,7 @@ public class LLMChatConfig {
         // 系统配置
         data.concurrencySettings = this.concurrencySettings;
         data.logConfig = this.logConfig;
+        data.mcpConfig = this.mcpConfig;
         data.providers = this.providers;
 
         // 模型相关配置（放在最后）
@@ -646,6 +654,74 @@ public class LLMChatConfig {
         saveConfig();
     }
 
+    // MCP配置相关方法
+    public MCPConfig getMcpConfig() {
+        return mcpConfig;
+    }
+
+    public void setMcpConfig(MCPConfig mcpConfig) {
+        this.mcpConfig = mcpConfig != null ? mcpConfig : MCPConfig.createDefault();
+        saveConfig();
+    }
+
+    /**
+     * 重新加载MCP配置
+     */
+    public void reloadMcpConfig() {
+        // 触发配置重新加载
+        reload();
+    }
+
+    /**
+     * 验证MCP配置
+     */
+    public boolean validateMcpConfig() {
+        if (mcpConfig == null) {
+            return false;
+        }
+        return mcpConfig.validate().isValid();
+    }
+
+    /**
+     * 获取MCP配置诊断信息
+     */
+    public String getMcpConfigDiagnostics() {
+        if (mcpConfig == null) {
+            return "MCP配置未初始化";
+        }
+        return mcpConfig.getDiagnosticInfo();
+    }
+
+    /**
+     * 自动修复MCP配置
+     */
+    public boolean autoFixMcpConfig() {
+        if (mcpConfig == null) {
+            mcpConfig = MCPConfig.createDefault();
+            saveConfig();
+            return true;
+        }
+        
+        MCPConfig fixedConfig = mcpConfig.autoFix();
+        if (!fixedConfig.equals(mcpConfig)) {
+            mcpConfig = fixedConfig;
+            saveConfig();
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
+     * 获取MCP配置状态报告
+     */
+    public String getMcpConfigStatusReport() {
+        if (mcpConfig == null) {
+            return "MCP配置未初始化";
+        }
+        return mcpConfig.generateStatusReport();
+    }
+
     // Providers相关方法
     public List<Provider> getProviders() {
         return new ArrayList<>(providers);
@@ -886,6 +962,11 @@ public class LLMChatConfig {
             updated = true;
         }
 
+        if (mcpConfig == null) {
+            mcpConfig = MCPConfig.createDefault();
+            updated = true;
+        }
+
         if (providers == null || providers.isEmpty()) {
             providers = ConfigDefaults.createDefaultProviders();
             updated = true;
@@ -961,6 +1042,7 @@ public class LLMChatConfig {
         // 系统配置
         ConcurrencySettings concurrencySettings;
         LogConfig logConfig;
+        MCPConfig mcpConfig;
         List<Provider> providers;
 
         // 模型相关配置（放在最后）

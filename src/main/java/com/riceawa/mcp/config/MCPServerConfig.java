@@ -1,6 +1,7 @@
 package com.riceawa.mcp.config;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -90,7 +91,7 @@ public class MCPServerConfig {
     }
 
     public List<String> getArgs() {
-        return new ArrayList<>(args);
+        return Collections.unmodifiableList(new ArrayList<>(args));
     }
 
     public void setArgs(List<String> args) {
@@ -104,7 +105,7 @@ public class MCPServerConfig {
     }
 
     public Map<String, String> getEnv() {
-        return new HashMap<>(env);
+        return Collections.unmodifiableMap(new HashMap<>(env));
     }
 
     public void setEnv(Map<String, String> env) {
@@ -134,7 +135,7 @@ public class MCPServerConfig {
     }
 
     public Set<String> getAllowedTools() {
-        return new HashSet<>(allowedTools);
+        return Collections.unmodifiableSet(new HashSet<>(allowedTools));
     }
 
     public void setAllowedTools(Set<String> allowedTools) {
@@ -161,7 +162,7 @@ public class MCPServerConfig {
     }
 
     public Set<String> getAllowedResources() {
-        return new HashSet<>(allowedResources);
+        return Collections.unmodifiableSet(new HashSet<>(allowedResources));
     }
 
     public void setAllowedResources(Set<String> allowedResources) {
