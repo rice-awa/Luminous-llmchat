@@ -134,8 +134,7 @@ public class MCPAsyncUtils {
                     }
                     
                     // 延迟后重试
-                    return CompletableFuture.delayedExecutor(retryDelay.toMillis(), TimeUnit.MILLISECONDS)
-                            .execute(() -> {})
+                    return delay(retryDelay)
                             .thenCompose(v -> executeWithRetry(operation, currentAttempt + 1, 
                                                              maxRetries, retryDelay, operationName));
                 });
