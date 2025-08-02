@@ -18,7 +18,7 @@ import com.riceawa.mcp.service.MCPClientManager;
 import com.riceawa.mcp.service.MCPServiceImpl;
 import com.riceawa.mcp.function.MCPFunctionRegistry;
 import com.riceawa.mcp.function.MCPToolPermissionManager;
-import com.riceawa.mcp.function.MCPToolPermissionManagerImpl;
+import com.riceawa.mcp.function.MCPIntegrationManager;
 
 public class Lllmchat implements ModInitializer {
 	public static final String MOD_ID = "lllmchat";
@@ -32,6 +32,7 @@ public class Lllmchat implements ModInitializer {
 	private static MCPClientManager mcpClientManager;
 	private static MCPServiceImpl mcpService;
 	private static MCPFunctionRegistry mcpFunctionRegistry;
+	private static MCPIntegrationManager mcpIntegrationManager;
 
 	@Override
 	public void onInitialize() {
@@ -158,33 +159,24 @@ public class Lllmchat implements ModInitializer {
 				initSuccess = false;
 			}
 
-			// 步骤2: 初始化MCP服务层
+			// 步骤2: 初始化MCP集成管理器（替代单独初始化各个组件）
 			if (initSuccess) {
 				try {
-					mcpService = MCPServiceImpl.getInstance();
-					LOGGER.info("MCP服务层初始化完成");
+					mcpIntegrationManager = MCPIntegrationManager.initialize(mcpClientManager);
+					mcpIntegrationManager.start().get(30, java.util.concurrent.TimeUnit.SECONDS);
+					
+					// 从集成管理器获取组件引用
+					mcpService = (MCPServiceImpl) mcpIntegrationManager.getMCPService();
+					mcpFunctionRegistry = mcpIntegrationManager.getFunctionRegistry();
+					
+					LOGGER.info("MCP集成管理器初始化完成");
 				} catch (Exception e) {
-					LOGGER.error("MCP服务层初始化失败: " + e.getMessage(), e);
+					LOGGER.error("MCP集成管理器初始化失败: " + e.getMessage(), e);
 					initSuccess = false;
 				}
 			}
 
-			// 步骤3: 初始化权限管理器和功能注册器
-			if (initSuccess) {
-				try {
-					MCPToolPermissionManagerImpl permissionManager = new MCPToolPermissionManagerImpl();
-					LOGGER.info("MCP权限管理器初始化完成");
-
-					MCPFunctionRegistry.initialize(mcpService, permissionManager);
-					mcpFunctionRegistry = MCPFunctionRegistry.getInstance();
-					LOGGER.info("MCP功能注册器初始化完成");
-				} catch (Exception e) {
-					LOGGER.error("MCP功能注册器初始化失败: " + e.getMessage(), e);
-					initSuccess = false;
-				}
-			}
-
-			// 步骤4: 初始化资源管理器和上下文提供器
+			// 步骤3: 初始化资源管理器和上下文提供器
 			if (initSuccess) {
 				try {
 					com.riceawa.mcp.resource.MCPResourceManager.initialize(mcpService);
@@ -201,16 +193,11 @@ public class Lllmchat implements ModInitializer {
 				}
 			}
 
-			// 步骤5: 启动客户端管理器
+			// 步骤4: 启动客户端管理器
 			if (initSuccess && mcpClientManager != null) {
 				try {
 					mcpClientManager.start().get(30, java.util.concurrent.TimeUnit.SECONDS);
 					LOGGER.info("MCP客户端管理器启动完成");
-
-					// 设置工具变化监听器
-					if (mcpService instanceof MCPServiceImpl && mcpFunctionRegistry != null) {
-						((MCPServiceImpl) mcpService).addToolChangeListener(mcpFunctionRegistry);
-					}
 
 					// 异步注册MCP工具，不阻塞启动过程
 					registerAllMCPToolsAsync();

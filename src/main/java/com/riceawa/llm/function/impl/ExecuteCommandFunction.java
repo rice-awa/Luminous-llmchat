@@ -25,7 +25,7 @@ public class ExecuteCommandFunction implements LLMFunction {
     
     @Override
     public String getDescription() {
-        return "执行Minecraft服务器控制台指令。返回结构化JSON响应，包含执行状态、输出信息、错误信息和执行时间等详细信息。";
+        return "执行Minecraft服务器控制台指令。返回结构化JSON响应，包含执行状态、输出信息、错误信息和执行时间等详细信息。请先获取足够的信息再执行命令，比如玩家坐标，目标选择器。";
     }
     
     @Override
