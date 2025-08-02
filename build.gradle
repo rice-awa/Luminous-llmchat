@@ -61,6 +61,10 @@ dependencies {
 	implementation 'com.typesafe:config:1.4.3'
 	include 'com.typesafe:config:1.4.3'
 
+	// MCP Java SDK
+	implementation 'io.modelcontextprotocol.sdk:mcp:0.11.0'
+	include 'io.modelcontextprotocol.sdk:mcp:0.11.0'
+
 	// Test dependencies
 	testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
 	testImplementation 'org.junit.platform:junit-platform-suite:1.10.0'
