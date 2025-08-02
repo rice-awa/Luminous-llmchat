@@ -260,4 +260,12 @@ public class LLMServiceManager {
         info.put("model", config.getCurrentModel());
         return info;
     }
+
+    /**
+     * 获取MCP服务
+     * @return MCP服务实例
+     */
+    public com.riceawa.mcp.service.MCPService getMCPService() {
+        return com.riceawa.mcp.service.MCPServiceImpl.getInstance();
+    }
 }

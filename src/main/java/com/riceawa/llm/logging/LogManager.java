@@ -325,6 +325,40 @@ public class LogManager {
         // 这里可以实现配置热更新逻辑
         FALLBACK_LOGGER.info("Log configuration updated");
     }
+    
+    /**
+     * 带参数的日志方法重载，用于MCP组件
+     */
+    public void logInfo(String message, String... params) {
+        Map<String, Object> metadata = new HashMap<>();
+        for (int i = 0; i < params.length; i++) {
+            metadata.put("param" + i, params[i]);
+        }
+        log(LogLevel.INFO, "mcp", message, metadata);
+    }
+    
+    public void logWarn(String message, String... params) {
+        Map<String, Object> metadata = new HashMap<>();
+        for (int i = 0; i < params.length; i++) {
+            metadata.put("param" + i, params[i]);
+        }
+        log(LogLevel.WARN, "mcp", message, metadata);
+    }
+    
+    public void logError(String message, String errorMsg, Exception exception) {
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("error_message", errorMsg);
+        log(LogLevel.ERROR, "mcp", message, metadata, exception);
+    }
+    
+    public void logError(String message, String errorMsg, Throwable throwable, String... params) {
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("error_message", errorMsg);
+        for (int i = 0; i < params.length; i++) {
+            metadata.put("param" + i, params[i]);
+        }
+        log(LogLevel.ERROR, "mcp", message, metadata, throwable);
+    }
 
     /**
      * 关闭日志管理器

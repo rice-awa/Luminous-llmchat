@@ -19,7 +19,10 @@ import java.util.stream.Collectors;
  */
 public class MCPServiceImpl implements MCPService {
     
+    private static MCPServiceImpl instance;
+    
     private final MCPClientManager clientManager;
+    private final MCPHealthManager healthManager;
     
     // 工具变化通知器
     private final MCPToolChangeNotifier toolChangeNotifier;
@@ -41,9 +44,23 @@ public class MCPServiceImpl implements MCPService {
     
     public MCPServiceImpl(MCPClientManager clientManager) {
         this.clientManager = clientManager;
+        this.healthManager = new MCPHealthManager(
+            30000L,  // healthCheckIntervalMs
+            10000L,  // connectionTimeoutMs
+            3,       // maxConsecutiveFailures
+            5000L    // recoveryDelayMs
+        );
+        this.healthManager.initialize(clientManager, clientManager.getConfig());
         this.toolChangeNotifier = new MCPToolChangeNotifier();
         // 初始化时刷新所有缓存
         initializeCaches();
+    }
+    
+    public static synchronized MCPServiceImpl getInstance() {
+        if (instance == null) {
+            instance = new MCPServiceImpl(MCPClientManager.getInstance());
+        }
+        return instance;
     }
     
     // ==================== 工具相关方法实现 ====================
@@ -850,5 +867,10 @@ public class MCPServiceImpl implements MCPService {
         clientToolsCache.clear();
         clientResourcesCache.clear();
         clientPromptsCache.clear();
+    }
+    
+    @Override
+    public MCPHealthManager getHealthManager() {
+        return healthManager;
     }
 }

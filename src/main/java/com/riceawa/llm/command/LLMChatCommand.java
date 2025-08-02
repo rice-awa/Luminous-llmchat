@@ -24,6 +24,7 @@ import com.riceawa.llm.template.TemplateEditor;
 import com.riceawa.mcp.function.MCPIntegrationManager;
 import com.riceawa.mcp.model.MCPTool;
 import com.riceawa.mcp.service.MCPService;
+import com.riceawa.mcp.service.MCPErrorHandler;
 import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.command.CommandManager;

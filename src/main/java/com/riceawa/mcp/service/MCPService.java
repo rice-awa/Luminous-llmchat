@@ -175,4 +175,10 @@ public interface MCPService {
      * 关闭服务并释放资源
      */
     void shutdown();
+
+    /**
+     * 获取健康管理器
+     * @return 健康管理器实例
+     */
+    MCPHealthManager getHealthManager();
 }

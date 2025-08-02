@@ -1,7 +1,7 @@
 package com.riceawa.mcp.service;
 
 import com.riceawa.llm.logging.LogManager;
-import com.riceawa.mcp.client.MCPClientStatus;
+import com.riceawa.mcp.model.MCPClientStatus;
 import com.riceawa.mcp.config.MCPConfig;
 import com.riceawa.mcp.config.MCPServerConfig;
 import com.riceawa.mcp.exception.MCPException;
@@ -282,7 +282,15 @@ public class MCPHealthManager {
                     }
                     
                     // 执行ping测试
-                    boolean pingSuccess = clientManager.pingClient(clientName);
+                    MCPClient client = clientManager.getClient(clientName);
+                    boolean pingSuccess = false;
+                    if (client != null) {
+                        try {
+                            pingSuccess = client.ping().get(connectionTimeoutMs, TimeUnit.MILLISECONDS);
+                        } catch (Exception e) {
+                            pingSuccess = false;
+                        }
+                    }
                     long responseTime = System.currentTimeMillis() - startTime;
                     
                     if (pingSuccess) {
@@ -438,24 +446,29 @@ public class MCPHealthManager {
             }
             
             // 尝试重新连接
-            boolean reconnected = clientManager.reconnectClient(clientName);
+            try {
+                clientManager.reconnectClient(clientName).get();
+                boolean reconnected = true;
             
-            if (reconnected) {
-                // 重置失败计数器
-                consecutiveFailures.get(clientName).set(0);
-                lastSuccessTime.get(clientName).set(System.currentTimeMillis());
-                
-                logger.logInfo(
-                    "MCP客户端恢复成功",
-                    String.format("客户端 %s 已成功重新连接", clientName),
-                    "clientName", clientName
-                );
-                
-                // 执行一次健康检查确认状态
-                CompletableFuture.runAsync(() -> performSingleHealthCheck(clientName), healthCheckExecutor);
-                
-            } else {
-                throw new MCPException(MCPErrorType.CONNECTION_FAILED, clientName, "重新连接失败");
+                if (reconnected) {
+                    // 重置失败计数器
+                    consecutiveFailures.get(clientName).set(0);
+                    lastSuccessTime.get(clientName).set(System.currentTimeMillis());
+                    
+                    logger.logInfo(
+                        "MCP客户端恢复成功",
+                        String.format("客户端 %s 已成功重新连接", clientName),
+                        "clientName", clientName
+                    );
+                    
+                    // 执行一次健康检查确认状态
+                    CompletableFuture.runAsync(() -> performSingleHealthCheck(clientName), healthCheckExecutor);
+                    
+                } else {
+                    throw new MCPException(MCPErrorType.CONNECTION_FAILED, clientName, "重新连接失败");
+                }
+            } catch (Exception e) {
+                throw new MCPException(MCPErrorType.CONNECTION_FAILED, clientName, "重新连接失败: " + e.getMessage());
             }
             
         } catch (InterruptedException e) {
