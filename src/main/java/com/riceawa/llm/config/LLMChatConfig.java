@@ -4,6 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.riceawa.llm.logging.LogConfig;
 import com.riceawa.mcp.config.MCPConfig;
+import com.riceawa.mcp.config.MCPConfigParser;
+import com.google.gson.JsonObject;
 
 import net.fabricmc.loader.api.FabricLoader;
 
@@ -127,8 +129,19 @@ public class LLMChatConfig {
 
         try (InputStreamReader reader = new InputStreamReader(
                 Files.newInputStream(configFile), StandardCharsets.UTF_8)) {
-            ConfigData data = gson.fromJson(reader, ConfigData.class);
+            // 首先读取原始JSON
+            reader.close();
+            String jsonContent = Files.readString(configFile, StandardCharsets.UTF_8);
+            JsonObject jsonObject = gson.fromJson(jsonContent, JsonObject.class);
+            
+            // 解析基础配置数据
+            ConfigData data = gson.fromJson(jsonContent, ConfigData.class);
             if (data != null) {
+                // 解析MCP配置
+                if (jsonObject.has("mcpConfig") && jsonObject.get("mcpConfig").isJsonObject()) {
+                    JsonObject mcpConfigJson = jsonObject.getAsJsonObject("mcpConfig");
+                    data.mcpConfig = parseMcpConfig(mcpConfigJson);
+                }
                 applyConfigData(data);
             } else {
                 System.err.println("Failed to parse config file, creating default configuration");
@@ -710,6 +723,71 @@ public class LLMChatConfig {
         }
         
         return false;
+    }
+
+    /**
+     * 解析MCP配置
+     */
+    private MCPConfig parseMcpConfig(JsonObject mcpConfigJson) {
+        try {
+            MCPConfig mcpConfig = new MCPConfig();
+            
+            // 解析基础配置
+            if (mcpConfigJson.has("enabled")) {
+                mcpConfig.setEnabled(mcpConfigJson.get("enabled").getAsBoolean());
+            }
+            
+            if (mcpConfigJson.has("connectionTimeoutMs")) {
+                mcpConfig.setConnectionTimeoutMs(mcpConfigJson.get("connectionTimeoutMs").getAsInt());
+            }
+            
+            if (mcpConfigJson.has("requestTimeoutMs")) {
+                mcpConfig.setRequestTimeoutMs(mcpConfigJson.get("requestTimeoutMs").getAsInt());
+            }
+            
+            if (mcpConfigJson.has("maxRetries")) {
+                mcpConfig.setMaxRetries(mcpConfigJson.get("maxRetries").getAsInt());
+            }
+            
+            if (mcpConfigJson.has("enableResourceCaching")) {
+                mcpConfig.setEnableResourceCaching(mcpConfigJson.get("enableResourceCaching").getAsBoolean());
+            }
+            
+            if (mcpConfigJson.has("resourceCacheSize")) {
+                mcpConfig.setResourceCacheSize(mcpConfigJson.get("resourceCacheSize").getAsInt());
+            }
+            
+            if (mcpConfigJson.has("resourceCacheTtlMinutes")) {
+                mcpConfig.setResourceCacheTtlMinutes(mcpConfigJson.get("resourceCacheTtlMinutes").getAsInt());
+            }
+            
+            if (mcpConfigJson.has("defaultPermissionPolicy")) {
+                mcpConfig.setDefaultPermissionPolicy(mcpConfigJson.get("defaultPermissionPolicy").getAsString());
+            }
+            
+            if (mcpConfigJson.has("enableToolChangeNotifications")) {
+                mcpConfig.setEnableToolChangeNotifications(mcpConfigJson.get("enableToolChangeNotifications").getAsBoolean());
+            }
+            
+            if (mcpConfigJson.has("enableResourceChangeNotifications")) {
+                mcpConfig.setEnableResourceChangeNotifications(mcpConfigJson.get("enableResourceChangeNotifications").getAsBoolean());
+            }
+            
+            // 解析MCP服务器配置字典
+            if (mcpConfigJson.has("mcpServers")) {
+                var serverMap = MCPConfigParser.parseServerDictionary(mcpConfigJson);
+                mcpConfig.setMcpServers(serverMap);
+                System.out.println("解析到 " + serverMap.size() + " 个MCP服务器配置");
+                for (String serverName : serverMap.keySet()) {
+                    System.out.println("  - " + serverName + ": " + serverMap.get(serverName).getType());
+                }
+            }
+            
+            return mcpConfig;
+        } catch (Exception e) {
+            System.err.println("解析MCP配置失败: " + e.getMessage());
+            return MCPConfig.createDefault();
+        }
     }
 
     /**
