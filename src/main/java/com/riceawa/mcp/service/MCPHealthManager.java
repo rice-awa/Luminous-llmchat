@@ -395,6 +395,17 @@ public class MCPHealthManager {
             return;
         }
         
+        // 检查恢复执行器是否已初始化
+        if (recoveryExecutor == null) {
+            logger.logError(
+                "手动恢复MCP客户端命令失败",
+                "恢复执行器未初始化，可能健康管理器未启动",
+                null,
+                "clientName", clientName
+            );
+            return;
+        }
+        
         // 更新状态为恢复中
         clientHealthStatus.put(clientName, HealthStatus.RECOVERING);
         

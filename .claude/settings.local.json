@@ -4,7 +4,8 @@
       "Bash(./gradlew compileJava:*)",
       "Bash(find:*)",
       "Bash(./gradlew test:*)",
-      "Bash(npx:*)"
+      "Bash(npx:*)",
+      "Bash(./gradlew:*)"
     ],
     "deny": []
   }
