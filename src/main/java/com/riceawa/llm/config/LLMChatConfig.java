@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.riceawa.llm.logging.LogConfig;
 import com.riceawa.mcp.config.MCPConfig;
 import com.riceawa.mcp.config.MCPConfigParser;
+import com.riceawa.mcp.config.MCPServerConfig;
 import com.google.gson.JsonObject;
 
 import net.fabricmc.loader.api.FabricLoader;
@@ -141,6 +142,12 @@ public class LLMChatConfig {
                 if (jsonObject.has("mcpConfig") && jsonObject.get("mcpConfig").isJsonObject()) {
                     JsonObject mcpConfigJson = jsonObject.getAsJsonObject("mcpConfig");
                     data.mcpConfig = parseMcpConfig(mcpConfigJson);
+                    System.out.println("MCP配置解析完成，状态: " + 
+                        (data.mcpConfig.isEnabled() ? "启用" : "禁用") +
+                        "，服务器数量: " + data.mcpConfig.getMcpServers().size());
+                } else {
+                    System.out.println("未找到mcpConfig配置，使用默认配置");
+                    data.mcpConfig = MCPConfig.createDefault();
                 }
                 applyConfigData(data);
             } else {
@@ -773,19 +780,24 @@ public class LLMChatConfig {
                 mcpConfig.setEnableResourceChangeNotifications(mcpConfigJson.get("enableResourceChangeNotifications").getAsBoolean());
             }
             
-            // 解析MCP服务器配置字典
+            // 解析MCP服务器配置字典 - 使用完整的JSON对象
             if (mcpConfigJson.has("mcpServers")) {
-                var serverMap = MCPConfigParser.parseServerDictionary(mcpConfigJson);
+                JsonObject fullJson = new JsonObject();
+                fullJson.add("mcpServers", mcpConfigJson.get("mcpServers"));
+                var serverMap = MCPConfigParser.parseServerDictionary(fullJson);
                 mcpConfig.setMcpServers(serverMap);
                 System.out.println("解析到 " + serverMap.size() + " 个MCP服务器配置");
                 for (String serverName : serverMap.keySet()) {
-                    System.out.println("  - " + serverName + ": " + serverMap.get(serverName).getType());
+                    MCPServerConfig config = serverMap.get(serverName);
+                    System.out.println("  - " + serverName + ": " + config.getType() + 
+                        (config.isEnabled() ? " (启用)" : " (禁用)"));
                 }
             }
             
             return mcpConfig;
         } catch (Exception e) {
             System.err.println("解析MCP配置失败: " + e.getMessage());
+            e.printStackTrace();
             return MCPConfig.createDefault();
         }
     }

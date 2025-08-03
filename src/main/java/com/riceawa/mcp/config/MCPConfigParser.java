@@ -125,26 +125,33 @@ public class MCPConfigParser {
      * 解析通用配置
      */
     private static void parseCommonConfig(MCPServerConfig config, JsonObject serverObj) {
-        // 解析autoApprove，默认为空数组
-        List<String> autoApprove = parseStringList(serverObj, "autoApprove", new ArrayList<>());
-        config.setAutoApprove(autoApprove);
-        
         // 解析description，默认为空字符串
         String description = getStringWithDefault(serverObj, "description", "");
         config.setDescription(description);
         
-        // 解析toolPermissionPolicy，默认为INHERIT_CLIENT
-        String policy = getStringWithDefault(serverObj, "toolPermissionPolicy", "INHERIT_CLIENT");
-        config.setToolPermissionPolicy(policy);
+        // 简化：只解析最基本的配置
+        // 如果有autoApprove，解析它
+        if (serverObj.has("autoApprove")) {
+            List<String> autoApprove = parseStringList(serverObj, "autoApprove", new ArrayList<>());
+            config.setAutoApprove(autoApprove);
+        }
         
-        // 解析allowedTools
-        if (serverObj.has("allowedTools")) {
+        // 如果有toolPermissionPolicy，解析它
+        if (serverObj.has("toolPermissionPolicy")) {
+            String policy = getStringWithDefault(serverObj, "toolPermissionPolicy", "INHERIT_CLIENT");
+            config.setToolPermissionPolicy(policy);
+        }
+        
+        // 简化：默认允许所有工具和资源，不在配置文件中指定
+        // 只有在明确指定时才解析
+        if (serverObj.has("allowedTools") && serverObj.get("allowedTools").isJsonArray() && 
+            serverObj.getAsJsonArray("allowedTools").size() > 0) {
             Set<String> allowedTools = new HashSet<>(parseStringList(serverObj, "allowedTools", new ArrayList<>()));
             config.setAllowedTools(allowedTools);
         }
         
-        // 解析allowedResources
-        if (serverObj.has("allowedResources")) {
+        if (serverObj.has("allowedResources") && serverObj.get("allowedResources").isJsonArray() && 
+            serverObj.getAsJsonArray("allowedResources").size() > 0) {
             Set<String> allowedResources = new HashSet<>(parseStringList(serverObj, "allowedResources", new ArrayList<>()));
             config.setAllowedResources(allowedResources);
         }
@@ -242,10 +249,13 @@ public class MCPConfigParser {
     }
     
     /**
-     * 序列化单个服务器配置
+     * 序列化单个服务器配置（简化版）
      */
     public static JsonObject serializeServerConfig(MCPServerConfig config) {
         JsonObject obj = new JsonObject();
+        
+        // 基本信息
+        obj.addProperty("name", config.getName());
         
         // 只在非默认值时输出type
         if (!"stdio".equals(config.getType())) {
@@ -277,21 +287,22 @@ public class MCPConfigParser {
             }
         }
         
-        // 序列化通用配置
+        // 序列化通用配置 - 简化版
         if (!config.isEnabled()) {
-            obj.addProperty("disabled", true);
+            obj.addProperty("enabled", false);
         }
         
+        if (!config.getDescription().isEmpty()) {
+            obj.addProperty("description", config.getDescription());
+        }
+        
+        // 只有在非默认值时才输出复杂配置
         if (!config.getAutoApprove().isEmpty()) {
             JsonArray autoApprove = new JsonArray();
             for (String tool : config.getAutoApprove()) {
                 autoApprove.add(tool);
             }
             obj.add("autoApprove", autoApprove);
-        }
-        
-        if (!config.getDescription().isEmpty()) {
-            obj.addProperty("description", config.getDescription());
         }
         
         return obj;

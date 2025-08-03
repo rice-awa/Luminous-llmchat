@@ -46,7 +46,7 @@ public class MCPServerConfig {
     private String description = "";
 
     /**
-     * 创建STDIO类型的服务器配置
+     * 创建STDIO类型的服务器配置（简化版）
      */
     public static MCPServerConfig createStdioConfig(String name, String command, List<String> args) {
         MCPServerConfig config = new MCPServerConfig();
@@ -54,20 +54,30 @@ public class MCPServerConfig {
         config.type = "stdio";
         config.command = command;
         config.args = args != null ? new ArrayList<>(args) : new ArrayList<>();
-        config.env = new HashMap<>(); // 默认空环境变量
-        config.autoApprove = new ArrayList<>(); // 默认空自动批准列表
+        config.env = new HashMap<>();
+        config.enabled = true;
+        config.toolPermissionPolicy = "INHERIT_CLIENT";
+        config.autoApprove = new ArrayList<>();
+        config.allowedTools = new HashSet<>(); // 空集合表示允许所有工具
+        config.allowedResources = new HashSet<>(); // 空集合表示允许所有资源
+        config.description = "";
         return config;
     }
 
     /**
-     * 创建SSE类型的服务器配置
+     * 创建SSE类型的服务器配置（简化版）
      */
     public static MCPServerConfig createSseConfig(String name, String url) {
         MCPServerConfig config = new MCPServerConfig();
         config.name = name;
         config.type = "sse";
         config.url = url;
-        config.autoApprove = new ArrayList<>(); // 默认空自动批准列表
+        config.enabled = true;
+        config.toolPermissionPolicy = "INHERIT_CLIENT";
+        config.autoApprove = new ArrayList<>();
+        config.allowedTools = new HashSet<>(); // 空集合表示允许所有工具
+        config.allowedResources = new HashSet<>(); // 空集合表示允许所有资源
+        config.description = "";
         return config;
     }
 

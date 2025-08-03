@@ -30,15 +30,18 @@ public class MCPSseClient implements MCPClient {
     }
 
     @Override
+    @SuppressWarnings("removal") // HttpClientSseClientTransport构造函数已过时但仍可用
     public CompletableFuture<Boolean> connect() {
         return CompletableFuture.supplyAsync(() -> {
             try {
+                logger.info("正在连接到 MCP SSE 服务器: {} (URL: {})", config.getName(), config.getUrl());
+                
                 // 创建 SSE 传输
                 McpClientTransport transport = new HttpClientSseClientTransport(config.getUrl());
                 
-                // 创建客户端
+                // 创建客户端，增加更短的超时时间
                 mcpClient = McpClient.sync(transport)
-                    .requestTimeout(Duration.ofSeconds(10))
+                    .requestTimeout(Duration.ofSeconds(30))
                     .capabilities(ClientCapabilities.builder()
                         .roots(true)
                         .sampling()
@@ -48,8 +51,31 @@ public class MCPSseClient implements MCPClient {
                     })
                     .build();
                 
-                // 初始化连接
-                InitializeResult result = mcpClient.initialize();
+                // 初始化连接，增加重试机制
+                InitializeResult result = null;
+                int maxRetries = 3;
+                Exception lastException = null;
+                
+                for (int i = 0; i < maxRetries; i++) {
+                    try {
+                        logger.info("尝试初始化 MCP 连接 ({}): {}", i + 1, config.getName());
+                        result = mcpClient.initialize();
+                        if (result != null) {
+                            break;
+                        }
+                    } catch (Exception e) {
+                        lastException = e;
+                        logger.warn("初始化尝试 {} 失败: {} - {}", i + 1, config.getName(), e.getMessage());
+                        if (i < maxRetries - 1) {
+                            try {
+                                Thread.sleep(1000 * (i + 1)); // 递增延迟
+                            } catch (InterruptedException ie) {
+                                Thread.currentThread().interrupt();
+                                break;
+                            }
+                        }
+                    }
+                }
                 
                 if (result != null) {
                     connected = true;
@@ -59,16 +85,22 @@ public class MCPSseClient implements MCPClient {
                         config.getName(), result.protocolVersion());
                     
                     // 设置日志级别
-                    mcpClient.setLoggingLevel(LoggingLevel.INFO);
+                    try {
+                        mcpClient.setLoggingLevel(LoggingLevel.INFO);
+                    } catch (Exception e) {
+                        logger.warn("设置日志级别失败: {}", e.getMessage());
+                    }
                     
                     return true;
                 } else {
-                    logger.error("MCP SSE 服务器初始化失败: {}", config.getName());
+                    logger.error("MCP SSE 服务器初始化失败: {} - 最后一次错误: {}", 
+                        config.getName(), lastException != null ? lastException.getMessage() : "未知错误");
                     return false;
                 }
                 
             } catch (Exception e) {
                 logger.error("连接 MCP SSE 服务器失败: {} - {}", config.getName(), e.getMessage());
+                logger.debug("连接失败详细信息", e);
                 connected = false;
                 return false;
             }
@@ -235,11 +267,13 @@ public class MCPSseClient implements MCPClient {
         }
         
         try {
-            // 尝试列出工具来检查连接健康状况
-            listTools().get(5, TimeUnit.SECONDS);
+            // 使用更短的超时时间来检查健康状态
+            listTools().get(3, TimeUnit.SECONDS);
             return true;
         } catch (Exception e) {
             logger.debug("健康检查失败: {} - {}", config.getName(), e.getMessage());
+            // 如果健康检查失败，标记为断开
+            connected = false;
             return false;
         }
     }

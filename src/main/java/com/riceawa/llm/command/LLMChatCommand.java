@@ -31,7 +31,13 @@ import net.minecraft.util.Formatting;
 
 import java.util.List;
 import java.util.Set;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+
+// MCP 相关导入
+import com.riceawa.mcp.service.MCPService;
+import com.riceawa.mcp.service.MCPServiceImpl;
+import com.riceawa.Lllmchat;
 
 /**
  * LLM聊天命令处理器
@@ -175,6 +181,27 @@ public class LLMChatCommand {
                         .executes(LLMChatCommand::handleStats))
                 .then(CommandManager.literal("help")
                         .executes(LLMChatCommand::handleHelp))
+                .then(CommandManager.literal("mcp")
+                        .then(CommandManager.literal("status")
+                                .executes(LLMChatCommand::handleMCPStatus))
+                        .then(CommandManager.literal("tools")
+                                .executes(LLMChatCommand::handleListMCPTools)
+                                .then(CommandManager.argument("server", StringArgumentType.word())
+                                        .executes(LLMChatCommand::handleListMCPToolsForServer)))
+                        .then(CommandManager.literal("resources")
+                                .executes(LLMChatCommand::handleListMCPResources)
+                                .then(CommandManager.argument("server", StringArgumentType.word())
+                                        .executes(LLMChatCommand::handleListMCPResourcesForServer)))
+                        .then(CommandManager.literal("prompts")
+                                .executes(LLMChatCommand::handleListMCPPrompts)
+                                .then(CommandManager.argument("server", StringArgumentType.word())
+                                        .executes(LLMChatCommand::handleListMCPPromptsForServer)))
+                        .then(CommandManager.literal("servers")
+                                .executes(LLMChatCommand::handleListMCPServers))
+                        .then(CommandManager.literal("reload")
+                                .executes(LLMChatCommand::handleMCPReload))
+                        .then(CommandManager.literal("help")
+                                .executes(LLMChatCommand::handleMCPHelp)))
         );
     }
 
@@ -2485,6 +2512,654 @@ public class LLMChatCommand {
         player.sendMessage(Text.literal("  • 列表为空: 广播所有玩家的AI对话 (全局模式)").formatted(Formatting.GRAY), false);
         player.sendMessage(Text.literal("  • 列表不为空: 只广播列表中玩家的AI对话 (特定玩家模式)").formatted(Formatting.GRAY), false);
         player.sendMessage(Text.literal("  • 可以根据需要灵活控制广播范围").formatted(Formatting.GRAY), false);
+
+        return 1;
+    }
+
+    // ==================== MCP 相关命令处理方法 ====================
+
+    /**
+     * 处理MCP状态命令
+     */
+    private static int handleMCPStatus(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        try {
+            MCPServiceImpl mcpService = Lllmchat.getMCPService();
+            
+            player.sendMessage(Text.literal("=== MCP 系统状态 ===").formatted(Formatting.GOLD), false);
+            player.sendMessage(Text.literal(""), false);
+
+            if (mcpService == null) {
+                player.sendMessage(Text.literal("❌ MCP 服务未初始化").formatted(Formatting.RED), false);
+                return 0;
+            }
+
+            boolean isEnabled = mcpService.isEnabled();
+            boolean isInitialized = mcpService.isInitialized();
+            int connectedServers = mcpService.getConnectedServerCount();
+
+            player.sendMessage(Text.literal("🔧 服务状态: " + 
+                (isEnabled ? "启用" : "禁用")).formatted(isEnabled ? Formatting.GREEN : Formatting.RED), false);
+            player.sendMessage(Text.literal("🔗 初始化状态: " + 
+                (isInitialized ? "已初始化" : "未初始化")).formatted(isInitialized ? Formatting.GREEN : Formatting.RED), false);
+            player.sendMessage(Text.literal("📡 已连接服务器: " + connectedServers + " 个").formatted(Formatting.AQUA), false);
+
+            if (isEnabled && isInitialized) {
+                Map<String, Boolean> serverStatus = mcpService.getServerStatus();
+                if (!serverStatus.isEmpty()) {
+                    player.sendMessage(Text.literal(""), false);
+                    player.sendMessage(Text.literal("📊 服务器连接状态:").formatted(Formatting.YELLOW), false);
+                    
+                    for (Map.Entry<String, Boolean> entry : serverStatus.entrySet()) {
+                        String serverName = entry.getKey();
+                        Boolean connected = entry.getValue();
+                        String status = connected ? "✅ 已连接" : "❌ 连接失败";
+                        Formatting color = connected ? Formatting.GREEN : Formatting.RED;
+                        
+                        player.sendMessage(Text.literal("  " + serverName + ": " + status).formatted(color), false);
+                    }
+                } else {
+                    player.sendMessage(Text.literal(""), false);
+                    player.sendMessage(Text.literal("📭 没有配置的MCP服务器").formatted(Formatting.YELLOW), false);
+                }
+            }
+
+        } catch (Exception e) {
+            player.sendMessage(Text.literal("❌ 获取MCP状态失败: " + e.getMessage()).formatted(Formatting.RED), false);
+            LogManager.getInstance().error("Failed to get MCP status", e);
+            return 0;
+        }
+
+        return 1;
+    }
+
+    /**
+     * 处理列出所有MCP工具命令
+     */
+    private static int handleListMCPTools(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        try {
+            MCPServiceImpl mcpService = Lllmchat.getMCPService();
+            if (mcpService == null) {
+                player.sendMessage(Text.literal("❌ MCP系统未初始化").formatted(Formatting.RED), false);
+                return 0;
+            }
+
+            if (!mcpService.isEnabled()) {
+                player.sendMessage(Text.literal("❌ MCP功能已禁用").formatted(Formatting.RED), false);
+                return 0;
+            }
+
+            player.sendMessage(Text.literal("🔧 正在获取所有MCP工具...").formatted(Formatting.YELLOW), false);
+
+            // 异步获取工具列表
+            mcpService.getAllTools()
+                .thenAccept(toolsByServer -> {
+                    player.sendMessage(Text.literal("=== 所有MCP工具 ===").formatted(Formatting.GOLD), false);
+                    player.sendMessage(Text.literal(""), false);
+
+                    if (toolsByServer.isEmpty()) {
+                        player.sendMessage(Text.literal("📭 没有可用的MCP工具").formatted(Formatting.YELLOW), false);
+                        return;
+                    }
+
+                    int totalTools = toolsByServer.values().stream().mapToInt(List::size).sum();
+
+                    for (var entry : toolsByServer.entrySet()) {
+                        String serverName = entry.getKey();
+                        var tools = entry.getValue();
+                        
+                        player.sendMessage(Text.literal("📡 服务器: " + serverName + " (" + tools.size() + " 个工具)")
+                            .formatted(Formatting.AQUA), false);
+                        
+                        for (var tool : tools) {
+                            String name = tool.name();
+                            String description = tool.description();
+                            if (description != null && description.length() > 50) {
+                                description = description.substring(0, 47) + "...";
+                            }
+                            
+                            player.sendMessage(Text.literal("  🔧 " + name + " - " + (description != null ? description : "无描述"))
+                                .formatted(Formatting.WHITE), false);
+                        }
+                        
+                        player.sendMessage(Text.literal(""), false);
+                    }
+
+                    player.sendMessage(Text.literal("📊 总计: " + totalTools + " 个工具").formatted(Formatting.GREEN), false);
+                })
+                .exceptionally(throwable -> {
+                    player.sendMessage(Text.literal("❌ 获取工具列表失败: " + throwable.getMessage()).formatted(Formatting.RED), false);
+                    return null;
+                });
+
+        } catch (Exception e) {
+            player.sendMessage(Text.literal("❌ 执行工具列表命令失败: " + e.getMessage()).formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        return 1;
+    }
+
+    /**
+     * 处理列出指定服务器MCP工具命令
+     */
+    private static int handleListMCPToolsForServer(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        String serverName = StringArgumentType.getString(context, "server");
+
+        try {
+            MCPServiceImpl mcpService = Lllmchat.getMCPService();
+            if (mcpService == null) {
+                player.sendMessage(Text.literal("❌ MCP系统未初始化").formatted(Formatting.RED), false);
+                return 0;
+            }
+
+            player.sendMessage(Text.literal("🔧 正在获取服务器 " + serverName + " 的工具...").formatted(Formatting.YELLOW), false);
+
+            // 异步获取工具列表
+            mcpService.getAllTools()
+                .thenAccept(toolsByServer -> {
+                    var tools = toolsByServer.get(serverName);
+                    
+                    if (tools == null || tools.isEmpty()) {
+                        player.sendMessage(Text.literal("❌ 服务器 " + serverName + " 不存在或没有可用工具").formatted(Formatting.RED), false);
+                        return;
+                    }
+
+                    player.sendMessage(Text.literal("=== 服务器 " + serverName + " 的工具 ===").formatted(Formatting.GOLD), false);
+                    player.sendMessage(Text.literal(""), false);
+                    
+                    for (var tool : tools) {
+                        String name = tool.name();
+                        String description = tool.description();
+                        
+                        player.sendMessage(Text.literal("🔧 " + name).formatted(Formatting.AQUA), false);
+                        
+                        if (description != null && !description.trim().isEmpty()) {
+                            player.sendMessage(Text.literal("   描述: " + description).formatted(Formatting.GRAY), false);
+                        }
+                        
+                        // 显示输入参数
+                        if (tool.inputSchema() != null) {
+                            player.sendMessage(Text.literal("   参数: 查看工具详情").formatted(Formatting.GRAY), false);
+                        }
+                        
+                        player.sendMessage(Text.literal(""), false);
+                    }
+
+                    player.sendMessage(Text.literal("📊 服务器 " + serverName + " 总计: " + tools.size() + " 个工具")
+                        .formatted(Formatting.GREEN), false);
+                })
+                .exceptionally(throwable -> {
+                    player.sendMessage(Text.literal("❌ 获取服务器工具列表失败: " + throwable.getMessage()).formatted(Formatting.RED), false);
+                    return null;
+                });
+
+        } catch (Exception e) {
+            player.sendMessage(Text.literal("❌ 执行服务器工具列表命令失败: " + e.getMessage()).formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        return 1;
+    }
+
+    /**
+     * 处理列出所有MCP资源命令
+     */
+    private static int handleListMCPResources(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        try {
+            MCPServiceImpl mcpService = Lllmchat.getMCPService();
+            if (mcpService == null) {
+                player.sendMessage(Text.literal("❌ MCP系统未初始化").formatted(Formatting.RED), false);
+                return 0;
+            }
+
+            if (!mcpService.isEnabled()) {
+                player.sendMessage(Text.literal("❌ MCP功能已禁用").formatted(Formatting.RED), false);
+                return 0;
+            }
+
+            player.sendMessage(Text.literal("📂 正在获取所有MCP资源...").formatted(Formatting.YELLOW), false);
+
+            // 异步获取资源列表
+            mcpService.getAllResources()
+                .thenAccept(resourcesByServer -> {
+                    player.sendMessage(Text.literal("=== 所有MCP资源 ===").formatted(Formatting.GOLD), false);
+                    player.sendMessage(Text.literal(""), false);
+
+                    if (resourcesByServer.isEmpty()) {
+                        player.sendMessage(Text.literal("📭 没有可用的MCP资源").formatted(Formatting.YELLOW), false);
+                        return;
+                    }
+
+                    int totalResources = resourcesByServer.values().stream().mapToInt(List::size).sum();
+
+                    for (var entry : resourcesByServer.entrySet()) {
+                        String serverName = entry.getKey();
+                        var resources = entry.getValue();
+                        
+                        player.sendMessage(Text.literal("📡 服务器: " + serverName + " (" + resources.size() + " 个资源)")
+                            .formatted(Formatting.AQUA), false);
+                        
+                        for (var resource : resources) {
+                            String uri = resource.uri();
+                            String name = resource.name();
+                            String mimeType = resource.mimeType();
+                            
+                            player.sendMessage(Text.literal("  📂 " + (name != null ? name : uri) + 
+                                (mimeType != null ? " (" + mimeType + ")" : "")).formatted(Formatting.WHITE), false);
+                        }
+                        
+                        player.sendMessage(Text.literal(""), false);
+                    }
+
+                    player.sendMessage(Text.literal("📊 总计: " + totalResources + " 个资源").formatted(Formatting.GREEN), false);
+                })
+                .exceptionally(throwable -> {
+                    player.sendMessage(Text.literal("❌ 获取资源列表失败: " + throwable.getMessage()).formatted(Formatting.RED), false);
+                    return null;
+                });
+
+        } catch (Exception e) {
+            player.sendMessage(Text.literal("❌ 执行资源列表命令失败: " + e.getMessage()).formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        return 1;
+    }
+
+    /**
+     * 处理列出指定服务器MCP资源命令
+     */
+    private static int handleListMCPResourcesForServer(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        String serverName = StringArgumentType.getString(context, "server");
+
+        try {
+            MCPServiceImpl mcpService = Lllmchat.getMCPService();
+            if (mcpService == null) {
+                player.sendMessage(Text.literal("❌ MCP系统未初始化").formatted(Formatting.RED), false);
+                return 0;
+            }
+
+            player.sendMessage(Text.literal("📂 正在获取服务器 " + serverName + " 的资源...").formatted(Formatting.YELLOW), false);
+
+            // 异步获取资源列表
+            mcpService.getAllResources()
+                .thenAccept(resourcesByServer -> {
+                    var resources = resourcesByServer.get(serverName);
+                    
+                    if (resources == null || resources.isEmpty()) {
+                        player.sendMessage(Text.literal("❌ 服务器 " + serverName + " 不存在或没有可用资源").formatted(Formatting.RED), false);
+                        return;
+                    }
+
+                    player.sendMessage(Text.literal("=== 服务器 " + serverName + " 的资源 ===").formatted(Formatting.GOLD), false);
+                    player.sendMessage(Text.literal(""), false);
+                    
+                    for (var resource : resources) {
+                        String uri = resource.uri();
+                        String name = resource.name();
+                        String description = resource.description();
+                        String mimeType = resource.mimeType();
+                        
+                        player.sendMessage(Text.literal("📂 " + (name != null ? name : uri))
+                            .formatted(Formatting.AQUA), false);
+                        
+                        if (description != null && !description.trim().isEmpty()) {
+                            player.sendMessage(Text.literal("   描述: " + description).formatted(Formatting.GRAY), false);
+                        }
+                        
+                        player.sendMessage(Text.literal("   URI: " + uri).formatted(Formatting.GRAY), false);
+                        
+                        if (mimeType != null) {
+                            player.sendMessage(Text.literal("   类型: " + mimeType).formatted(Formatting.GRAY), false);
+                        }
+                        
+                        player.sendMessage(Text.literal(""), false);
+                    }
+
+                    player.sendMessage(Text.literal("📊 服务器 " + serverName + " 总计: " + resources.size() + " 个资源")
+                        .formatted(Formatting.GREEN), false);
+                })
+                .exceptionally(throwable -> {
+                    player.sendMessage(Text.literal("❌ 获取服务器资源列表失败: " + throwable.getMessage()).formatted(Formatting.RED), false);
+                    return null;
+                });
+
+        } catch (Exception e) {
+            player.sendMessage(Text.literal("❌ 执行服务器资源列表命令失败: " + e.getMessage()).formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        return 1;
+    }
+
+    /**
+     * 处理列出所有MCP提示词命令
+     */
+    private static int handleListMCPPrompts(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        try {
+            MCPServiceImpl mcpService = Lllmchat.getMCPService();
+            if (mcpService == null) {
+                player.sendMessage(Text.literal("❌ MCP系统未初始化").formatted(Formatting.RED), false);
+                return 0;
+            }
+
+            if (!mcpService.isEnabled()) {
+                player.sendMessage(Text.literal("❌ MCP功能已禁用").formatted(Formatting.RED), false);
+                return 0;
+            }
+
+            player.sendMessage(Text.literal("💭 正在获取所有MCP提示词...").formatted(Formatting.YELLOW), false);
+
+            // 异步获取提示词列表
+            mcpService.getAllPrompts()
+                .thenAccept(promptsByServer -> {
+                    player.sendMessage(Text.literal("=== 所有MCP提示词 ===").formatted(Formatting.GOLD), false);
+                    player.sendMessage(Text.literal(""), false);
+
+                    if (promptsByServer.isEmpty()) {
+                        player.sendMessage(Text.literal("📭 没有可用的MCP提示词").formatted(Formatting.YELLOW), false);
+                        return;
+                    }
+
+                    int totalPrompts = promptsByServer.values().stream().mapToInt(List::size).sum();
+
+                    for (var entry : promptsByServer.entrySet()) {
+                        String serverName = entry.getKey();
+                        var prompts = entry.getValue();
+                        
+                        player.sendMessage(Text.literal("📡 服务器: " + serverName + " (" + prompts.size() + " 个提示词)")
+                            .formatted(Formatting.AQUA), false);
+                        
+                        for (var prompt : prompts) {
+                            String name = prompt.name();
+                            String description = prompt.description();
+                            if (description != null && description.length() > 50) {
+                                description = description.substring(0, 47) + "...";
+                            }
+                            
+                            player.sendMessage(Text.literal("  💭 " + name + " - " + (description != null ? description : "无描述"))
+                                .formatted(Formatting.WHITE), false);
+                        }
+                        
+                        player.sendMessage(Text.literal(""), false);
+                    }
+
+                    player.sendMessage(Text.literal("📊 总计: " + totalPrompts + " 个提示词").formatted(Formatting.GREEN), false);
+                })
+                .exceptionally(throwable -> {
+                    player.sendMessage(Text.literal("❌ 获取提示词列表失败: " + throwable.getMessage()).formatted(Formatting.RED), false);
+                    return null;
+                });
+
+        } catch (Exception e) {
+            player.sendMessage(Text.literal("❌ 执行提示词列表命令失败: " + e.getMessage()).formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        return 1;
+    }
+
+    /**
+     * 处理列出指定服务器MCP提示词命令
+     */
+    private static int handleListMCPPromptsForServer(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        String serverName = StringArgumentType.getString(context, "server");
+
+        try {
+            MCPServiceImpl mcpService = Lllmchat.getMCPService();
+            if (mcpService == null) {
+                player.sendMessage(Text.literal("❌ MCP系统未初始化").formatted(Formatting.RED), false);
+                return 0;
+            }
+
+            player.sendMessage(Text.literal("💭 正在获取服务器 " + serverName + " 的提示词...").formatted(Formatting.YELLOW), false);
+
+            // 异步获取提示词列表
+            mcpService.getAllPrompts()
+                .thenAccept(promptsByServer -> {
+                    var prompts = promptsByServer.get(serverName);
+                    
+                    if (prompts == null || prompts.isEmpty()) {
+                        player.sendMessage(Text.literal("❌ 服务器 " + serverName + " 不存在或没有可用提示词").formatted(Formatting.RED), false);
+                        return;
+                    }
+
+                    player.sendMessage(Text.literal("=== 服务器 " + serverName + " 的提示词 ===").formatted(Formatting.GOLD), false);
+                    player.sendMessage(Text.literal(""), false);
+                    
+                    for (var prompt : prompts) {
+                        String name = prompt.name();
+                        String description = prompt.description();
+                        
+                        player.sendMessage(Text.literal("💭 " + name).formatted(Formatting.AQUA), false);
+                        
+                        if (description != null && !description.trim().isEmpty()) {
+                            player.sendMessage(Text.literal("   描述: " + description).formatted(Formatting.GRAY), false);
+                        }
+                        
+                        // 显示参数
+                        if (prompt.arguments() != null && !prompt.arguments().isEmpty()) {
+                            player.sendMessage(Text.literal("   参数: " + prompt.arguments().size() + " 个").formatted(Formatting.GRAY), false);
+                        }
+                        
+                        player.sendMessage(Text.literal(""), false);
+                    }
+
+                    player.sendMessage(Text.literal("📊 服务器 " + serverName + " 总计: " + prompts.size() + " 个提示词")
+                        .formatted(Formatting.GREEN), false);
+                })
+                .exceptionally(throwable -> {
+                    player.sendMessage(Text.literal("❌ 获取服务器提示词列表失败: " + throwable.getMessage()).formatted(Formatting.RED), false);
+                    return null;
+                });
+
+        } catch (Exception e) {
+            player.sendMessage(Text.literal("❌ 执行服务器提示词列表命令失败: " + e.getMessage()).formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        return 1;
+    }
+
+    /**
+     * 处理列出MCP服务器命令
+     */
+    private static int handleListMCPServers(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        try {
+            MCPServiceImpl mcpService = Lllmchat.getMCPService();
+            
+            player.sendMessage(Text.literal("=== MCP 服务器列表 ===").formatted(Formatting.GOLD), false);
+            player.sendMessage(Text.literal(""), false);
+
+            if (mcpService == null) {
+                player.sendMessage(Text.literal("❌ MCP 服务未初始化").formatted(Formatting.RED), false);
+                return 0;
+            }
+
+            Map<String, Boolean> serverStatus = mcpService.getServerStatus();
+            
+            if (serverStatus.isEmpty()) {
+                player.sendMessage(Text.literal("📭 没有配置的MCP服务器").formatted(Formatting.YELLOW), false);
+                player.sendMessage(Text.literal("💡 请在配置文件中添加MCP服务器配置").formatted(Formatting.GRAY), false);
+                return 1;
+            }
+
+            int connectedCount = 0;
+            for (Map.Entry<String, Boolean> entry : serverStatus.entrySet()) {
+                String serverName = entry.getKey();
+                Boolean connected = entry.getValue();
+                
+                if (connected) {
+                    connectedCount++;
+                    player.sendMessage(Text.literal("📡 " + serverName + " - ✅ 已连接").formatted(Formatting.GREEN), false);
+                } else {
+                    player.sendMessage(Text.literal("📡 " + serverName + " - ❌ 连接失败").formatted(Formatting.RED), false);
+                }
+            }
+
+            player.sendMessage(Text.literal(""), false);
+            player.sendMessage(Text.literal("📊 总计: " + serverStatus.size() + " 个服务器，" + 
+                connectedCount + " 个已连接").formatted(Formatting.AQUA), false);
+
+        } catch (Exception e) {
+            player.sendMessage(Text.literal("❌ 获取服务器列表失败: " + e.getMessage()).formatted(Formatting.RED), false);
+            LogManager.getInstance().error("Failed to list MCP servers", e);
+            return 0;
+        }
+
+        return 1;
+    }
+
+    /**
+     * 处理MCP重新加载命令
+     */
+    private static int handleMCPReload(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        // 检查权限
+        if (!source.hasPermissionLevel(2)) {
+            player.sendMessage(Text.literal("❌ 你没有权限执行此命令 (需要OP权限)").formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        try {
+            player.sendMessage(Text.literal("🔄 正在重新加载MCP配置...").formatted(Formatting.YELLOW), false);
+
+            MCPServiceImpl mcpService = Lllmchat.getMCPService();
+            if (mcpService == null) {
+                player.sendMessage(Text.literal("❌ MCP服务未初始化").formatted(Formatting.RED), false);
+                return 0;
+            }
+
+            // 重新加载配置
+            LLMChatConfig config = LLMChatConfig.getInstance();
+            com.riceawa.mcp.config.MCPConfig mcpConfig = config.getMcpConfig();
+
+            mcpService.reload(mcpConfig)
+                .thenRun(() -> {
+                    player.sendMessage(Text.literal("✅ MCP配置重新加载完成").formatted(Formatting.GREEN), false);
+                    LogManager.getInstance().info("MCP configuration reloaded by player: " + player.getName().getString());
+                })
+                .exceptionally(throwable -> {
+                    player.sendMessage(Text.literal("❌ MCP配置重新加载失败: " + throwable.getMessage()).formatted(Formatting.RED), false);
+                    LogManager.getInstance().error("Failed to reload MCP configuration", throwable);
+                    return null;
+                });
+
+        } catch (Exception e) {
+            player.sendMessage(Text.literal("❌ 执行MCP重载命令失败: " + e.getMessage()).formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        return 1;
+    }
+
+    /**
+     * 处理MCP帮助命令
+     */
+    private static int handleMCPHelp(CommandContext<ServerCommandSource> context) {
+        ServerCommandSource source = context.getSource();
+        PlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("此命令只能由玩家执行"));
+            return 0;
+        }
+
+        player.sendMessage(Text.literal("=== MCP 命令帮助 ===").formatted(Formatting.GOLD), false);
+        player.sendMessage(Text.literal(""), false);
+        player.sendMessage(Text.literal("🔧 基础命令:").formatted(Formatting.AQUA), false);
+        player.sendMessage(Text.literal("  /llmchat mcp status - 查看MCP系统状态").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat mcp servers - 列出所有MCP服务器").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat mcp reload - 重新加载MCP配置 (仅OP)").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal(""), false);
+        player.sendMessage(Text.literal("🛠️ 工具管理:").formatted(Formatting.AQUA), false);
+        player.sendMessage(Text.literal("  /llmchat mcp tools - 列出所有可用工具").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat mcp tools <服务器> - 列出指定服务器的工具").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal(""), false);
+        player.sendMessage(Text.literal("📂 资源管理:").formatted(Formatting.AQUA), false);
+        player.sendMessage(Text.literal("  /llmchat mcp resources - 列出所有可用资源").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat mcp resources <服务器> - 列出指定服务器的资源").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal(""), false);
+        player.sendMessage(Text.literal("💭 提示词管理:").formatted(Formatting.AQUA), false);
+        player.sendMessage(Text.literal("  /llmchat mcp prompts - 列出所有可用提示词").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal("  /llmchat mcp prompts <服务器> - 列出指定服务器的提示词").formatted(Formatting.WHITE), false);
+        player.sendMessage(Text.literal(""), false);
+        player.sendMessage(Text.literal("💡 MCP说明:").formatted(Formatting.YELLOW), false);
+        player.sendMessage(Text.literal("  • MCP (Model Context Protocol) 允许AI访问外部工具和资源").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • 工具: AI可以调用的功能，如文件操作、网络请求等").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • 资源: AI可以读取的数据源，如文档、数据库等").formatted(Formatting.GRAY), false);
+        player.sendMessage(Text.literal("  • 提示词: 预设的AI提示模板").formatted(Formatting.GRAY), false);
 
         return 1;
     }

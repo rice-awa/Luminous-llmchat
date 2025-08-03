@@ -53,6 +53,15 @@ public class MCPConfig {
         MCPConfig config = new MCPConfig();
         config.enabled = false;
         config.mcpServers = new HashMap<>();
+        config.connectionTimeoutMs = 30000;
+        config.requestTimeoutMs = 30000;
+        config.maxRetries = 3;
+        config.enableResourceCaching = false; // 简化：默认禁用缓存
+        config.resourceCacheSize = 50; // 简化：减少缓存大小
+        config.resourceCacheTtlMinutes = 10; // 简化：减少TTL
+        config.defaultPermissionPolicy = "OP_ONLY";
+        config.enableToolChangeNotifications = false; // 简化：默认禁用通知
+        config.enableResourceChangeNotifications = false; // 简化：默认禁用通知
         return config;
     }
 
