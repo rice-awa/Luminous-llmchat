@@ -39,7 +39,5 @@ replay_*.log
 *.hprof
 *.jfr
 
-# mcp docs
-mcp_docs/
 # kiro 
 .kiro/

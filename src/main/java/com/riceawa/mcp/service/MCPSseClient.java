@@ -29,6 +29,9 @@ public class MCPSseClient extends MCPBaseClient {
     // 控制SSE读取循环
     private final AtomicBoolean reading = new AtomicBoolean(false);
     
+    // 会话管理
+    private String sessionId = null;
+    
     public MCPSseClient(MCPServerConfig serverConfig, MCPConfig globalConfig) {
         super(serverConfig, globalConfig);
         
@@ -42,8 +45,8 @@ public class MCPSseClient extends MCPBaseClient {
         try {
             // 创建SSE连接
             String baseUrl = serverConfig.getUrl();
-            // 避免重复添加 /sse 路径
-            String sseUrl = baseUrl.endsWith("/sse") ? baseUrl : baseUrl + "/sse";
+            // 根据新MCP协议，SSE端点就是基础URL（不再需要/sse后缀）
+            String sseUrl = baseUrl;
             
             // 添加详细调试日志
             System.out.println("[MCP DEBUG] 开始连接 SSE 端点");
@@ -57,6 +60,7 @@ public class MCPSseClient extends MCPBaseClient {
             sseConnection.setRequestMethod("GET");
             sseConnection.setRequestProperty("Accept", "text/event-stream");
             sseConnection.setRequestProperty("Cache-Control", "no-cache");
+            sseConnection.setRequestProperty("MCP-Protocol-Version", "2025-06-18");
             sseConnection.setConnectTimeout(globalConfig.getConnectionTimeoutMs());
             sseConnection.setReadTimeout(globalConfig.getRequestTimeoutMs());
             
@@ -205,32 +209,34 @@ public class MCPSseClient extends MCPBaseClient {
     
     /**
      * 执行MCP协议握手
+     * 根据MCP 2025-06-18协议，初始化请求应该直接发送到MCP端点
      */
     private void performHandshake() throws Exception {
-        // 对于SSE，初始化通过HTTP POST请求发送
         String baseUrl = serverConfig.getUrl();
-        // 修复：应该是 /messages 而不是 /message
-        String messageUrl = baseUrl.contains("/sse") ? 
-            baseUrl.replace("/sse", "/messages") : baseUrl + "/messages";
+        // 根据新协议，初始化请求应该发送到MCP端点本身，而不是/messages
+        String mcpEndpoint = baseUrl;
         
         System.out.println("[MCP DEBUG] 开始握手流程");
-        System.out.println("[MCP DEBUG] 基础 URL: " + baseUrl);
-        System.out.println("[MCP DEBUG] 消息 URL: " + messageUrl);
+        System.out.println("[MCP DEBUG] MCP端点 URL: " + mcpEndpoint);
         
-        URL initUrl = new URL(messageUrl);
+        URL initUrl = new URL(mcpEndpoint);
         HttpURLConnection initConnection = (HttpURLConnection) initUrl.openConnection();
         
         try {
             initConnection.setRequestMethod("POST");
             initConnection.setRequestProperty("Content-Type", "application/json");
+            initConnection.setRequestProperty("Accept", "application/json, text/event-stream");
+            initConnection.setRequestProperty("MCP-Protocol-Version", "2025-06-18");
             initConnection.setDoOutput(true);
+            initConnection.setConnectTimeout(globalConfig.getConnectionTimeoutMs());
+            initConnection.setReadTimeout(globalConfig.getRequestTimeoutMs());
             
-            // 初始化请求消息
+            // 初始化请求消息，使用最新协议版本
             String initRequest = "{\n" +
                 "  \"jsonrpc\": \"2.0\",\n" +
                 "  \"method\": \"initialize\",\n" +
                 "  \"params\": {\n" +
-                "    \"protocolVersion\": \"2024-11-05\",\n" +
+                "    \"protocolVersion\": \"2025-06-18\",\n" +
                 "    \"capabilities\": {\n" +
                 "      \"tools\": {},\n" +
                 "      \"resources\": {},\n" +
@@ -245,7 +251,7 @@ public class MCPSseClient extends MCPBaseClient {
                 "}";
             
             // 发送请求
-            System.out.println("[MCP DEBUG] 发送初始化请求: " + initRequest);
+            System.out.println("[MCP DEBUG] 发送初始化请求到MCP端点: " + initRequest);
             try (OutputStream os = initConnection.getOutputStream()) {
                 os.write(initRequest.getBytes(StandardCharsets.UTF_8));
             }
@@ -267,25 +273,93 @@ public class MCPSseClient extends MCPBaseClient {
                     System.out.println("[MCP DEBUG] 无法读取初始化错误响应: " + e.getMessage());
                 }
                 throw MCPException.protocolError(serverConfig.getName(), "初始化请求失败，状态码: " + responseCode);
-            } else {
-                // 读取成功响应
-                try {
-                    java.io.InputStream inputStream = initConnection.getInputStream();
-                    if (inputStream != null) {
-                        String response = new java.io.BufferedReader(new java.io.InputStreamReader(inputStream, StandardCharsets.UTF_8))
-                            .lines().collect(java.util.stream.Collectors.joining("\n"));
-                        System.out.println("[MCP DEBUG] 初始化成功响应: " + response);
-                    }
-                } catch (Exception e) {
-                    System.out.println("[MCP DEBUG] 无法读取初始化成功响应: " + e.getMessage());
-                }
             }
             
-            // 发送initialized通知
-            sendInitializedNotification();
+            // 检查响应的Content-Type
+            String contentType = initConnection.getContentType();
+            System.out.println("[MCP DEBUG] 响应Content-Type: " + contentType);
+            
+            if (contentType != null && contentType.startsWith("text/event-stream")) {
+                // 服务器返回SSE流，处理初始化响应和后续事件
+                System.out.println("[MCP DEBUG] 服务器返回SSE流，开始处理事件");
+                
+                // 检查是否有会话ID
+                String mcpSessionId = initConnection.getHeaderField("Mcp-Session-Id");
+                if (mcpSessionId != null) {
+                    this.sessionId = mcpSessionId;
+                    System.out.println("[MCP DEBUG] 收到会话ID: " + sessionId);
+                }
+                
+                handleInitializationSSEStream(initConnection);
+            } else if (contentType != null && contentType.startsWith("application/json")) {
+                // 服务器返回JSON响应
+                System.out.println("[MCP DEBUG] 服务器返回JSON响应");
+                
+                // 检查是否有会话ID
+                String mcpSessionId = initConnection.getHeaderField("Mcp-Session-Id");
+                if (mcpSessionId != null) {
+                    this.sessionId = mcpSessionId;
+                    System.out.println("[MCP DEBUG] 收到会话ID: " + sessionId);
+                }
+                
+                String response = readResponseBody(initConnection);
+                System.out.println("[MCP DEBUG] 初始化成功响应: " + response);
+                
+                // 发送initialized通知
+                sendInitializedNotification();
+            } else {
+                throw MCPException.protocolError(serverConfig.getName(), "未知的响应Content-Type: " + contentType);
+            }
             
         } finally {
-            initConnection.disconnect();
+            // 注意：如果是SSE流，不要立即关闭连接
+            String contentType = initConnection.getContentType();
+            if (contentType == null || !contentType.startsWith("text/event-stream")) {
+                initConnection.disconnect();
+            }
+        }
+    }
+    
+    /**
+     * 处理初始化阶段的SSE流
+     */
+    private void handleInitializationSSEStream(HttpURLConnection connection) throws Exception {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(
+            connection.getInputStream(), StandardCharsets.UTF_8));
+        
+        String line;
+        boolean initializeResponseReceived = false;
+        
+        while ((line = reader.readLine()) != null) {
+            if (line.startsWith("data: ")) {
+                String data = line.substring(6);
+                System.out.println("[MCP DEBUG] 收到SSE数据: " + data);
+                
+                // 解析JSON-RPC响应
+                if (data.contains("\"method\":\"initialize\"") || data.contains("\"id\":\"init-")) {
+                    // 这是初始化响应
+                    System.out.println("[MCP DEBUG] 收到初始化响应: " + data);
+                    initializeResponseReceived = true;
+                    
+                    // 发送initialized通知
+                    sendInitializedNotification();
+                    break;
+                }
+            }
+        }
+        
+        if (!initializeResponseReceived) {
+            throw MCPException.protocolError(serverConfig.getName(), "未收到初始化响应");
+        }
+    }
+    
+    /**
+     * 读取HTTP响应体
+     */
+    private String readResponseBody(HttpURLConnection connection) throws Exception {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+            connection.getInputStream(), StandardCharsets.UTF_8))) {
+            return reader.lines().collect(java.util.stream.Collectors.joining("\n"));
         }
     }
     
@@ -294,19 +368,28 @@ public class MCPSseClient extends MCPBaseClient {
      */
     private void sendInitializedNotification() throws Exception {
         String baseUrl = serverConfig.getUrl();
-        // 修复：应该是 /messages 而不是 /message
-        String messageUrl = baseUrl.contains("/sse") ? 
-            baseUrl.replace("/sse", "/messages") : baseUrl + "/messages";
+        // 根据新协议，通知也发送到MCP端点
+        String mcpEndpoint = baseUrl;
         
         System.out.println("[MCP DEBUG] 发送初始化完成通知");
-        System.out.println("[MCP DEBUG] 通知 URL: " + messageUrl);
-        URL notifyUrl = new URL(messageUrl);
+        System.out.println("[MCP DEBUG] 通知端点 URL: " + mcpEndpoint);
+        URL notifyUrl = new URL(mcpEndpoint);
         HttpURLConnection notifyConnection = (HttpURLConnection) notifyUrl.openConnection();
         
         try {
             notifyConnection.setRequestMethod("POST");
             notifyConnection.setRequestProperty("Content-Type", "application/json");
+            notifyConnection.setRequestProperty("MCP-Protocol-Version", "2025-06-18");
+            
+            // 如果有会话ID，则包含在请求中
+            if (sessionId != null) {
+                notifyConnection.setRequestProperty("Mcp-Session-Id", sessionId);
+                System.out.println("[MCP DEBUG] 包含会话ID: " + sessionId);
+            }
+            
             notifyConnection.setDoOutput(true);
+            notifyConnection.setConnectTimeout(globalConfig.getConnectionTimeoutMs());
+            notifyConnection.setReadTimeout(globalConfig.getRequestTimeoutMs());
             
             String notification = "{\n" +
                 "  \"jsonrpc\": \"2.0\",\n" +
@@ -321,7 +404,14 @@ public class MCPSseClient extends MCPBaseClient {
             int responseCode = notifyConnection.getResponseCode();
             System.out.println("[MCP DEBUG] 通知响应状态: " + responseCode);
             
-            if (responseCode != 200 && responseCode != 204) {
+            if (responseCode != 200 && responseCode != 202 && responseCode != 204) {
+                // 处理会话过期的情况
+                if (responseCode == 404 && sessionId != null) {
+                    System.out.println("[MCP DEBUG] 会话可能已过期，会话ID: " + sessionId);
+                    sessionId = null; // 重置会话ID
+                    throw MCPException.protocolError(serverConfig.getName(), "会话过期，需要重新初始化");
+                }
+                
                 // 尝试读取错误响应
                 try {
                     java.io.InputStream errorStream = notifyConnection.getErrorStream();
@@ -364,9 +454,73 @@ public class MCPSseClient extends MCPBaseClient {
         }
     }
     
+    /**
+     * 获取当前会话ID
+     * @return 会话ID，如果没有会话则返回null
+     */
+    public String getSessionId() {
+        return sessionId;
+    }
+    
+    /**
+     * 检查是否有活跃的会话
+     * @return 如果有活跃会话返回true
+     */
+    public boolean hasActiveSession() {
+        return sessionId != null;
+    }
+    
     @Override
     public void shutdown() {
+        // 如果有活跃会话，尝试优雅地终止
+        if (sessionId != null) {
+            try {
+                terminateSession();
+            } catch (Exception e) {
+                System.out.println("[MCP DEBUG] 会话终止失败: " + e.getMessage());
+            }
+        }
+        
         cleanup();
         super.shutdown();
+    }
+    
+    /**
+     * 终止MCP会话
+     */
+    private void terminateSession() throws Exception {
+        if (sessionId == null) {
+            return;
+        }
+        
+        String baseUrl = serverConfig.getUrl();
+        String mcpEndpoint = baseUrl;
+        
+        System.out.println("[MCP DEBUG] 终止会话: " + sessionId);
+        URL deleteUrl = new URL(mcpEndpoint);
+        HttpURLConnection deleteConnection = (HttpURLConnection) deleteUrl.openConnection();
+        
+        try {
+            deleteConnection.setRequestMethod("DELETE");
+            deleteConnection.setRequestProperty("MCP-Protocol-Version", "2025-06-18");
+            deleteConnection.setRequestProperty("Mcp-Session-Id", sessionId);
+            deleteConnection.setConnectTimeout(5000); // 较短的超时时间
+            deleteConnection.setReadTimeout(5000);
+            
+            int responseCode = deleteConnection.getResponseCode();
+            System.out.println("[MCP DEBUG] 会话终止响应状态: " + responseCode);
+            
+            if (responseCode == 200) {
+                System.out.println("[MCP DEBUG] 会话成功终止");
+            } else if (responseCode == 405) {
+                System.out.println("[MCP DEBUG] 服务器不支持客户端主动终止会话");
+            } else {
+                System.out.println("[MCP DEBUG] 会话终止返回状态: " + responseCode);
+            }
+            
+        } finally {
+            sessionId = null; // 清除会话ID
+            deleteConnection.disconnect();
+        }
     }
 }
