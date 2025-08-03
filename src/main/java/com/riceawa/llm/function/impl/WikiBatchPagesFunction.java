@@ -63,7 +63,10 @@ public class WikiBatchPagesFunction implements LLMFunction {
         JsonObject format = new JsonObject();
         format.addProperty("type", "string");
         format.addProperty("description", "输出格式：markdown（默认）或 html");
-        format.addProperty("enum", "markdown,html");
+        JsonArray enumArray = new JsonArray();
+        enumArray.add("markdown");
+        enumArray.add("html");
+        format.add("enum", enumArray);
         format.addProperty("default", "markdown");
         properties.add("format", format);
         

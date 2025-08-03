@@ -1,6 +1,7 @@
 package com.riceawa.llm.function.impl;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.riceawa.llm.config.LLMChatConfig;
 import com.riceawa.llm.function.LLMFunction;
@@ -51,7 +52,10 @@ public class WikiPageFunction implements LLMFunction {
         JsonObject format = new JsonObject();
         format.addProperty("type", "string");
         format.addProperty("description", "输出格式：markdown（默认）或 html");
-        format.addProperty("enum", "markdown,html");
+        JsonArray enumArray = new JsonArray();
+        enumArray.add("markdown");
+        enumArray.add("html");
+        format.add("enum", enumArray);
         format.addProperty("default", "markdown");
         properties.add("format", format);
         
