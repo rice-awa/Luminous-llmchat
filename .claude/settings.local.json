@@ -6,7 +6,8 @@
       "Bash(./gradlew test:*)",
       "Bash(npx:*)",
       "Bash(./gradlew:*)",
-      "mcp__firecrawl-mcp__firecrawl_scrape"
+      "mcp__firecrawl-mcp__firecrawl_scrape",
+      "mcp__firecrawl-mcp__firecrawl_search"
     ],
     "deny": []
   }

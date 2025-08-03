@@ -21,6 +21,7 @@ import com.riceawa.llm.service.LLMServiceManager;
 import com.riceawa.llm.template.PromptTemplate;
 import com.riceawa.llm.template.PromptTemplateManager;
 import com.riceawa.llm.template.TemplateEditor;
+import com.riceawa.mcp.service.MCPClientManager;
 import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.command.CommandManager;
@@ -3040,29 +3041,37 @@ public class LLMChatCommand {
                 return 0;
             }
 
-            Map<String, Boolean> serverStatus = mcpService.getServerStatus();
+            // 使用新的详细状态信息
+            Map<String, MCPClientManager.ServerStatusInfo> detailedStatus = mcpService.getDetailedServerStatus();
             
-            if (serverStatus.isEmpty()) {
+            if (detailedStatus.isEmpty()) {
                 player.sendMessage(Text.literal("📭 没有配置的MCP服务器").formatted(Formatting.YELLOW), false);
                 player.sendMessage(Text.literal("💡 请在配置文件中添加MCP服务器配置").formatted(Formatting.GRAY), false);
                 return 1;
             }
 
             int connectedCount = 0;
-            for (Map.Entry<String, Boolean> entry : serverStatus.entrySet()) {
+            for (Map.Entry<String, MCPClientManager.ServerStatusInfo> entry : detailedStatus.entrySet()) {
                 String serverName = entry.getKey();
-                Boolean connected = entry.getValue();
+                MCPClientManager.ServerStatusInfo statusInfo = entry.getValue();
+                boolean connected = statusInfo.isConnected();
                 
                 if (connected) {
                     connectedCount++;
                     player.sendMessage(Text.literal("📡 " + serverName + " - ✅ 已连接").formatted(Formatting.GREEN), false);
                 } else {
                     player.sendMessage(Text.literal("📡 " + serverName + " - ❌ 连接失败").formatted(Formatting.RED), false);
+                    // 显示额外的配置信息
+                    if (statusInfo.getConfig() != null) {
+                        String type = statusInfo.getConfig().getType();
+                        String url = statusInfo.getConfig().isSseType() ? statusInfo.getConfig().getUrl() : "N/A";
+                        player.sendMessage(Text.literal("   类型: " + type + ", URL: " + url).formatted(Formatting.GRAY), false);
+                    }
                 }
             }
 
             player.sendMessage(Text.literal(""), false);
-            player.sendMessage(Text.literal("📊 总计: " + serverStatus.size() + " 个服务器，" + 
+            player.sendMessage(Text.literal("📊 总计: " + detailedStatus.size() + " 个服务器，" + 
                 connectedCount + " 个已连接").formatted(Formatting.AQUA), false);
 
         } catch (Exception e) {

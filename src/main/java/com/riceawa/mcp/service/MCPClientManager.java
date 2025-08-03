@@ -87,6 +87,7 @@ public class MCPClientManager {
                 logger.info("正在连接到 MCP 服务器: {}", serverConfig.getName());
                 
                 MCPClient client = MCPClientFactory.createClient(serverConfig);
+                // 先添加到列表中，这样即使连接失败也能显示在服务器列表中
                 clients.put(serverConfig.getName(), client);
                 
                 boolean connected = client.connect().get(30, TimeUnit.SECONDS);
@@ -94,12 +95,12 @@ public class MCPClientManager {
                     logger.info("成功连接到 MCP 服务器: {}", serverConfig.getName());
                 } else {
                     logger.error("连接 MCP 服务器失败: {}", serverConfig.getName());
-                    clients.remove(serverConfig.getName());
+                    // 不移除客户端，这样可以在列表中显示为未连接状态
                 }
                 
             } catch (Exception e) {
                 logger.error("连接 MCP 服务器时出错: {} - {}", serverConfig.getName(), e.getMessage());
-                clients.remove(serverConfig.getName());
+                // 不移除客户端，这样可以在列表中显示为错误状态
             }
         });
     }
@@ -269,12 +270,26 @@ public class MCPClientManager {
     }
 
     /**
+     * 获取所有客户端列表（包括未连接的）
+     */
+    public List<MCPClient> getAllClients() {
+        return new ArrayList<>(clients.values());
+    }
+    
+    /**
      * 获取已连接的客户端列表
      */
     public List<MCPClient> getConnectedClients() {
         return clients.values().stream()
                 .filter(MCPClient::isConnected)
                 .collect(Collectors.toList());
+    }
+    
+    /**
+     * 获取服务器总数（包括未连接的）
+     */
+    public int getTotalServerCount() {
+        return clients.size();
     }
 
     /**
@@ -286,6 +301,44 @@ public class MCPClientManager {
                 .count();
     }
 
+    /**
+     * 获取服务器状态信息（详细版）
+     */
+    public Map<String, ServerStatusInfo> getDetailedServerStatus() {
+        Map<String, ServerStatusInfo> status = new HashMap<>();
+        for (Map.Entry<String, MCPClient> entry : clients.entrySet()) {
+            MCPClient client = entry.getValue();
+            boolean connected = client.isConnected();
+            String statusText;
+            if (connected) {
+                statusText = "已连接";
+            } else {
+                statusText = "未连接";
+            }
+            status.put(entry.getKey(), new ServerStatusInfo(connected, statusText, client.getConfig()));
+        }
+        return status;
+    }
+    
+    /**
+     * 服务器状态信息类
+     */
+    public static class ServerStatusInfo {
+        private final boolean connected;
+        private final String statusText;
+        private final MCPServerConfig config;
+        
+        public ServerStatusInfo(boolean connected, String statusText, MCPServerConfig config) {
+            this.connected = connected;
+            this.statusText = statusText;
+            this.config = config;
+        }
+        
+        public boolean isConnected() { return connected; }
+        public String getStatusText() { return statusText; }
+        public MCPServerConfig getConfig() { return config; }
+    }
+    
     /**
      * 获取服务器状态信息
      */

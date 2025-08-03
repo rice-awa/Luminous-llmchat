@@ -16,6 +16,8 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * MCP SSE 客户端实现
+ * 注意：当前使用SSE传输，未来会迁移到Streamable HTTP传输
+ * 参考：https://modelcontextprotocol.io/specification/2025-03-26/basic/transports
  */
 public class MCPSseClient implements MCPClient {
     private static final LogManager logger = LogManager.getInstance();
@@ -36,10 +38,10 @@ public class MCPSseClient implements MCPClient {
             try {
                 logger.info("正在连接到 MCP SSE 服务器: {} (URL: {})", config.getName(), config.getUrl());
                 
-                // 创建 SSE 传输
+                // 创建 SSE 传输（当前使用旧版API，未来将迁移到Streamable HTTP）
                 McpClientTransport transport = new HttpClientSseClientTransport(config.getUrl());
                 
-                // 创建客户端，增加更短的超时时间
+                // 创建客户端，使用更长的超时时间以提高稳定性
                 mcpClient = McpClient.sync(transport)
                     .requestTimeout(Duration.ofSeconds(30))
                     .capabilities(ClientCapabilities.builder()
@@ -58,7 +60,7 @@ public class MCPSseClient implements MCPClient {
                 
                 for (int i = 0; i < maxRetries; i++) {
                     try {
-                        logger.info("尝试初始化 MCP 连接 ({}): {}", i + 1, config.getName());
+                        logger.info("尝试初始化 MCP 连接 ({}/{}): {}", i + 1, maxRetries, config.getName());
                         result = mcpClient.initialize();
                         if (result != null) {
                             break;
@@ -68,7 +70,9 @@ public class MCPSseClient implements MCPClient {
                         logger.warn("初始化尝试 {} 失败: {} - {}", i + 1, config.getName(), e.getMessage());
                         if (i < maxRetries - 1) {
                             try {
-                                Thread.sleep(1000 * (i + 1)); // 递增延迟
+                                // 递增延迟重试
+                                long delay = 1000 * (long) Math.pow(2, i);
+                                Thread.sleep(delay);
                             } catch (InterruptedException ie) {
                                 Thread.currentThread().interrupt();
                                 break;
@@ -84,7 +88,7 @@ public class MCPSseClient implements MCPClient {
                     logger.info("成功连接到 MCP SSE 服务器: {} (版本: {})", 
                         config.getName(), result.protocolVersion());
                     
-                    // 设置日志级别
+                    // 设置日志级别（可选）
                     try {
                         mcpClient.setLoggingLevel(LoggingLevel.INFO);
                     } catch (Exception e) {
@@ -93,8 +97,9 @@ public class MCPSseClient implements MCPClient {
                     
                     return true;
                 } else {
+                    String errorMsg = lastException != null ? lastException.getMessage() : "未知错误";
                     logger.error("MCP SSE 服务器初始化失败: {} - 最后一次错误: {}", 
-                        config.getName(), lastException != null ? lastException.getMessage() : "未知错误");
+                        config.getName(), errorMsg);
                     return false;
                 }
                 
@@ -267,12 +272,13 @@ public class MCPSseClient implements MCPClient {
         }
         
         try {
-            // 使用更短的超时时间来检查健康状态
-            listTools().get(3, TimeUnit.SECONDS);
+            // 使用短超时时间来检查健康状态，避免阻塞
+            listTools().get(5, TimeUnit.SECONDS);
+            updateLastActivity();
             return true;
         } catch (Exception e) {
             logger.debug("健康检查失败: {} - {}", config.getName(), e.getMessage());
-            // 如果健康检查失败，标记为断开
+            // 如果健康检查失败，标记为断开状态
             connected = false;
             return false;
         }

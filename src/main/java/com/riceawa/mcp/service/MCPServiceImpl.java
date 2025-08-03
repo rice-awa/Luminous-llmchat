@@ -152,6 +152,26 @@ public class MCPServiceImpl implements MCPService {
         return Map.of();
     }
 
+    /**
+     * 获取详细的服务器状态信息
+     */
+    public Map<String, MCPClientManager.ServerStatusInfo> getDetailedServerStatus() {
+        if (clientManager != null) {
+            return clientManager.getDetailedServerStatus();
+        }
+        return Map.of();
+    }
+
+    /**
+     * 获取服务器总数（包括未连接的）
+     */
+    public int getTotalServerCount() {
+        if (clientManager != null) {
+            return clientManager.getTotalServerCount();
+        }
+        return 0;
+    }
+
     @Override
     public int getConnectedServerCount() {
         if (clientManager != null) {
