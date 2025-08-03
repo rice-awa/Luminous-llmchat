@@ -216,6 +216,11 @@ public class FunctionRegistry {
         registerFunction(new com.riceawa.llm.function.impl.SummonEntityFunction());
         registerFunction(new com.riceawa.llm.function.impl.WeatherControlFunction());
         registerFunction(new com.riceawa.llm.function.impl.TimeControlFunction());
+        
+        // 注册Wiki功能函数
+        registerFunction(new com.riceawa.llm.function.impl.WikiSearchFunction());
+        registerFunction(new com.riceawa.llm.function.impl.WikiPageFunction());
+        registerFunction(new com.riceawa.llm.function.impl.WikiBatchPagesFunction());
     }
 
     /**

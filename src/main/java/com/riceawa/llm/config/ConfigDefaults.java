@@ -42,6 +42,9 @@ public class ConfigDefaults {
     public static final boolean DEFAULT_ENABLE_TITLE_GENERATION = true;
     public static final String DEFAULT_TITLE_GENERATION_MODEL = ""; // 空字符串表示使用当前模型
 
+    // Wiki API 配置默认值
+    public static final String DEFAULT_WIKI_API_URL = "https://mcwiki.rice-awa.top";
+
     // API密钥占位符（用于检测无效密钥）
     public static final String API_KEY_PLACEHOLDER = "your-api-key-here";
 
@@ -198,6 +201,7 @@ public class ConfigDefaults {
             case "globalContextPrompt": return DEFAULT_GLOBAL_CONTEXT_PROMPT;
             case "enableTitleGeneration": return DEFAULT_ENABLE_TITLE_GENERATION;
             case "titleGenerationModel": return DEFAULT_TITLE_GENERATION_MODEL;
+            case "wikiApiUrl": return DEFAULT_WIKI_API_URL;
             case "currentProvider": return EMPTY_STRING;
             case "currentModel": return EMPTY_STRING;
             default: return null;

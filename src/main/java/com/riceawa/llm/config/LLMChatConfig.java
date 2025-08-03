@@ -57,6 +57,9 @@ public class LLMChatConfig {
     private boolean enableTitleGeneration = ConfigDefaults.DEFAULT_ENABLE_TITLE_GENERATION;
     private String titleGenerationModel = ConfigDefaults.DEFAULT_TITLE_GENERATION_MODEL;
 
+    // Wiki API 配置
+    private String wikiApiUrl = ConfigDefaults.DEFAULT_WIKI_API_URL;
+
     // 并发配置
     private ConcurrencySettings concurrencySettings = ConcurrencySettings.createDefault();
 
@@ -288,6 +291,9 @@ public class LLMChatConfig {
         this.enableTitleGeneration = data.enableTitleGeneration != null ? data.enableTitleGeneration : (Boolean) ConfigDefaults.getDefaultValue("enableTitleGeneration");
         this.titleGenerationModel = data.titleGenerationModel != null ? data.titleGenerationModel : (String) ConfigDefaults.getDefaultValue("titleGenerationModel");
 
+        // 处理Wiki API配置
+        this.wikiApiUrl = data.wikiApiUrl != null ? data.wikiApiUrl : (String) ConfigDefaults.getDefaultValue("wikiApiUrl");
+
         // 处理并发配置
         this.concurrencySettings = data.concurrencySettings != null ? data.concurrencySettings : ConcurrencySettings.createDefault();
 
@@ -385,6 +391,9 @@ public class LLMChatConfig {
         // 压缩和标题生成功能配置
         data.enableCompressionNotification = this.enableCompressionNotification;
         data.enableTitleGeneration = this.enableTitleGeneration;
+
+        // Wiki API 配置
+        data.wikiApiUrl = this.wikiApiUrl;
 
         // 系统配置
         data.concurrencySettings = this.concurrencySettings;
@@ -932,6 +941,21 @@ public class LLMChatConfig {
     }
 
     /**
+     * 获取Wiki API URL
+     */
+    public String getWikiApiUrl() {
+        return wikiApiUrl;
+    }
+
+    /**
+     * 设置Wiki API URL
+     */
+    public void setWikiApiUrl(String wikiApiUrl) {
+        this.wikiApiUrl = wikiApiUrl != null ? wikiApiUrl : ConfigDefaults.DEFAULT_WIKI_API_URL;
+        saveConfig();
+    }
+
+    /**
      * 配置数据类
      */
     private static class ConfigData {
@@ -957,6 +981,9 @@ public class LLMChatConfig {
         // 压缩和标题生成功能配置
         Boolean enableCompressionNotification;
         Boolean enableTitleGeneration;
+
+        // Wiki API 配置
+        String wikiApiUrl;
 
         // 系统配置
         ConcurrencySettings concurrencySettings;
