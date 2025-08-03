@@ -34,7 +34,7 @@ public class MCPSseClient implements MCPClient {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 // 创建 SSE 传输
-                McpTransport transport = new HttpClientSseClientTransport(config.getUrl());
+                McpClientTransport transport = new HttpClientSseClientTransport(config.getUrl());
                 
                 // 创建客户端
                 mcpClient = McpClient.sync(transport)
@@ -59,7 +59,7 @@ public class MCPSseClient implements MCPClient {
                         config.getName(), result.protocolVersion());
                     
                     // 设置日志级别
-                    mcpClient.setLoggingLevel(McpSchema.LoggingLevel.INFO);
+                    mcpClient.setLoggingLevel(LoggingLevel.INFO);
                     
                     return true;
                 } else {
