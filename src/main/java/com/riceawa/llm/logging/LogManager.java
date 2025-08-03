@@ -361,6 +361,64 @@ public class LogManager {
     }
 
     /**
+     * 标准日志方法 - info
+     */
+    public void info(String message) {
+        log(LogLevel.INFO, "system", message);
+    }
+
+    public void info(String message, Object... args) {
+        log(LogLevel.INFO, "system", formatMessage(message, args));
+    }
+
+    /**
+     * 标准日志方法 - debug
+     */
+    public void debug(String message) {
+        log(LogLevel.DEBUG, "system", message);
+    }
+
+    public void debug(String message, Object... args) {
+        log(LogLevel.DEBUG, "system", formatMessage(message, args));
+    }
+
+    /**
+     * 标准日志方法 - warn
+     */
+    public void warn(String message) {
+        log(LogLevel.WARN, "system", message);
+    }
+
+    public void warn(String message, Object... args) {
+        log(LogLevel.WARN, "system", formatMessage(message, args));
+    }
+
+    /**
+     * 标准日志方法 - error (重载版本)
+     */
+    public void error(String message, Object... args) {
+        log(LogLevel.ERROR, "system", formatMessage(message, args));
+    }
+
+    /**
+     * 格式化消息（支持SLF4J风格的占位符）
+     */
+    private String formatMessage(String message, Object... args) {
+        if (args == null || args.length == 0) {
+            return message;
+        }
+        
+        String result = message;
+        for (Object arg : args) {
+            int index = result.indexOf("{}");
+            if (index != -1) {
+                result = result.substring(0, index) + String.valueOf(arg) + result.substring(index + 2);
+            }
+        }
+        return result;
+    }
+
+    /**
      * 关闭日志管理器
      */
     public void shutdown() {
