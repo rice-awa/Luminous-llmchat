@@ -78,9 +78,9 @@
 ### 功能详细文档
 - 📖 [配置指南](docs/CONFIGURATION_GUIDE.md) - 完整的配置选项和多Provider设置
 - 💻 [命令指南](docs/COMMANDS_GUIDE.md) - 所有可用命令和详细用法（包含Resume命令扩展功能）
-- 🔧 [热编辑模板系统](docs/TEMPLATE_HOT_EDITING_SYSTEM_SUMMARY.md) - 游戏内模板编辑完整指南
-- 🔧 [内置变量系统](docs/BUILTIN_VARIABLES_SYSTEM_SUMMARY.md) - 15+内置变量详细说明
-- 🔍 [Provider健康检查](docs/PROVIDER_FORCE_CHECK_SYSTEM_SUMMARY.md) - 强制检测和诊断系统
+- 🔧 [热编辑模板系统](docs/TEMPLATE_HOT_EDITING_SYSTEM.md) - 游戏内模板编辑完整指南
+- 🔧 [内置变量系统](docs/BUILTIN_VARIABLES_SYSTEM.md) - 15+内置变量详细说明
+- 🔍 [Provider健康检查](docs/PROVIDER_FORCE_CHECK_SYSTEM.md) - 强制检测和诊断系统
 - 🔧 [Function Calling开发](docs/FUNCTION_CALLING_DEVELOPMENT.md) - Function Calling功能详解
 - 🛡️ [Function Call安全](docs/FUNCTION_CALL_SECURITY.md) - 权限控制和安全机制
 - 🎮 [Function演示](docs/FUNCTION_DEMO.md) - 实际使用示例和效果展示
