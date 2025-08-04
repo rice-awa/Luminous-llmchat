@@ -4,14 +4,14 @@
 
 ## ✨ 核心功能
 
-- 🤖 **多LLM服务支持** - OpenAI、OpenRouter、DeepSeek等，可扩展架构
+- 🤖 **多LLM服务支持** - OpenAI、OpenRouter、DeepSeek等，可扩展架构，强制健康检查
 - 💬 **智能上下文管理** - 基于字符长度的精确控制，智能压缩，对话恢复
-- 📝 **提示词模板系统** - 内置多种预设，支持自定义模板
-- � **Function Calling** - 13个内置游戏API，智能权限控制
+- 📝 **热编辑提示词模板系统** - 内置多种预设，支持游戏内热编辑，内置变量系统
+- 🔧 **Function Calling** - 13个内置游戏API，智能权限控制
 - 📚 **历史记录管理** - 持久化存储，多格式导出，统计分析
 - 📊 **完善日志系统** - 多级别分类日志，异步处理，文件轮转
 - 📢 **AI聊天广播** - OP可控的全服广播功能
-- ⚙️ **配置管理** - 热重载，游戏内切换Provider和模型
+- ⚙️ **配置管理** - 热重载，游戏内切换Provider和模型，健康状态监控
 - 🧪 **测试框架** - 全面单元测试，质量保证
 
 ## 🚀 快速开始
@@ -46,12 +46,29 @@
 /llmchat help                     # 显示帮助信息
 ```
 
+### 提示词模板管理
+```bash
+/llmchat template list                      # 列出所有可用模板
+/llmchat template set creative              # 切换到创造模式助手模板
+/llmchat template create my_assistant       # 创建新的自定义模板
+/llmchat template edit my_assistant         # 热编辑模板（进入编辑模式）
+/llmchat template preview                   # 预览当前编辑的模板
+/llmchat template save                      # 保存模板
+```
+
+### Provider健康检查
+```bash
+/llmchat provider list                      # 查看所有Provider状态（缓存）
+/llmchat provider check                     # 强制检测所有Provider状态
+/llmchat provider check openai             # 强制检测指定Provider状态
+```
+
 ### 管理员命令（需要OP权限）
 ```bash
-/llmchat provider switch openrouter    # 切换Provider
-/llmchat model set gpt-4               # 设置模型
-/llmchat broadcast enable              # 开启AI聊天广播
-/llmchat reload                        # 重载配置文件
+/llmchat provider switch openrouter        # 切换Provider
+/llmchat model set gpt-4                   # 设置模型
+/llmchat broadcast enable                  # 开启AI聊天广播
+/llmchat reload                            # 重载配置文件
 ```
 
 > 📖 **完整命令指南**: 查看 [命令指南](docs/COMMANDS_GUIDE.md) 了解所有可用命令和详细用法
@@ -61,6 +78,9 @@
 ### 功能详细文档
 - 📖 [配置指南](docs/CONFIGURATION_GUIDE.md) - 完整的配置选项和多Provider设置
 - 💻 [命令指南](docs/COMMANDS_GUIDE.md) - 所有可用命令和详细用法（包含Resume命令扩展功能）
+- 🔧 [热编辑模板系统](docs/TEMPLATE_HOT_EDITING_SYSTEM_SUMMARY.md) - 游戏内模板编辑完整指南
+- 🔧 [内置变量系统](docs/BUILTIN_VARIABLES_SYSTEM_SUMMARY.md) - 15+内置变量详细说明
+- 🔍 [Provider健康检查](docs/PROVIDER_FORCE_CHECK_SYSTEM_SUMMARY.md) - 强制检测和诊断系统
 - 🔧 [Function Calling开发](docs/FUNCTION_CALLING_DEVELOPMENT.md) - Function Calling功能详解
 - 🛡️ [Function Call安全](docs/FUNCTION_CALL_SECURITY.md) - 权限控制和安全机制
 - 🎮 [Function演示](docs/FUNCTION_DEMO.md) - 实际使用示例和效果展示
@@ -97,6 +117,14 @@
 
 /llmchat resume 3
 # 恢复第3个历史对话，继续之前的讨论
+
+# 创建个性化AI助手
+/llmchat template create my_helper
+/llmchat template edit system 你是{{player}}的专属助手，现在是{{time}}，你在{{dimension}}
+/llmchat template var set specialty 建筑设计
+/llmchat template save
+/llmchat template set my_helper
+# 现在AI会根据你的个性化设置进行回复
 ```
 
 > 📖 **详细功能文档**: 查看 [Function演示](docs/FUNCTION_DEMO.md) 和 [Function Call安全](docs/FUNCTION_CALL_SECURITY.md) 了解完整功能列表和安全机制
@@ -118,6 +146,22 @@
 
 ## 🧠 高级功能
 
+### 🔥 热编辑提示词模板系统
+- **游戏内热编辑** - 无需重启游戏，实时创建和编辑提示词模板
+- **内置变量系统** - 支持 `{{player}}`、`{{time}}`、`{{x}}`、`{{y}}`、`{{z}}` 等15+内置变量
+- **自定义变量** - 支持用户定义变量，如 `{{specialty}}`、`{{assistant_name}}`
+- **实时预览** - 编辑过程中可随时预览模板效果和变量值
+- **智能引导** - 详细的编辑菜单和操作提示
+- **模板复制** - 支持复制现有模板进行快速定制
+- **即时生效** - 模板切换后立即应用新的系统提示词
+
+### 🔍 Provider健康检查系统
+- **强制检测** - 支持强制检测所有或指定Provider的连接状态
+- **智能诊断** - 根据错误类型提供针对性解决建议
+- **超时优化** - 30秒检测超时，适应各种网络环境
+- **状态缓存** - 5分钟智能缓存，平衡实时性和性能
+- **错误分类** - 区分认证、网络、配置、API等不同错误类型
+
 ### 智能上下文管理
 - **字符长度精确控制** - 基于实际字符数量而非消息数量，更精确的上下文管理
 - **完整消息压缩** - 压缩完整消息（如1/2的消息），保持消息完整性
@@ -131,6 +175,7 @@
 - **精确对话恢复** - 通过数字ID（如 `/llmchat resume 2`）恢复指定对话
 - **会话标题显示** - AI自动生成的对话标题，便于识别内容
 - **时间和统计信息** - 显示对话时间、消息数量和使用的模板
+- **对话预览** - 恢复对话时显示前几条消息预览
 
 > ⚠️ **重要配置提醒**: 建议将 `maxContextCharacters` 设置为比模型默认上下文长度低的值，以确保系统有足够空间进行压缩和处理。例如，对于支持128k上下文的模型，建议设置为100,000字符。
 
@@ -157,11 +202,31 @@
 4. AI聊天广播默认关闭，OP可根据需要开启
 5. 建议配置专用压缩模型（如gpt-3.5-turbo）降低费用
 6. **重要**: 请将 `maxContextCharacters` 设置为比模型默认上下文长度低的值，为压缩和处理预留空间
-6. 建议运行测试验证功能正确性：`./gradlew test`
+7. 使用 `/llmchat provider check` 定期检查Provider连接状态
+8. 热编辑模板时使用 `{{变量名}}` 格式引用内置和自定义变量
+9. 建议运行测试验证功能正确性：`./gradlew test`
 
 ## 📝 更新日志
 
-### v1.6.1 (2025-07-28) - 最新版本
+### v1.7.1 (2025-08-04) - 最新版本
+- 🔥 **函数调用提示信息显示修复** - 修复多轮函数调用时LLM提示信息未显示的问题
+- ✨ **完善的交互体验** - AI执行函数前的思考过程现在会正确显示给玩家
+- 🎯 **符合OpenAI API规范** - 正确实现content和tool_calls的处理顺序
+- 🛡️ **保持向后兼容** - 不影响现有功能，支持递归和非递归函数调用场景
+- 📚 **详细修复文档** - 新增函数调用显示修复的完整技术文档
+
+### v1.7.0 (2025-07-30)
+- 🔥 **热编辑提示词模板系统** - 游戏内实时创建和编辑提示词模板
+- 🔥 **内置变量系统** - 支持15+内置变量（玩家名、时间、坐标、游戏状态等）
+- 🔥 **Provider强制检测系统** - 30秒超时的强制健康检查，智能错误诊断
+- ✨ 新增模板热编辑命令：`create`、`edit`、`preview`、`save`、`var`等
+- ✨ 新增Provider检测命令：`/llmchat provider check [provider]`
+- 🎯 **模板切换系统提示词修复** - 切换模板后立即应用新的系统提示词
+- 📋 **智能编辑引导** - 详细的编辑菜单和操作提示
+- 🛡️ **变量实时预览** - 编辑时显示所有变量的当前值
+- 📚 **完整文档支持** - 新增热编辑系统和健康检查文档
+
+### v1.6.1 (2025-07-28)
 - 🔥 **Resume命令功能扩展** - 全面升级的历史对话管理系统
 - ✨ 新增 `/llmchat resume list` - 列出所有历史对话记录，显示标题和详细信息
 - ✨ 新增 `/llmchat resume <数字>` - 通过简单的数字ID精确恢复指定对话
@@ -171,7 +236,7 @@
 - 📚 **完整文档支持** - 新增详细的使用指南和优化总结文档
 
 ### v1.6.0 (2025-07-27)
-- 🔥 **智能上下文管理升级** - 32k默认上下文长度，智能压缩替代简单删除
+- 🔥 **智能上下文管理升级** - 60k默认上下文长度，智能压缩替代简单删除
 - 🔥 **压缩通知系统** - 友好的用户提示，可配置开启/关闭
 - 🔥 **自定义压缩模型** - 支持配置专用压缩模型，优化成本控制
 - ✨ 新增 `/llmchat resume` 命令 - 快速恢复上次对话内容

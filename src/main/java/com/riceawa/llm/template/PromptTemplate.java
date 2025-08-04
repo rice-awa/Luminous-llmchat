@@ -60,7 +60,7 @@ public class PromptTemplate {
      * 渲染系统提示词
      */
     public String renderSystemPrompt() {
-        return renderTemplate(systemPrompt);
+        return renderTemplate(systemPrompt, null);
     }
 
     /**
@@ -70,7 +70,7 @@ public class PromptTemplate {
         StringBuilder result = new StringBuilder();
 
         // 添加原始系统提示词
-        String originalPrompt = renderTemplate(systemPrompt);
+        String originalPrompt = renderTemplate(systemPrompt, player);
         if (originalPrompt != null && !originalPrompt.trim().isEmpty()) {
             result.append(originalPrompt);
         }
@@ -93,39 +93,146 @@ public class PromptTemplate {
      * 渲染用户消息
      */
     public String renderUserMessage(String userInput) {
+        return renderUserMessage(userInput, null);
+    }
+
+    /**
+     * 渲染用户消息（带玩家信息）
+     */
+    public String renderUserMessage(String userInput, ServerPlayerEntity player) {
         StringBuilder result = new StringBuilder();
-        
+
         if (userPromptPrefix != null && !userPromptPrefix.isEmpty()) {
-            result.append(renderTemplate(userPromptPrefix));
+            result.append(renderTemplate(userPromptPrefix, player));
         }
-        
+
         result.append(userInput);
-        
+
         if (userPromptSuffix != null && !userPromptSuffix.isEmpty()) {
-            result.append(renderTemplate(userPromptSuffix));
+            result.append(renderTemplate(userPromptSuffix, player));
         }
-        
+
         return result.toString();
     }
 
     /**
-     * 渲染模板，替换变量
+     * 渲染模板，替换变量（不带玩家信息）
      */
     private String renderTemplate(String template) {
+        return renderTemplate(template, null);
+    }
+
+    /**
+     * 渲染模板，替换变量（带玩家信息支持内置变量）
+     */
+    private String renderTemplate(String template, ServerPlayerEntity player) {
         if (template == null) {
             return "";
         }
 
         String result = template;
         Matcher matcher = VARIABLE_PATTERN.matcher(template);
-        
+
         while (matcher.find()) {
             String variableName = matcher.group(1);
-            String variableValue = variables.getOrDefault(variableName, "");
+            String variableValue = getVariableValue(variableName, player);
             result = result.replace("{{" + variableName + "}}", variableValue);
         }
-        
+
         return result;
+    }
+
+    /**
+     * 获取变量值（支持内置变量和自定义变量）
+     */
+    private String getVariableValue(String variableName, ServerPlayerEntity player) {
+        // 首先检查是否是内置变量
+        String builtinValue = getBuiltinVariable(variableName, player);
+        if (builtinValue != null) {
+            return builtinValue;
+        }
+
+        // 如果不是内置变量，从自定义变量中获取
+        return variables.getOrDefault(variableName, "");
+    }
+
+    /**
+     * 获取内置变量值
+     */
+    private String getBuiltinVariable(String variableName, ServerPlayerEntity player) {
+        switch (variableName.toLowerCase()) {
+            case "player":
+                return player != null ? player.getName().getString() : "Unknown";
+
+            case "time":
+                return java.time.LocalDateTime.now().format(
+                    java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+
+            case "date":
+                return java.time.LocalDate.now().format(
+                    java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+
+            case "hour":
+                return String.valueOf(java.time.LocalTime.now().getHour());
+
+            case "minute":
+                return String.valueOf(java.time.LocalTime.now().getMinute());
+
+            case "world":
+                return player != null ? player.getWorld().getRegistryKey().getValue().toString() : "Unknown";
+
+            case "dimension":
+                if (player != null) {
+                    String worldKey = player.getWorld().getRegistryKey().getValue().toString();
+                    if (worldKey.contains("overworld")) return "主世界";
+                    if (worldKey.contains("nether")) return "下界";
+                    if (worldKey.contains("end")) return "末地";
+                    return worldKey;
+                }
+                return "Unknown";
+
+            case "x":
+                return player != null ? String.valueOf((int) player.getX()) : "0";
+
+            case "y":
+                return player != null ? String.valueOf((int) player.getY()) : "0";
+
+            case "z":
+                return player != null ? String.valueOf((int) player.getZ()) : "0";
+
+            case "health":
+                return player != null ? String.valueOf((int) player.getHealth()) : "0";
+
+            case "level":
+                return player != null ? String.valueOf(player.experienceLevel) : "0";
+
+            case "gamemode":
+                if (player != null) {
+                    switch (player.interactionManager.getGameMode()) {
+                        case SURVIVAL: return "生存模式";
+                        case CREATIVE: return "创造模式";
+                        case ADVENTURE: return "冒险模式";
+                        case SPECTATOR: return "观察者模式";
+                        default: return "未知模式";
+                    }
+                }
+                return "Unknown";
+
+            case "weather":
+                if (player != null) {
+                    if (player.getWorld().isRaining()) {
+                        return player.getWorld().isThundering() ? "雷雨" : "下雨";
+                    }
+                    return "晴天";
+                }
+                return "Unknown";
+
+            case "server":
+                return player != null ? player.getServer().getName() : "Unknown";
+
+            default:
+                return null; // 不是内置变量
+        }
     }
 
     /**
@@ -315,4 +422,6 @@ public class PromptTemplate {
 
         return result;
     }
+
+
 }

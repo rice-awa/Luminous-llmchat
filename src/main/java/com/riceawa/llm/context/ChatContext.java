@@ -5,6 +5,7 @@ import com.riceawa.llm.core.LLMMessage.MessageRole;
 import com.riceawa.llm.core.LLMService;
 import com.riceawa.llm.core.LLMConfig;
 import com.riceawa.llm.core.LLMResponse;
+import com.riceawa.llm.core.LLMContext;
 import com.riceawa.llm.service.LLMServiceManager;
 import com.riceawa.llm.config.LLMChatConfig;
 import com.riceawa.llm.logging.LogManager;
@@ -105,6 +106,30 @@ public class ChatContext {
      */
     public void addSystemMessage(String content) {
         addMessage(new LLMMessage(MessageRole.SYSTEM, content));
+    }
+
+    /**
+     * 更新或添加系统消息（用于模板切换）
+     * 如果已存在系统消息，则替换第一个系统消息；否则在开头添加
+     */
+    public void updateSystemMessage(String content) {
+        synchronized (messages) {
+            // 查找第一个系统消息
+            for (int i = 0; i < messages.size(); i++) {
+                if (messages.get(i).getRole() == MessageRole.SYSTEM) {
+                    // 替换现有的系统消息
+                    messages.set(i, new LLMMessage(MessageRole.SYSTEM, content));
+                    invalidateCharacterCache();
+                    updateLastActivity();
+                    return;
+                }
+            }
+
+            // 如果没有找到系统消息，在开头添加
+            messages.add(0, new LLMMessage(MessageRole.SYSTEM, content));
+            invalidateCharacterCache();
+            updateLastActivity();
+        }
     }
 
     /**
@@ -424,8 +449,15 @@ public class ChatContext {
             compressionConfig.setTemperature(0.3); // 使用较低的温度以获得更一致的摘要
             compressionConfig.setMaxTokens(512); // 限制摘要长度
 
+            // 创建压缩上下文
+            LLMContext compressionContext = LLMContext.builder()
+                    .sessionId(this.sessionId)
+                    .metadata("operation", "compression")
+                    .metadata("original_message_count", messagesToCompress.size())
+                    .build();
+
             // 同步调用LLM进行压缩
-            CompletableFuture<LLMResponse> future = llmService.chat(compressionMessages, compressionConfig);
+            CompletableFuture<LLMResponse> future = llmService.chat(compressionMessages, compressionConfig, compressionContext);
             LLMResponse response = future.get(); // 等待结果
 
             if (response.isSuccess()) {

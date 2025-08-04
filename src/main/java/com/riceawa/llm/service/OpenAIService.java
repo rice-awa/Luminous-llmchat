@@ -7,11 +7,17 @@ import com.google.gson.JsonElement;
 import com.riceawa.llm.core.*;
 import com.riceawa.llm.config.ConcurrencySettings;
 import com.riceawa.llm.config.LLMChatConfig;
+import com.riceawa.llm.logging.LLMLogUtils;
+import com.riceawa.llm.logging.LLMRequestLogEntry;
+import com.riceawa.llm.logging.LLMResponseLogEntry;
 import okhttp3.*;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.UUID;
@@ -60,13 +66,18 @@ public class OpenAIService implements LLMService {
 
     @Override
     public CompletableFuture<LLMResponse> chat(List<LLMMessage> messages, LLMConfig config) {
+        return chat(messages, config, null);
+    }
+
+    @Override
+    public CompletableFuture<LLMResponse> chat(List<LLMMessage> messages, LLMConfig config, LLMContext context) {
         String requestId = UUID.randomUUID().toString().substring(0, 8);
 
         return ConcurrencyManager.getInstance().submitRequest(() -> {
             ConcurrencySettings settings = LLMChatConfig.getInstance().getConcurrencySettings();
 
             try {
-                return executeRequestWithRetry(messages, config, settings, requestId);
+                return executeRequestWithRetry(messages, config, settings, requestId, context);
             } catch (Exception e) {
                 LLMResponse errorResponse = new LLMResponse();
                 errorResponse.setError("Request failed: " + e.getMessage());
@@ -80,12 +91,23 @@ public class OpenAIService implements LLMService {
      */
     private LLMResponse executeRequestWithRetry(List<LLMMessage> messages, LLMConfig config,
                                               ConcurrencySettings settings, String requestId) throws Exception {
+        return executeRequestWithRetry(messages, config, settings, requestId, null);
+    }
+
+    /**
+     * 执行带重试的请求（带上下文信息）
+     */
+    private LLMResponse executeRequestWithRetry(List<LLMMessage> messages, LLMConfig config,
+                                              ConcurrencySettings settings, String requestId, LLMContext context) throws Exception {
         Exception lastException = null;
         int maxAttempts = settings.isEnableRetry() ? settings.getMaxRetryAttempts() + 1 : 1;
 
+        String playerName = context != null ? context.getPlayerName() : null;
+        String playerUuid = context != null ? context.getPlayerUuid() : null;
+
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-                return executeRequest(messages, config, requestId);
+                return executeRequest(messages, config, requestId, playerName, playerUuid);
             } catch (Exception e) {
                 lastException = e;
 
@@ -110,10 +132,41 @@ public class OpenAIService implements LLMService {
      * 执行单次请求
      */
     private LLMResponse executeRequest(List<LLMMessage> messages, LLMConfig config, String requestId) throws IOException {
+        return executeRequest(messages, config, requestId, null, null);
+    }
+
+    /**
+     * 执行单次请求（带上下文信息用于日志记录）
+     */
+    private LLMResponse executeRequest(List<LLMMessage> messages, LLMConfig config, String requestId,
+                                     String playerName, String playerUuid) throws IOException {
+        long startTime = System.currentTimeMillis();
         JsonObject requestBody = buildRequestBody(messages, config);
+        String requestUrl = baseUrl + "/chat/completions";
+
+        // 构建请求头
+        Map<String, String> requestHeaders = new HashMap<>();
+        requestHeaders.put("Authorization", "Bearer " + apiKey);
+        requestHeaders.put("Content-Type", "application/json");
+        requestHeaders.put("X-Request-ID", requestId);
+
+        // 记录请求日志
+        LLMRequestLogEntry requestLog = LLMLogUtils.createRequestLogBuilder(requestId)
+                .serviceName(getServiceName())
+                .playerName(playerName)
+                .playerUuid(playerUuid)
+                .messages(messages)
+                .config(config)
+                .rawRequestJson(requestBody.toString())
+                .requestUrl(requestUrl)
+                .requestHeaders(LLMLogUtils.sanitizeHeaders(requestHeaders))
+                .estimatedTokens(LLMLogUtils.estimateTokens(messages))
+                .build();
+
+        LLMLogUtils.logRequest(requestLog);
 
         Request request = new Request.Builder()
-                .url(baseUrl + "/chat/completions")
+                .url(requestUrl)
                 .header("Authorization", "Bearer " + apiKey)
                 .header("Content-Type", "application/json")
                 .header("X-Request-ID", requestId)
@@ -121,15 +174,48 @@ public class OpenAIService implements LLMService {
                 .build();
 
         try (Response response = httpClient.newCall(request).execute()) {
+            long endTime = System.currentTimeMillis();
+            long responseTime = endTime - startTime;
             String responseBody = response.body().string();
+            String responseId = LLMLogUtils.generateResponseId();
+
+            // 构建响应头
+            Map<String, String> responseHeaders = new HashMap<>();
+            for (String headerName : response.headers().names()) {
+                responseHeaders.put(headerName, response.header(headerName));
+            }
 
             if (!response.isSuccessful()) {
+                // 记录错误响应日志
+                LLMResponseLogEntry responseLog = LLMLogUtils.createResponseLogBuilder(responseId, requestId)
+                        .httpStatusCode(response.code())
+                        .success(false)
+                        .errorMessage("HTTP " + response.code() + ": " + responseBody)
+                        .rawResponseJson(responseBody)
+                        .responseHeaders(responseHeaders)
+                        .responseTimeMs(responseTime)
+                        .build();
+
+                LLMLogUtils.logResponse(responseLog);
+
                 LLMResponse errorResponse = new LLMResponse();
                 errorResponse.setError("HTTP " + response.code() + ": " + responseBody);
                 return errorResponse;
             }
 
             LLMResponse llmResponse = parseResponse(responseBody);
+
+            // 记录成功响应日志
+            LLMResponseLogEntry responseLog = LLMLogUtils.createResponseLogBuilder(responseId, requestId)
+                    .httpStatusCode(response.code())
+                    .success(llmResponse.isSuccess())
+                    .llmResponse(llmResponse)
+                    .rawResponseJson(responseBody)
+                    .responseHeaders(responseHeaders)
+                    .responseTimeMs(responseTime)
+                    .build();
+
+            LLMLogUtils.logResponse(responseLog);
 
             // 记录token使用情况
             if (llmResponse.isSuccess() && llmResponse.getUsage() != null) {

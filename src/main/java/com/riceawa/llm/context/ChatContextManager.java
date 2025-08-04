@@ -1,10 +1,12 @@
 package com.riceawa.llm.context;
 
 import com.riceawa.llm.config.LLMChatConfig;
+import com.riceawa.llm.core.LLMMessage;
 import com.riceawa.llm.logging.LogManager;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -39,6 +41,18 @@ public class ChatContextManager {
             }
         }
         return instance;
+    }
+
+    /**
+     * 重置单例实例（仅用于测试）
+     */
+    public static void resetInstance() {
+        synchronized (ChatContextManager.class) {
+            if (instance != null) {
+                instance.shutdown();
+                instance = null;
+            }
+        }
     }
 
     /**
@@ -82,6 +96,52 @@ public class ChatContextManager {
         if (context != null) {
             context.clear();
         }
+    }
+
+    /**
+     * 为指定玩家创建新的会话（清空当前对话并开始新会话）
+     */
+    public void renewSession(UUID playerId) {
+        // 创建新的ChatContext实例，这样会有新的sessionId
+        ChatContext newContext = new ChatContext(playerId);
+        // 设置事件监听器
+        newContext.setEventListener(new CompressionNotificationListener());
+        // 替换旧的context
+        contexts.put(playerId, newContext);
+    }
+
+    /**
+     * 为指定玩家创建新会话并复制历史消息，设置新的提示词模板
+     */
+    public void createNewSessionWithHistory(UUID playerId, String newTemplate) {
+        ChatContext oldContext = contexts.get(playerId);
+        if (oldContext == null) {
+            // 如果没有旧的context，直接创建新的
+            ChatContext newContext = new ChatContext(playerId);
+            newContext.setCurrentPromptTemplate(newTemplate);
+            newContext.setEventListener(new CompressionNotificationListener());
+            contexts.put(playerId, newContext);
+            return;
+        }
+
+        // 创建新的ChatContext实例
+        ChatContext newContext = new ChatContext(playerId);
+        newContext.setEventListener(new CompressionNotificationListener());
+
+        // 复制历史消息，但跳过旧的系统消息
+        List<LLMMessage> oldMessages = oldContext.getMessages();
+        for (LLMMessage message : oldMessages) {
+            // 跳过系统消息，因为我们要使用新模板的系统提示词
+            if (message.getRole() != LLMMessage.MessageRole.SYSTEM) {
+                newContext.addMessage(message);
+            }
+        }
+
+        // 设置新的提示词模板
+        newContext.setCurrentPromptTemplate(newTemplate);
+
+        // 替换旧的context
+        contexts.put(playerId, newContext);
     }
 
     /**

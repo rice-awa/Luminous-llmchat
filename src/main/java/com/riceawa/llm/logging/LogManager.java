@@ -9,6 +9,7 @@ import java.nio.file.*;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.*;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -116,6 +117,23 @@ public class LogManager {
     }
 
     /**
+     * 记录LLM请求日志
+     */
+    public void llmRequest(String message) {
+        log(LogLevel.INFO, "llm_request", message);
+    }
+
+    public void llmRequest(String message, String jsonData) {
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("json_data", jsonData);
+        log(LogLevel.INFO, "llm_request", message, metadata);
+    }
+
+    public void llmRequest(String message, Map<String, Object> metadata) {
+        log(LogLevel.INFO, "llm_request", message, metadata);
+    }
+
+    /**
      * 通用日志记录方法
      */
     public void log(LogLevel level, String category, String message) {
@@ -197,6 +215,9 @@ public class LogManager {
             }
             if (config.isEnableAuditLog()) {
                 logFiles.put("audit", rotationManager.createNewLogFile("audit"));
+            }
+            if (config.isEnableLLMRequestLog()) {
+                logFiles.put("llm_request", rotationManager.createNewLogFile("llm_request"));
             }
             
         } catch (IOException e) {

@@ -27,7 +27,7 @@ public class SetBlockFunction implements LLMFunction {
     
     @Override
     public String getDescription() {
-        return "在指定位置设置方块（仅OP可用）";
+        return "在指定位置设置方块";
     }
     
     @Override

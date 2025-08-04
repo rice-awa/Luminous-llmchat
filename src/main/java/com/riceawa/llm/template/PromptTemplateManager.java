@@ -128,7 +128,7 @@ public class PromptTemplateManager {
                 "default",
                 "默认助手",
                 "通用的AI助手模板",
-                "你是一个有用的AI助手，在Minecraft游戏中为玩家提供帮助。请用中文回答问题，保持友好和有帮助的态度。"
+                "你是一个有用的AI助手，在Minecraft游戏中为玩家提供帮助。请用中文回答问题，保持友好和有帮助的态度。话题不用仅仅局限于Minecraft"
         );
         templates.put("default", defaultTemplate);
 
