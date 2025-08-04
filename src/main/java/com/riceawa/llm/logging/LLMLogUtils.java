@@ -8,6 +8,7 @@ import com.google.gson.JsonParser;
 import com.riceawa.llm.core.LLMConfig;
 import com.riceawa.llm.core.LLMMessage;
 import com.riceawa.llm.core.LLMResponse;
+import com.riceawa.llm.history.LocalDateTimeAdapter;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,7 +24,7 @@ import java.util.regex.Pattern;
 public class LLMLogUtils {
     private static final Gson GSON = new GsonBuilder()
             .setPrettyPrinting()
-            .setDateFormat("yyyy-MM-dd HH:mm:ss.SSS")
+            .registerTypeAdapter(LocalDateTime.class, new LocalDateTimeAdapter())
             .create();
     
     private static final Pattern API_KEY_PATTERN = Pattern.compile("Bearer\\s+([a-zA-Z0-9\\-_]+)", Pattern.CASE_INSENSITIVE);

@@ -1452,25 +1452,37 @@ public class LLMChatCommand {
             return;
         }
 
-        // 检查是否有function call
-        if (message.getMetadata() != null && message.getMetadata().getFunctionCall() != null) {
+        // 先检查是否有content需要显示（LLM的提示信息）
+        String content = message.getContent();
+        boolean hasContent = content != null && !content.trim().isEmpty();
+        
+        // 检查是否有函数调用
+        boolean hasFunctionCall = message.getMetadata() != null && message.getMetadata().getFunctionCall() != null;
+        
+        if (hasContent) {
+            // 显示LLM的提示信息
+            if (shouldBroadcast(config, player.getName().getString())) {
+                player.getServer().getPlayerManager().broadcast(
+                    Text.literal("[AI回复给 " + player.getName().getString() + "] " + content)
+                        .formatted(Formatting.AQUA),
+                    false
+                );
+            } else {
+                player.sendMessage(Text.literal("[AI] " + content).formatted(Formatting.AQUA), false);
+            }
+        }
+
+        if (hasFunctionCall) {
+            // 如果有content，先将其添加到上下文
+            if (hasContent) {
+                chatContext.addAssistantMessage(content);
+            }
+            // 处理函数调用
             handleFunctionCall(message.getMetadata().getFunctionCall(), player, chatContext, config);
         } else {
-            // 普通文本响应
-            String content = message.getContent();
-            if (content != null && !content.trim().isEmpty()) {
+            // 没有函数调用，这是纯文本响应
+            if (hasContent) {
                 chatContext.addAssistantMessage(content);
-
-                // 根据广播设置发送AI回复
-                if (shouldBroadcast(config, player.getName().getString())) {
-                    player.getServer().getPlayerManager().broadcast(
-                        Text.literal("[AI回复给 " + player.getName().getString() + "] " + content)
-                            .formatted(Formatting.AQUA),
-                        false
-                    );
-                } else {
-                    player.sendMessage(Text.literal("[AI] " + content).formatted(Formatting.AQUA), false);
-                }
 
                 // 保存会话历史
                 if (config.isEnableHistory()) {
@@ -1551,7 +1563,7 @@ public class LLMChatCommand {
                 chatContext.addMessage(toolResponseMessage);
 
                 // 再次调用LLM获取基于函数结果的响应
-                callLLMWithFunctionResult(player, chatContext, config);
+                callLLMWithFunctionResult(player, chatContext, config, 1); // 开始递归，深度为1
             } else {
                 // 兼容旧格式的处理方式
                 handleLegacyFunctionCall(result, functionName, player, chatContext, config);
@@ -1563,10 +1575,24 @@ public class LLMChatCommand {
     }
 
     /**
-     * 使用函数结果再次调用LLM
+     * 使用函数结果再次调用LLM（支持递归）
      */
-    private static void callLLMWithFunctionResult(ServerPlayerEntity player, ChatContext chatContext, LLMChatConfig config) {
+    private static void callLLMWithFunctionResult(ServerPlayerEntity player, ChatContext chatContext, 
+                                                LLMChatConfig config, int recursionDepth) {
         try {
+            // 检查递归深度限制
+            if (!config.isEnableRecursiveFunctionCalls()) {
+                // 如果禁用了递归调用，按原来的方式处理（只处理文本响应）
+                callLLMWithFunctionResultLegacy(player, chatContext, config);
+                return;
+            }
+            
+            if (recursionDepth > config.getMaxFunctionCallDepth()) {
+                player.sendMessage(Text.literal("函数调用层次过深（" + recursionDepth + ">" + 
+                    config.getMaxFunctionCallDepth() + "），已停止").formatted(Formatting.YELLOW), false);
+                return;
+            }
+            
             LLMServiceManager serviceManager = LLMServiceManager.getInstance();
             LLMService llmService = serviceManager.getDefaultService();
 
@@ -1581,6 +1607,182 @@ public class LLMChatCommand {
             llmConfig.setTemperature(config.getDefaultTemperature());
             llmConfig.setMaxTokens(config.getDefaultMaxTokens());
 
+            // 重要：重新添加工具定义，支持继续调用函数
+            if (config.isEnableFunctionCalling()) {
+                FunctionRegistry functionRegistry = FunctionRegistry.getInstance();
+                List<LLMConfig.ToolDefinition> tools = functionRegistry.generateToolDefinitions(player);
+                if (!tools.isEmpty()) {
+                    llmConfig.setTools(tools);
+                    llmConfig.setToolChoice("auto");
+                }
+            }
+
+            // 创建LLM上下文信息
+            LLMContext llmContext = LLMContext.builder()
+                    .playerName(player.getName().getString())
+                    .playerUuid(player.getUuidAsString())
+                    .sessionId(chatContext.getSessionId())
+                    .metadata("server", player.getServer().getName())
+                    .metadata("recursionDepth", String.valueOf(recursionDepth))
+                    .build();
+
+            // 发送请求获取响应（可能包含新的函数调用）
+            llmService.chat(chatContext.getMessages(), llmConfig, llmContext)
+                    .thenAccept(response -> {
+                        if (response.isSuccess()) {
+                            // 使用递归响应处理逻辑
+                            handleLLMResponseWithRecursion(response, player, chatContext, config, recursionDepth);
+                        } else {
+                            player.sendMessage(Text.literal("AI响应错误: " + response.getError()).formatted(Formatting.RED), false);
+                        }
+                    })
+                    .exceptionally(throwable -> {
+                        player.sendMessage(Text.literal("请求失败: " + throwable.getMessage()).formatted(Formatting.RED), false);
+                        return null;
+                    });
+
+        } catch (Exception e) {
+            player.sendMessage(Text.literal("调用LLM失败: " + e.getMessage()).formatted(Formatting.RED), false);
+        }
+    }
+
+    /**
+     * 递归处理LLM响应（支持多轮函数调用）
+     */
+    private static void handleLLMResponseWithRecursion(LLMResponse response, ServerPlayerEntity player,
+                                                     ChatContext chatContext, LLMChatConfig config, int recursionDepth) {
+        if (!response.isSuccess()) {
+            player.sendMessage(Text.literal("AI响应错误: " + response.getError()).formatted(Formatting.RED), false);
+            return;
+        }
+
+        // 获取第一个选择的消息
+        LLMMessage message = response.getChoices().get(0).getMessage();
+        if (message == null) {
+            player.sendMessage(Text.literal("AI没有返回有效消息").formatted(Formatting.RED), false);
+            return;
+        }
+
+        // 先检查是否有content需要显示（LLM的提示信息）
+        String content = message.getContent();
+        boolean hasContent = content != null && !content.trim().isEmpty();
+        
+        // 检查是否有函数调用
+        boolean hasFunctionCall = message.getMetadata() != null && message.getMetadata().getFunctionCall() != null;
+        
+        if (hasContent) {
+            // 显示LLM的提示信息
+            if (shouldBroadcast(config, player.getName().getString())) {
+                player.getServer().getPlayerManager().broadcast(
+                    Text.literal("[AI回复给 " + player.getName().getString() + "] " + content)
+                        .formatted(Formatting.AQUA),
+                    false
+                );
+            } else {
+                player.sendMessage(Text.literal("[AI] " + content).formatted(Formatting.AQUA), false);
+            }
+        }
+        
+        if (hasFunctionCall) {
+            // 如果有content，先将其添加到上下文
+            if (hasContent) {
+                chatContext.addAssistantMessage(content);
+            }
+            // 递归处理函数调用
+            handleFunctionCallWithRecursion(message.getMetadata().getFunctionCall(), player, chatContext, config, recursionDepth);
+        } else {
+            // 没有函数调用，这是最终的文本响应
+            if (hasContent) {
+                chatContext.addAssistantMessage(content);
+
+                // 保存会话历史
+                if (config.isEnableHistory()) {
+                    ChatHistory.getInstance().saveSession(chatContext);
+                }
+
+                // 检查是否需要压缩上下文（对话结束后异步处理）
+                checkAndNotifyCompression(chatContext, player, config);
+            } else {
+                player.sendMessage(Text.literal("AI没有返回有效内容").formatted(Formatting.RED), false);
+            }
+        }
+    }
+
+    /**
+     * 递归处理函数调用
+     */
+    private static void handleFunctionCallWithRecursion(LLMMessage.FunctionCall functionCall, ServerPlayerEntity player,
+                                                      ChatContext chatContext, LLMChatConfig config, int recursionDepth) {
+        try {
+            String functionName = functionCall.getName();
+            String argumentsStr = functionCall.getArguments();
+            String toolCallId = functionCall.getToolCallId();
+
+            player.sendMessage(Text.literal("正在执行函数: " + functionName + " (深度: " + recursionDepth + ")")
+                .formatted(Formatting.YELLOW), false);
+
+            // 解析参数
+            JsonObject arguments = new JsonObject();
+            if (argumentsStr != null && !argumentsStr.trim().isEmpty()) {
+                try {
+                    arguments = gson.fromJson(argumentsStr, JsonObject.class);
+                } catch (Exception e) {
+                    player.sendMessage(Text.literal("函数参数解析失败: " + e.getMessage()).formatted(Formatting.RED), false);
+                    return;
+                }
+            }
+
+            // 执行函数
+            FunctionRegistry functionRegistry = FunctionRegistry.getInstance();
+            LLMFunction.FunctionResult result = functionRegistry.executeFunction(functionName, player, arguments);
+
+            // 添加工具调用和响应消息到上下文
+            if (toolCallId != null) {
+                // 添加工具调用消息
+                LLMMessage toolCallMessage = new LLMMessage(LLMMessage.MessageRole.ASSISTANT, null);
+                LLMMessage.MessageMetadata metadata = new LLMMessage.MessageMetadata();
+                metadata.setFunctionCall(functionCall);
+                toolCallMessage.setMetadata(metadata);
+                chatContext.addMessage(toolCallMessage);
+
+                // 添加工具响应消息
+                String resultContent = result.isSuccess() ? result.getResult() : "错误: " + result.getError();
+                LLMMessage toolResponseMessage = new LLMMessage(LLMMessage.MessageRole.TOOL, resultContent);
+                toolResponseMessage.setName(functionName);
+                toolResponseMessage.setToolCallId(toolCallId);
+                chatContext.addMessage(toolResponseMessage);
+
+                // 递归调用LLM
+                callLLMWithFunctionResult(player, chatContext, config, recursionDepth + 1);
+            } else {
+                // 兼容旧格式的处理方式
+                handleLegacyFunctionCall(result, functionName, player, chatContext, config);
+            }
+
+        } catch (Exception e) {
+            player.sendMessage(Text.literal("递归函数调用处理失败: " + e.getMessage()).formatted(Formatting.RED), false);
+        }
+    }
+
+    /**
+     * 兼容旧版本的callLLMWithFunctionResult（不支持递归）
+     */
+    private static void callLLMWithFunctionResultLegacy(ServerPlayerEntity player, ChatContext chatContext, LLMChatConfig config) {
+        try {
+            LLMServiceManager serviceManager = LLMServiceManager.getInstance();
+            LLMService llmService = serviceManager.getDefaultService();
+
+            if (llmService == null) {
+                player.sendMessage(Text.literal("LLM服务不可用").formatted(Formatting.RED), false);
+                return;
+            }
+
+            // 构建配置（不包含工具定义）
+            LLMConfig llmConfig = new LLMConfig();
+            llmConfig.setModel(config.getCurrentModel());
+            llmConfig.setTemperature(config.getDefaultTemperature());
+            llmConfig.setMaxTokens(config.getDefaultMaxTokens());
+
             // 创建LLM上下文信息
             LLMContext llmContext = LLMContext.builder()
                     .playerName(player.getName().getString())
@@ -1589,7 +1791,7 @@ public class LLMChatCommand {
                     .metadata("server", player.getServer().getName())
                     .build();
 
-            // 发送请求获取最终响应
+            // 发送请求获取最终响应（仅文本）
             llmService.chat(chatContext.getMessages(), llmConfig, llmContext)
                     .thenAccept(response -> {
                         if (response.isSuccess()) {
@@ -1613,7 +1815,7 @@ public class LLMChatCommand {
                                     ChatHistory.getInstance().saveSession(chatContext);
                                 }
 
-                                // 检查是否需要压缩上下文（对话结束后异步处理）
+                                // 检查是否需要压缩上下文
                                 checkAndNotifyCompression(chatContext, player, config);
                             }
                         } else {

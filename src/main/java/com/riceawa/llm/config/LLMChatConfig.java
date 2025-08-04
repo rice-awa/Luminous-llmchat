@@ -61,6 +61,14 @@ public class LLMChatConfig {
     private boolean enableTitleGeneration = ConfigDefaults.DEFAULT_ENABLE_TITLE_GENERATION;
     private String titleGenerationModel = ConfigDefaults.DEFAULT_TITLE_GENERATION_MODEL;
 
+    // Wiki API 配置
+    private String wikiApiUrl = ConfigDefaults.DEFAULT_WIKI_API_URL;
+    
+    // 多轮函数调用配置
+    private boolean enableRecursiveFunctionCalls = ConfigDefaults.DEFAULT_ENABLE_RECURSIVE_FUNCTION_CALLS;
+    private int maxFunctionCallDepth = ConfigDefaults.DEFAULT_MAX_FUNCTION_CALL_DEPTH;
+    private int functionCallTimeoutMs = ConfigDefaults.DEFAULT_FUNCTION_CALL_TIMEOUT_MS;
+
     // 并发配置
     private ConcurrencySettings concurrencySettings = ConcurrencySettings.createDefault();
 
@@ -312,6 +320,9 @@ public class LLMChatConfig {
         this.enableTitleGeneration = data.enableTitleGeneration != null ? data.enableTitleGeneration : (Boolean) ConfigDefaults.getDefaultValue("enableTitleGeneration");
         this.titleGenerationModel = data.titleGenerationModel != null ? data.titleGenerationModel : (String) ConfigDefaults.getDefaultValue("titleGenerationModel");
 
+        // 处理Wiki API配置
+        this.wikiApiUrl = data.wikiApiUrl != null ? data.wikiApiUrl : (String) ConfigDefaults.getDefaultValue("wikiApiUrl");
+
         // 处理并发配置
         this.concurrencySettings = data.concurrencySettings != null ? data.concurrencySettings : ConcurrencySettings.createDefault();
 
@@ -412,6 +423,9 @@ public class LLMChatConfig {
         // 压缩和标题生成功能配置
         data.enableCompressionNotification = this.enableCompressionNotification;
         data.enableTitleGeneration = this.enableTitleGeneration;
+
+        // Wiki API 配置
+        data.wikiApiUrl = this.wikiApiUrl;
 
         // 系统配置
         data.concurrencySettings = this.concurrencySettings;
@@ -1103,6 +1117,66 @@ public class LLMChatConfig {
     }
 
     /**
+     * 获取Wiki API URL
+     */
+    public String getWikiApiUrl() {
+        return wikiApiUrl;
+    }
+
+    /**
+     * 设置Wiki API URL
+     */
+    public void setWikiApiUrl(String wikiApiUrl) {
+        this.wikiApiUrl = wikiApiUrl != null ? wikiApiUrl : ConfigDefaults.DEFAULT_WIKI_API_URL;
+        saveConfig();
+    }
+
+    /**
+     * 获取是否启用递归函数调用
+     */
+    public boolean isEnableRecursiveFunctionCalls() {
+        return enableRecursiveFunctionCalls;
+    }
+
+    /**
+     * 设置是否启用递归函数调用
+     */
+    public void setEnableRecursiveFunctionCalls(boolean enableRecursiveFunctionCalls) {
+        this.enableRecursiveFunctionCalls = enableRecursiveFunctionCalls;
+        saveConfig();
+    }
+
+    /**
+     * 获取最大函数调用深度
+     */
+    public int getMaxFunctionCallDepth() {
+        return maxFunctionCallDepth;
+    }
+
+    /**
+     * 设置最大函数调用深度
+     */
+    public void setMaxFunctionCallDepth(int maxFunctionCallDepth) {
+        this.maxFunctionCallDepth = Math.max(1, Math.min(10, maxFunctionCallDepth)); // 限制在1-10之间
+        saveConfig();
+    }
+
+    /**
+     * 获取函数调用超时时间（毫秒）
+     */
+    public int getFunctionCallTimeoutMs() {
+        return functionCallTimeoutMs;
+    }
+
+    /**
+     * 设置函数调用超时时间（毫秒）
+     */
+    public void setFunctionCallTimeoutMs(int functionCallTimeoutMs) {
+        this.functionCallTimeoutMs = Math.max(5000, Math.min(60000, functionCallTimeoutMs)); // 限制在5-60秒之间
+        saveConfig();
+    }
+
+    /**
      * 配置数据类
      */
     private static class ConfigData {
@@ -1128,6 +1202,9 @@ public class LLMChatConfig {
         // 压缩和标题生成功能配置
         Boolean enableCompressionNotification;
         Boolean enableTitleGeneration;
+
+        // Wiki API 配置
+        String wikiApiUrl;
 
         // 系统配置
         ConcurrencySettings concurrencySettings;
