@@ -1424,25 +1424,37 @@ public class LLMChatCommand {
             return;
         }
 
-        // 检查是否有function call
-        if (message.getMetadata() != null && message.getMetadata().getFunctionCall() != null) {
+        // 先检查是否有content需要显示（LLM的提示信息）
+        String content = message.getContent();
+        boolean hasContent = content != null && !content.trim().isEmpty();
+        
+        // 检查是否有函数调用
+        boolean hasFunctionCall = message.getMetadata() != null && message.getMetadata().getFunctionCall() != null;
+        
+        if (hasContent) {
+            // 显示LLM的提示信息
+            if (shouldBroadcast(config, player.getName().getString())) {
+                player.getServer().getPlayerManager().broadcast(
+                    Text.literal("[AI回复给 " + player.getName().getString() + "] " + content)
+                        .formatted(Formatting.AQUA),
+                    false
+                );
+            } else {
+                player.sendMessage(Text.literal("[AI] " + content).formatted(Formatting.AQUA), false);
+            }
+        }
+
+        if (hasFunctionCall) {
+            // 如果有content，先将其添加到上下文
+            if (hasContent) {
+                chatContext.addAssistantMessage(content);
+            }
+            // 处理函数调用
             handleFunctionCall(message.getMetadata().getFunctionCall(), player, chatContext, config);
         } else {
-            // 普通文本响应
-            String content = message.getContent();
-            if (content != null && !content.trim().isEmpty()) {
+            // 没有函数调用，这是纯文本响应
+            if (hasContent) {
                 chatContext.addAssistantMessage(content);
-
-                // 根据广播设置发送AI回复
-                if (shouldBroadcast(config, player.getName().getString())) {
-                    player.getServer().getPlayerManager().broadcast(
-                        Text.literal("[AI回复给 " + player.getName().getString() + "] " + content)
-                            .formatted(Formatting.AQUA),
-                        false
-                    );
-                } else {
-                    player.sendMessage(Text.literal("[AI] " + content).formatted(Formatting.AQUA), false);
-                }
 
                 // 保存会话历史
                 if (config.isEnableHistory()) {
@@ -1623,26 +1635,37 @@ public class LLMChatCommand {
             return;
         }
 
-        // 检查是否有新的函数调用
-        if (message.getMetadata() != null && message.getMetadata().getFunctionCall() != null) {
+        // 先检查是否有content需要显示（LLM的提示信息）
+        String content = message.getContent();
+        boolean hasContent = content != null && !content.trim().isEmpty();
+        
+        // 检查是否有函数调用
+        boolean hasFunctionCall = message.getMetadata() != null && message.getMetadata().getFunctionCall() != null;
+        
+        if (hasContent) {
+            // 显示LLM的提示信息
+            if (shouldBroadcast(config, player.getName().getString())) {
+                player.getServer().getPlayerManager().broadcast(
+                    Text.literal("[AI回复给 " + player.getName().getString() + "] " + content)
+                        .formatted(Formatting.AQUA),
+                    false
+                );
+            } else {
+                player.sendMessage(Text.literal("[AI] " + content).formatted(Formatting.AQUA), false);
+            }
+        }
+        
+        if (hasFunctionCall) {
+            // 如果有content，先将其添加到上下文
+            if (hasContent) {
+                chatContext.addAssistantMessage(content);
+            }
             // 递归处理函数调用
             handleFunctionCallWithRecursion(message.getMetadata().getFunctionCall(), player, chatContext, config, recursionDepth);
         } else {
-            // 文本响应，结束递归
-            String content = message.getContent();
-            if (content != null && !content.trim().isEmpty()) {
+            // 没有函数调用，这是最终的文本响应
+            if (hasContent) {
                 chatContext.addAssistantMessage(content);
-
-                // 根据广播设置发送AI回复
-                if (shouldBroadcast(config, player.getName().getString())) {
-                    player.getServer().getPlayerManager().broadcast(
-                        Text.literal("[AI回复给 " + player.getName().getString() + "] " + content)
-                            .formatted(Formatting.AQUA),
-                        false
-                    );
-                } else {
-                    player.sendMessage(Text.literal("[AI] " + content).formatted(Formatting.AQUA), false);
-                }
 
                 // 保存会话历史
                 if (config.isEnableHistory()) {

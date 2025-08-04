@@ -34,7 +34,7 @@ public class WikiSearchFunction implements LLMFunction {
     
     @Override
     public String getDescription() {
-        return "搜索Minecraft Wiki内容，获取相关页面信息。Returns:搜索结果字典，包含匹配页面列表和分页信息,返回的结果并不是详细信息，请使用该工具后接着使用pageAPI查看详细信息。Notes:此工具只能依照关键词匹配搜索描述，可能无法返回跟关键词完全匹配的内容，注意分辨";
+        return "搜索Minecraft Wiki内容，获取相关页面信息。Returns:搜索结果字典，包含匹配页面列表和分页信息,返回的结果并不是详细信息，请根据情况决定是否在使用该工具后接着使用pageAPI查看详细信息。Notes:此工具只能依照关键词匹配搜索描述，可能无法返回跟关键词完全匹配的内容，注意分辨";
     }
     
     @Override
