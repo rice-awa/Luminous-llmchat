@@ -122,8 +122,8 @@ public class WikiSearchFunction implements LLMFunction {
                 
                 if (!jsonResponse.get("success").getAsBoolean()) {
                     JsonObject error = jsonResponse.getAsJsonObject("error");
-                    String errorMessage = error.get("message").getAsString();
-                    return FunctionResult.error("Wiki搜索失败: " + errorMessage);
+                    String errorMsg = WikiErrorHandler.handleError(error, query);
+                    return FunctionResult.error("Wiki搜索失败: " + errorMsg);
                 }
                 
                 // 解析搜索结果

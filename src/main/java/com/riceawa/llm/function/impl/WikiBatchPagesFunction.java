@@ -190,9 +190,8 @@ public class WikiBatchPagesFunction implements LLMFunction {
                 if (!jsonResponse.has("success") || !jsonResponse.get("success").getAsBoolean()) {
                     if (jsonResponse.has("error")) {
                         JsonObject error = jsonResponse.getAsJsonObject("error");
-                        String errorMessage = error != null && error.has("message") ? 
-                                              error.get("message").getAsString() : "未知错误";
-                        return FunctionResult.error("Wiki批量获取失败: " + errorMessage);
+                        String errorMsg = WikiErrorHandler.handleError(error, null);
+                        return FunctionResult.error("Wiki批量获取失败: " + errorMsg);
                     } else {
                         return FunctionResult.error("Wiki批量获取失败: 未知错误");
                     }
@@ -277,8 +276,10 @@ public class WikiBatchPagesFunction implements LLMFunction {
                             resultText.append(" ❌\n");
                             if (pageResult.has("error")) {
                                 JsonObject pageError = pageResult.getAsJsonObject("error");
-                                String errorMsg = pageError.get("message").getAsString();
-                                resultText.append("错误: ").append(errorMsg).append("\n\n");
+                                String errorMsg = WikiErrorHandler.handleBatchPageError(pageError, pageName, 3);
+                                resultText.append("错误: ").append(errorMsg).append("\n");
+                            } else {
+                                resultText.append("错误: 未知错误\n\n");
                             }
                         }
                         
