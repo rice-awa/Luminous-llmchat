@@ -72,7 +72,7 @@ public class WikiPageFunction implements LLMFunction {
         maxLength.addProperty("description", "内容长度限制（字符数），0表示不限制，没特殊情况不要限制。");
         maxLength.addProperty("minimum", 0);
         maxLength.addProperty("maximum", 11000);
-        maxLength.addProperty("default", 3000);
+        maxLength.addProperty("default", 5000);
         properties.add("max_length", maxLength);
         
         schema.add("properties", properties);
@@ -108,8 +108,8 @@ public class WikiPageFunction implements LLMFunction {
                                     arguments.get("include_metadata").getAsBoolean();
             
             int maxLength = arguments.has("max_length") ? 
-                    arguments.get("max_length").getAsInt() : 3000;
-            if (maxLength < 0) maxLength = 3000;
+                    arguments.get("max_length").getAsInt() : 5000;
+            if (maxLength < 0) maxLength = 5000;
             if (maxLength > 11000) maxLength = 11000;
             
             // 构建API请求URL
@@ -138,51 +138,24 @@ public class WikiPageFunction implements LLMFunction {
                 String responseBody = response.body().string();
                 JsonObject jsonResponse = gson.fromJson(responseBody, JsonObject.class);
                 
-                if (jsonResponse == null) {
-                    return FunctionResult.error("Wiki API返回无效响应");
-                }
-                
-                if (!jsonResponse.has("success") || !jsonResponse.get("success").getAsBoolean()) {
-                    if (jsonResponse.has("error")) {
-                        JsonObject error = jsonResponse.getAsJsonObject("error");
-                        String errorMessage = error != null && error.has("message") ? 
-                                              error.get("message").getAsString() : "未知错误";
-                        return FunctionResult.error("Wiki页面获取失败: " + errorMessage);
-                    } else {
-                        return FunctionResult.error("Wiki页面获取失败: 未知错误");
-                    }
+                if (!jsonResponse.get("success").getAsBoolean()) {
+                    JsonObject error = jsonResponse.getAsJsonObject("error");
+                    String errorMessage = error.get("message").getAsString();
+                    return FunctionResult.error("Wiki页面获取失败: " + errorMessage);
                 }
                 
                 // 解析页面内容
                 JsonObject data = jsonResponse.getAsJsonObject("data");
-                if (data == null) {
-                    return FunctionResult.error("Wiki API返回数据为空");
-                }
                 JsonObject page = data.getAsJsonObject("page");
-                if (page == null) {
-                    return FunctionResult.error("Wiki API返回页面信息为空");
-                }
-                String title = page.has("title") && !page.get("title").isJsonNull() ? 
-                               page.get("title").getAsString() : pageName;
+                String title = page.get("title").getAsString();
                 JsonObject content = page.getAsJsonObject("content");
-                if (content == null) {
-                    return FunctionResult.error("Wiki页面内容为空");
-                }
                 
                 // 获取内容文本
                 String pageContent;
                 if (format.equals("markdown")) {
-                    if (content.has("markdown") && !content.get("markdown").isJsonNull()) {
-                        pageContent = content.get("markdown").getAsString();
-                    } else {
-                        pageContent = "内容不可用（markdown格式）";
-                    }
+                    pageContent = content.get("markdown").getAsString();
                 } else {
-                    if (content.has("html") && !content.get("html").isJsonNull()) {
-                        pageContent = content.get("html").getAsString();
-                    } else {
-                        pageContent = "内容不可用（html格式）";
-                    }
+                    pageContent = content.get("html").getAsString();
                 }
                 
                 // 应用长度限制
