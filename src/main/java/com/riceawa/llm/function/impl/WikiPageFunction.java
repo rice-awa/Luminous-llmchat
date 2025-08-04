@@ -128,37 +128,13 @@ public class WikiPageFunction implements LLMFunction {
                     .build();
             
             try (Response response = httpClient.newCall(request).execute()) {
-                String responseBody = response.body().string();
-                
-                if (!response.isSuccessful()) {
-                    // 尝试解析错误响应
-                    if (responseBody != null && !responseBody.isEmpty()) {
-                        try {
-                            JsonObject jsonResponse = gson.fromJson(responseBody, JsonObject.class);
-                            if (jsonResponse != null && jsonResponse.has("error")) {
-                                JsonObject error = jsonResponse.getAsJsonObject("error");
-                                String errorMsg = WikiErrorHandler.handleError(error, pageName);
-                                return FunctionResult.error("Wiki页面获取失败: " + errorMsg);
-                            }
-                        } catch (Exception parseEx) {
-                            // 解析失败，使用原有逻辑
-                        }
-                    }
-                    
-                    // 原有的HTTP状态码处理
-                    if (response.code() == 404) {
-                        return FunctionResult.error("Wiki页面不存在: " + pageName);
-                    }
-                    return FunctionResult.error("Wiki API请求失败: HTTP " + response.code());
+                // 使用统一的HTTP响应处理
+                WikiErrorHandler.HttpResponseResult httpResult = WikiErrorHandler.handleHttpResponse(response, pageName);
+                if (!httpResult.isSuccess()) {
+                    return httpResult.errorResult;
                 }
                 
-                JsonObject jsonResponse = gson.fromJson(responseBody, JsonObject.class);
-                
-                if (!jsonResponse.get("success").getAsBoolean()) {
-                    JsonObject error = jsonResponse.getAsJsonObject("error");
-                    String errorMsg = WikiErrorHandler.handleError(error, pageName);
-                    return FunctionResult.error("Wiki页面获取失败: " + errorMsg);
-                }
+                JsonObject jsonResponse = httpResult.jsonResponse;
                 
                 // 解析页面内容
                 JsonObject data = jsonResponse.getAsJsonObject("data");

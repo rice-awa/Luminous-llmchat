@@ -1,13 +1,99 @@
 package com.riceawa.llm.function.impl;
 
+import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.riceawa.llm.function.LLMFunction;
+import okhttp3.Response;
 
 /**
  * Wiki API错误处理工具类
- * 统一处理各种Wiki API错误响应格式
+ * 统一处理各种Wiki API错误响应格式，包括HTTP错误和JSON错误
  */
 public class WikiErrorHandler {
+    
+    private static final Gson gson = new Gson();
+    
+    /**
+     * 统一处理HTTP响应，包括HTTP状态码错误和JSON格式错误
+     * @param response HTTP响应对象
+     * @param contextInfo 上下文信息（如页面名称）
+     * @return 成功时返回JsonObject，失败时返回null并记录错误到结果中
+     */
+    public static class HttpResponseResult {
+        public final JsonObject jsonResponse;
+        public final LLMFunction.FunctionResult errorResult;
+        
+        private HttpResponseResult(JsonObject jsonResponse, LLMFunction.FunctionResult errorResult) {
+            this.jsonResponse = jsonResponse;
+            this.errorResult = errorResult;
+        }
+        
+        public static HttpResponseResult success(JsonObject jsonResponse) {
+            return new HttpResponseResult(jsonResponse, null);
+        }
+        
+        public static HttpResponseResult error(LLMFunction.FunctionResult errorResult) {
+            return new HttpResponseResult(null, errorResult);
+        }
+        
+        public boolean isSuccess() {
+            return errorResult == null;
+        }
+    }
+    
+    /**
+     * 统一处理HTTP响应错误，包括HTTP状态码错误和JSON格式错误
+     * @param response HTTP响应对象
+     * @param contextInfo 上下文信息（如页面名称）
+     * @return HttpResponseResult包含处理结果
+     */
+    public static HttpResponseResult handleHttpResponse(Response response, String contextInfo) {
+        try {
+            String responseBody = response.body().string();
+            
+            if (!response.isSuccessful()) {
+                // 尝试解析错误响应体
+                if (responseBody != null && !responseBody.isEmpty()) {
+                    try {
+                        JsonObject jsonResponse = gson.fromJson(responseBody, JsonObject.class);
+                        if (jsonResponse != null && jsonResponse.has("error")) {
+                            JsonObject error = jsonResponse.getAsJsonObject("error");
+                            String errorMsg = handleError(error, contextInfo);
+                            return HttpResponseResult.error(LLMFunction.FunctionResult.error("Wiki API请求失败: " + errorMsg));
+                        }
+                    } catch (Exception parseEx) {
+                        // JSON解析失败，使用HTTP状态码
+                    }
+                }
+                
+                // 标准HTTP错误处理
+                return HttpResponseResult.error(LLMFunction.FunctionResult.error("Wiki API请求失败: HTTP " + response.code()));
+            }
+            
+            // 解析成功的响应
+            JsonObject jsonResponse = gson.fromJson(responseBody, JsonObject.class);
+            if (jsonResponse == null) {
+                return HttpResponseResult.error(LLMFunction.FunctionResult.error("Wiki API返回无效响应"));
+            }
+            
+            if (!jsonResponse.has("success") || !jsonResponse.get("success").getAsBoolean()) {
+                if (jsonResponse.has("error")) {
+                    JsonObject error = jsonResponse.getAsJsonObject("error");
+                    String errorMsg = handleError(error, contextInfo);
+                    return HttpResponseResult.error(LLMFunction.FunctionResult.error("Wiki API请求失败: " + errorMsg));
+                } else {
+                    return HttpResponseResult.error(LLMFunction.FunctionResult.error("Wiki API请求失败: 未知错误"));
+                }
+            }
+            
+            // 成功，返回解析后的JSON响应
+            return HttpResponseResult.success(jsonResponse);
+            
+        } catch (Exception e) {
+            return HttpResponseResult.error(LLMFunction.FunctionResult.error("处理HTTP响应失败: " + e.getMessage()));
+        }
+    }
     
     /**
      * 处理Wiki API错误响应，返回格式化的错误消息
