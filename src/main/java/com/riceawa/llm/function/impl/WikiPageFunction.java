@@ -69,17 +69,17 @@ public class WikiPageFunction implements LLMFunction {
         // 可选参数：内容长度限制
         JsonObject maxLength = new JsonObject();
         maxLength.addProperty("type", "integer");
-        maxLength.addProperty("description", "内容长度限制（字符数），0表示不限制");
+        maxLength.addProperty("description", "内容长度限制（字符数），0表示不限制，没特殊情况不要限制。");
         maxLength.addProperty("minimum", 0);
-        maxLength.addProperty("maximum", 10000);
-        maxLength.addProperty("default", 2000);
+        maxLength.addProperty("maximum", 11000);
+        maxLength.addProperty("default", 3000);
         properties.add("max_length", maxLength);
         
         schema.add("properties", properties);
         
         // 必需参数列表
-        JsonObject required = new JsonObject();
-        required.add("page_name", new JsonObject());
+        JsonArray required = new JsonArray();
+        required.add("page_name");
         schema.add("required", required);
         
         return schema;
@@ -108,9 +108,9 @@ public class WikiPageFunction implements LLMFunction {
                                     arguments.get("include_metadata").getAsBoolean();
             
             int maxLength = arguments.has("max_length") ? 
-                    arguments.get("max_length").getAsInt() : 2000;
-            if (maxLength < 0) maxLength = 2000;
-            if (maxLength > 10000) maxLength = 10000;
+                    arguments.get("max_length").getAsInt() : 3000;
+            if (maxLength < 0) maxLength = 3000;
+            if (maxLength > 11000) maxLength = 11000;
             
             // 构建API请求URL
             String wikiBaseUrl = LLMChatConfig.getInstance().getWikiApiUrl();
@@ -171,23 +171,23 @@ public class WikiPageFunction implements LLMFunction {
                 if (includeMetadata && page.has("meta")) {
                     JsonObject meta = page.getAsJsonObject("meta");
                     resultText.append("\n\n=== 页面信息 ===\n");
-                    if (meta.has("wordCount")) {
+                    if (meta.has("wordCount") && !meta.get("wordCount").isJsonNull()) {
                         resultText.append("字数: ").append(meta.get("wordCount").getAsInt()).append("\n");
                     }
-                    if (meta.has("imageCount")) {
+                    if (meta.has("imageCount") && !meta.get("imageCount").isJsonNull()) {
                         resultText.append("图片数: ").append(meta.get("imageCount").getAsInt()).append("\n");
                     }
-                    if (meta.has("tableCount")) {
+                    if (meta.has("tableCount") && !meta.get("tableCount").isJsonNull()) {
                         resultText.append("表格数: ").append(meta.get("tableCount").getAsInt()).append("\n");
                     }
-                    if (meta.has("sectionCount")) {
+                    if (meta.has("sectionCount") && !meta.get("sectionCount").isJsonNull()) {
                         resultText.append("章节数: ").append(meta.get("sectionCount").getAsInt()).append("\n");
                     }
                 }
                 
                 // 添加来源信息
                 resultText.append("\n📖 内容来源: 中文 Minecraft Wiki (CC BY-NC-SA 3.0)\n");
-                if (page.has("url")) {
+                if (page.has("url") && !page.get("url").isJsonNull()) {
                     resultText.append("🔗 页面链接: ").append(page.get("url").getAsString()).append("\n");
                 }
                 
@@ -197,7 +197,7 @@ public class WikiPageFunction implements LLMFunction {
                 resultData.addProperty("title", title);
                 resultData.addProperty("format", format);
                 resultData.addProperty("contentLength", pageContent.length());
-                if (page.has("url")) {
+                if (page.has("url") && !page.get("url").isJsonNull()) {
                     resultData.addProperty("url", page.get("url").getAsString());
                 }
                 

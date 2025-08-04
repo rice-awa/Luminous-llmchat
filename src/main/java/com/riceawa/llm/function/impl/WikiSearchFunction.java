@@ -139,7 +139,14 @@ public class WikiSearchFunction implements LLMFunction {
                 StringBuilder resultText = new StringBuilder();
                 resultText.append("=== Wiki搜索结果 ===\n");
                 resultText.append("搜索关键词: ").append(query).append("\n");
-                resultText.append("找到 ").append(pagination.get("totalHits").getAsInt())
+                
+                // 安全获取totalHits字段
+                int totalHits = results.size(); // 默认值为结果数组长度
+                if (pagination.has("totalHits") && !pagination.get("totalHits").isJsonNull()) {
+                    totalHits = pagination.get("totalHits").getAsInt();
+                }
+                
+                resultText.append("找到 ").append(totalHits)
                          .append(" 个结果，显示前 ").append(results.size()).append(" 个:\n\n");
                 
                 for (int i = 0; i < results.size(); i++) {
@@ -161,7 +168,9 @@ public class WikiSearchFunction implements LLMFunction {
                     resultText.append("   ").append(snippet).append("\n\n");
                 }
                 
-                if (pagination.get("hasMore").getAsBoolean()) {
+                // 安全检查hasMore字段
+                if (pagination.has("hasMore") && !pagination.get("hasMore").isJsonNull() 
+                    && pagination.get("hasMore").getAsBoolean()) {
                     resultText.append("💡 提示: 还有更多搜索结果，可以使用 wiki_page 函数获取具体页面内容\n");
                 }
                 

@@ -89,7 +89,7 @@ public class WikiBatchPagesFunction implements LLMFunction {
         // 可选参数：每页内容长度限制
         JsonObject maxLength = new JsonObject();
         maxLength.addProperty("type", "integer");
-        maxLength.addProperty("description", "每个页面内容长度限制（字符数），0表示不限制");
+        maxLength.addProperty("description", "每个页面内容长度限制（字符数），0表示不限制内容长度限制（字符数），0表示不限制，没特殊情况不要限制。");
         maxLength.addProperty("minimum", 0);
         maxLength.addProperty("maximum", 5000);
         maxLength.addProperty("default", 1000);
