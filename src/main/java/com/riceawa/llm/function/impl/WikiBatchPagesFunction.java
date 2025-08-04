@@ -89,9 +89,9 @@ public class WikiBatchPagesFunction implements LLMFunction {
         // 可选参数：每页内容长度限制
         JsonObject maxLength = new JsonObject();
         maxLength.addProperty("type", "integer");
-        maxLength.addProperty("description", "每个页面内容长度限制（字符数），0表示不限制内容长度限制（字符数），0表示不限制，没特殊情况不要限制。");
+        maxLength.addProperty("description", "每个页面内容长度限制（字符数），0表示不限制内容长度限制（字符数）。");
         maxLength.addProperty("minimum", 0);
-        maxLength.addProperty("maximum", 5000);
+        maxLength.addProperty("maximum", 8000);
         maxLength.addProperty("default", 1000);
         properties.add("max_length", maxLength);
         
@@ -153,7 +153,7 @@ public class WikiBatchPagesFunction implements LLMFunction {
             int maxLength = arguments.has("max_length") ? 
                     arguments.get("max_length").getAsInt() : 1000;
             if (maxLength < 0) maxLength = 1000;
-            if (maxLength > 5000) maxLength = 5000;
+            if (maxLength > 8000) maxLength = 8000;
             
             // 构建请求体
             JsonObject requestBody = new JsonObject();
@@ -183,16 +183,34 @@ public class WikiBatchPagesFunction implements LLMFunction {
                 String responseBody = response.body().string();
                 JsonObject jsonResponse = gson.fromJson(responseBody, JsonObject.class);
                 
-                if (!jsonResponse.get("success").getAsBoolean()) {
-                    JsonObject error = jsonResponse.getAsJsonObject("error");
-                    String errorMessage = error.get("message").getAsString();
-                    return FunctionResult.error("Wiki批量获取失败: " + errorMessage);
+                if (jsonResponse == null) {
+                    return FunctionResult.error("Wiki API返回无效响应");
+                }
+                
+                if (!jsonResponse.has("success") || !jsonResponse.get("success").getAsBoolean()) {
+                    if (jsonResponse.has("error")) {
+                        JsonObject error = jsonResponse.getAsJsonObject("error");
+                        String errorMessage = error != null && error.has("message") ? 
+                                              error.get("message").getAsString() : "未知错误";
+                        return FunctionResult.error("Wiki批量获取失败: " + errorMessage);
+                    } else {
+                        return FunctionResult.error("Wiki批量获取失败: 未知错误");
+                    }
                 }
                 
                 // 解析批量结果
                 JsonObject data = jsonResponse.getAsJsonObject("data");
+                if (data == null) {
+                    return FunctionResult.error("Wiki API返回数据为空");
+                }
                 JsonObject results = data.getAsJsonObject("results");
+                if (results == null) {
+                    return FunctionResult.error("Wiki API返回结果为空");
+                }
                 JsonObject summary = data.getAsJsonObject("summary");
+                if (summary == null) {
+                    return FunctionResult.error("Wiki API返回统计信息为空");
+                }
                 
                 int totalPages = summary.get("totalPages").getAsInt();
                 int successCount = summary.get("successCount").getAsInt();
@@ -217,14 +235,34 @@ public class WikiBatchPagesFunction implements LLMFunction {
                         if (pageSuccess) {
                             resultText.append(" ✅\n");
                             JsonObject pageData = pageResult.getAsJsonObject("data");
+                            if (pageData == null) {
+                                resultText.append("错误: 页面数据为空\n\n");
+                                continue;
+                            }
                             JsonObject page = pageData.getAsJsonObject("page");
+                            if (page == null) {
+                                resultText.append("错误: 页面信息为空\n\n");
+                                continue;
+                            }
                             JsonObject content = page.getAsJsonObject("content");
+                            if (content == null) {
+                                resultText.append("错误: 页面内容为空\n\n");
+                                continue;
+                            }
                             
                             String pageContent;
                             if (format.equals("markdown")) {
-                                pageContent = content.get("markdown").getAsString();
+                                if (content.has("markdown") && !content.get("markdown").isJsonNull()) {
+                                    pageContent = content.get("markdown").getAsString();
+                                } else {
+                                    pageContent = "内容不可用（markdown格式）";
+                                }
                             } else {
-                                pageContent = content.get("html").getAsString();
+                                if (content.has("html") && !content.get("html").isJsonNull()) {
+                                    pageContent = content.get("html").getAsString();
+                                } else {
+                                    pageContent = "内容不可用（html格式）";
+                                }
                             }
                             
                             // 应用长度限制

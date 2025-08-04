@@ -138,24 +138,51 @@ public class WikiPageFunction implements LLMFunction {
                 String responseBody = response.body().string();
                 JsonObject jsonResponse = gson.fromJson(responseBody, JsonObject.class);
                 
-                if (!jsonResponse.get("success").getAsBoolean()) {
-                    JsonObject error = jsonResponse.getAsJsonObject("error");
-                    String errorMessage = error.get("message").getAsString();
-                    return FunctionResult.error("Wiki页面获取失败: " + errorMessage);
+                if (jsonResponse == null) {
+                    return FunctionResult.error("Wiki API返回无效响应");
+                }
+                
+                if (!jsonResponse.has("success") || !jsonResponse.get("success").getAsBoolean()) {
+                    if (jsonResponse.has("error")) {
+                        JsonObject error = jsonResponse.getAsJsonObject("error");
+                        String errorMessage = error != null && error.has("message") ? 
+                                              error.get("message").getAsString() : "未知错误";
+                        return FunctionResult.error("Wiki页面获取失败: " + errorMessage);
+                    } else {
+                        return FunctionResult.error("Wiki页面获取失败: 未知错误");
+                    }
                 }
                 
                 // 解析页面内容
                 JsonObject data = jsonResponse.getAsJsonObject("data");
+                if (data == null) {
+                    return FunctionResult.error("Wiki API返回数据为空");
+                }
                 JsonObject page = data.getAsJsonObject("page");
-                String title = page.get("title").getAsString();
+                if (page == null) {
+                    return FunctionResult.error("Wiki API返回页面信息为空");
+                }
+                String title = page.has("title") && !page.get("title").isJsonNull() ? 
+                               page.get("title").getAsString() : pageName;
                 JsonObject content = page.getAsJsonObject("content");
+                if (content == null) {
+                    return FunctionResult.error("Wiki页面内容为空");
+                }
                 
                 // 获取内容文本
                 String pageContent;
                 if (format.equals("markdown")) {
-                    pageContent = content.get("markdown").getAsString();
+                    if (content.has("markdown") && !content.get("markdown").isJsonNull()) {
+                        pageContent = content.get("markdown").getAsString();
+                    } else {
+                        pageContent = "内容不可用（markdown格式）";
+                    }
                 } else {
-                    pageContent = content.get("html").getAsString();
+                    if (content.has("html") && !content.get("html").isJsonNull()) {
+                        pageContent = content.get("html").getAsString();
+                    } else {
+                        pageContent = "内容不可用（html格式）";
+                    }
                 }
                 
                 // 应用长度限制

@@ -59,6 +59,11 @@ public class LLMChatConfig {
 
     // Wiki API 配置
     private String wikiApiUrl = ConfigDefaults.DEFAULT_WIKI_API_URL;
+    
+    // 多轮函数调用配置
+    private boolean enableRecursiveFunctionCalls = ConfigDefaults.DEFAULT_ENABLE_RECURSIVE_FUNCTION_CALLS;
+    private int maxFunctionCallDepth = ConfigDefaults.DEFAULT_MAX_FUNCTION_CALL_DEPTH;
+    private int functionCallTimeoutMs = ConfigDefaults.DEFAULT_FUNCTION_CALL_TIMEOUT_MS;
 
     // 并发配置
     private ConcurrencySettings concurrencySettings = ConcurrencySettings.createDefault();
@@ -952,6 +957,51 @@ public class LLMChatConfig {
      */
     public void setWikiApiUrl(String wikiApiUrl) {
         this.wikiApiUrl = wikiApiUrl != null ? wikiApiUrl : ConfigDefaults.DEFAULT_WIKI_API_URL;
+        saveConfig();
+    }
+
+    /**
+     * 获取是否启用递归函数调用
+     */
+    public boolean isEnableRecursiveFunctionCalls() {
+        return enableRecursiveFunctionCalls;
+    }
+
+    /**
+     * 设置是否启用递归函数调用
+     */
+    public void setEnableRecursiveFunctionCalls(boolean enableRecursiveFunctionCalls) {
+        this.enableRecursiveFunctionCalls = enableRecursiveFunctionCalls;
+        saveConfig();
+    }
+
+    /**
+     * 获取最大函数调用深度
+     */
+    public int getMaxFunctionCallDepth() {
+        return maxFunctionCallDepth;
+    }
+
+    /**
+     * 设置最大函数调用深度
+     */
+    public void setMaxFunctionCallDepth(int maxFunctionCallDepth) {
+        this.maxFunctionCallDepth = Math.max(1, Math.min(10, maxFunctionCallDepth)); // 限制在1-10之间
+        saveConfig();
+    }
+
+    /**
+     * 获取函数调用超时时间（毫秒）
+     */
+    public int getFunctionCallTimeoutMs() {
+        return functionCallTimeoutMs;
+    }
+
+    /**
+     * 设置函数调用超时时间（毫秒）
+     */
+    public void setFunctionCallTimeoutMs(int functionCallTimeoutMs) {
+        this.functionCallTimeoutMs = Math.max(5000, Math.min(60000, functionCallTimeoutMs)); // 限制在5-60秒之间
         saveConfig();
     }
 

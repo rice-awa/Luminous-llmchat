@@ -45,6 +45,11 @@ public class ConfigDefaults {
     // Wiki API 配置默认值
     public static final String DEFAULT_WIKI_API_URL = "https://mcwiki.rice-awa.top";
 
+    // 多轮函数调用配置默认值
+    public static final boolean DEFAULT_ENABLE_RECURSIVE_FUNCTION_CALLS = true;
+    public static final int DEFAULT_MAX_FUNCTION_CALL_DEPTH = 5;
+    public static final int DEFAULT_FUNCTION_CALL_TIMEOUT_MS = 30000; // 30秒
+
     // API密钥占位符（用于检测无效密钥）
     public static final String API_KEY_PLACEHOLDER = "your-api-key-here";
 
@@ -202,6 +207,9 @@ public class ConfigDefaults {
             case "enableTitleGeneration": return DEFAULT_ENABLE_TITLE_GENERATION;
             case "titleGenerationModel": return DEFAULT_TITLE_GENERATION_MODEL;
             case "wikiApiUrl": return DEFAULT_WIKI_API_URL;
+            case "enableRecursiveFunctionCalls": return DEFAULT_ENABLE_RECURSIVE_FUNCTION_CALLS;
+            case "maxFunctionCallDepth": return DEFAULT_MAX_FUNCTION_CALL_DEPTH;
+            case "functionCallTimeoutMs": return DEFAULT_FUNCTION_CALL_TIMEOUT_MS;
             case "currentProvider": return EMPTY_STRING;
             case "currentModel": return EMPTY_STRING;
             default: return null;
