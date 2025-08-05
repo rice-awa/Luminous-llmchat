@@ -63,19 +63,29 @@ public class MCPConfigParser {
             MCPServerConfig config = new MCPServerConfig();
             config.setName(name);
             
-            // 解析type，默认为stdio
-            String type = getStringWithDefault(serverObj, "type", "stdio");
+            // 解析type，智能推断类型
+            String type = getStringWithDefault(serverObj, "type", null);
+            if (type == null) {
+                // 根据配置内容自动推断类型
+                if (serverObj.has("url")) {
+                    type = "sse";
+                } else if (serverObj.has("command")) {
+                    type = "stdio";
+                } else {
+                    type = "stdio"; // 默认
+                }
+            }
             config.setType(type);
             
-            // 解析enabled，默认为true
-            boolean enabled = getBooleanWithDefault(serverObj, "enabled", true);
-            config.setEnabled(enabled);
-            
-            // 解析disabled（兼容性）
+            // 解析enabled和disabled字段，优先处理disabled
+            boolean enabled = true; // 默认启用
             if (serverObj.has("disabled")) {
                 boolean disabled = getBooleanWithDefault(serverObj, "disabled", false);
-                config.setEnabled(!disabled);
+                enabled = !disabled;
+            } else if (serverObj.has("enabled")) {
+                enabled = getBooleanWithDefault(serverObj, "enabled", true);
             }
+            config.setEnabled(enabled);
             
             // 根据类型解析不同的配置
             if (config.isStdioType()) {

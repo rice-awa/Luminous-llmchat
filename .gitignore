@@ -45,3 +45,6 @@ replay_*.log
 # claude
 .claude/
 .claude/settings.local.json
+
+# mcp_source
+mcp_source/
