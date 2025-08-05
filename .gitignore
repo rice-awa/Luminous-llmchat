@@ -41,3 +41,6 @@ replay_*.log
 
 # kiro 
 .kiro/
+
+# claude
+.claude/
