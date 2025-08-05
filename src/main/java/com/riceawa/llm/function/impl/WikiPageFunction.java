@@ -128,21 +128,13 @@ public class WikiPageFunction implements LLMFunction {
                     .build();
             
             try (Response response = httpClient.newCall(request).execute()) {
-                if (!response.isSuccessful()) {
-                    if (response.code() == 404) {
-                        return FunctionResult.error("Wiki页面不存在: " + pageName);
-                    }
-                    return FunctionResult.error("Wiki API请求失败: HTTP " + response.code());
+                // 使用统一的HTTP响应处理
+                WikiErrorHandler.HttpResponseResult httpResult = WikiErrorHandler.handleHttpResponse(response, pageName);
+                if (!httpResult.isSuccess()) {
+                    return httpResult.errorResult;
                 }
                 
-                String responseBody = response.body().string();
-                JsonObject jsonResponse = gson.fromJson(responseBody, JsonObject.class);
-                
-                if (!jsonResponse.get("success").getAsBoolean()) {
-                    JsonObject error = jsonResponse.getAsJsonObject("error");
-                    String errorMessage = error.get("message").getAsString();
-                    return FunctionResult.error("Wiki页面获取失败: " + errorMessage);
-                }
+                JsonObject jsonResponse = httpResult.jsonResponse;
                 
                 // 解析页面内容
                 JsonObject data = jsonResponse.getAsJsonObject("data");

@@ -4,7 +4,7 @@
 
 Minecraft Wiki API 是一个功能完善的 RESTful API 服务，专门用于抓取、解析和转换 Minecraft 中文 Wiki 内容。提供智能搜索、页面内容获取、批量处理等功能，支持 HTML 和 Markdown 两种格式输出。
 
-**基础URL**: `http://localhost:3000`  
+**基础URL**: `https:mcwiki.rice-awa.top`  
 **API版本**: v1.0.0  
 **内容类型**: `application/json; charset=utf-8`  
 **字符编码**: UTF-8
@@ -36,19 +36,19 @@ pm2 start src/index.js --name minecraft-wiki-api
 ### 2. 验证服务状态
 ```bash
 # 检查服务健康状态
-curl http://localhost:3000/health
+curl https:mcwiki.rice-awa.top/health
 
 # 查看所有可用端点
-curl http://localhost:3000/
+curl https:mcwiki.rice-awa.top/
 ```
 
 ### 3. 测试基础功能
 ```bash
 # 测试搜索功能
-curl "http://localhost:3000/api/search?q=钻石&limit=5"
+curl "https:mcwiki.rice-awa.top/api/search?q=钻石&limit=5"
 
 # 测试页面获取
-curl "http://localhost:3000/api/page/钻石?format=markdown"
+curl "https:mcwiki.rice-awa.top/api/page/钻石?format=markdown"
 ```
 
 ## 📡 API 端点总览
@@ -625,23 +625,23 @@ GET /api/pages/stats            # 页面缓存统计
 
 ```javascript
 // 搜索功能
-const response = await fetch('http://localhost:3000/api/search?q=钻石&limit=5');
+const response = await fetch('https:mcwiki.rice-awa.top/api/search?q=钻石&limit=5');
 const searchData = await response.json();
 
 // 搜索功能（格式化JSON）
-const prettyResponse = await fetch('http://localhost:3000/api/search?q=钻石&limit=5&pretty=true');
+const prettyResponse = await fetch('https:mcwiki.rice-awa.top/api/search?q=钻石&limit=5&pretty=true');
 const prettySearchData = await prettyResponse.json();
 
 // 获取页面内容
-const pageResponse = await fetch('http://localhost:3000/api/page/钻石?format=markdown');
+const pageResponse = await fetch('https:mcwiki.rice-awa.top/api/page/钻石?format=markdown');
 const pageData = await pageResponse.json();
 
 // 获取页面内容（格式化JSON）
-const prettyPageResponse = await fetch('http://localhost:3000/api/page/钻石?format=markdown&pretty=true');
+const prettyPageResponse = await fetch('https:mcwiki.rice-awa.top/api/page/钻石?format=markdown&pretty=true');
 const prettyPageData = await prettyPageResponse.json();
 
 // 批量获取页面
-const batchResponse = await fetch('http://localhost:3000/api/pages', {
+const batchResponse = await fetch('https:mcwiki.rice-awa.top/api/pages', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json'
@@ -658,22 +658,22 @@ const batchData = await batchResponse.json();
 
 ```bash
 # 搜索
-curl "http://localhost:3000/api/search?q=钻石&limit=5"
+curl "https:mcwiki.rice-awa.top/api/search?q=钻石&limit=5"
 
 # 搜索（格式化JSON）
-curl "http://localhost:3000/api/search?q=钻石&limit=5&pretty=true"
+curl "https:mcwiki.rice-awa.top/api/search?q=钻石&limit=5&pretty=true"
 
 # 获取页面内容
-curl "http://localhost:3000/api/page/钻石?format=markdown"
+curl "https:mcwiki.rice-awa.top/api/page/钻石?format=markdown"
 
 # 获取页面内容（格式化JSON）
-curl "http://localhost:3000/api/page/钻石?format=markdown&pretty=true"
+curl "https:mcwiki.rice-awa.top/api/page/钻石?format=markdown&pretty=true"
 
 # 检查健康状态
-curl "http://localhost:3000/health"
+curl "https:mcwiki.rice-awa.top/health"
 
 # 批量获取页面
-curl -X POST "http://localhost:3000/api/pages" \
+curl -X POST "https:mcwiki.rice-awa.top/api/pages" \
   -H "Content-Type: application/json" \
   -d '{"pages":["钻石","金锭"],"format":"markdown"}'
 ```
@@ -684,27 +684,27 @@ curl -X POST "http://localhost:3000/api/pages" \
 import requests
 
 # 搜索
-response = requests.get('http://localhost:3000/api/search', 
+response = requests.get('https:mcwiki.rice-awa.top/api/search', 
                        params={'q': '钻石', 'limit': 5})
 search_data = response.json()
 
 # 搜索（格式化JSON）
-pretty_response = requests.get('http://localhost:3000/api/search', 
+pretty_response = requests.get('https:mcwiki.rice-awa.top/api/search', 
                               params={'q': '钻石', 'limit': 5, 'pretty': 'true'})
 pretty_search_data = pretty_response.json()
 
 # 获取页面内容
-page_response = requests.get('http://localhost:3000/api/page/钻石',
+page_response = requests.get('https:mcwiki.rice-awa.top/api/page/钻石',
                            params={'format': 'markdown'})
 page_data = page_response.json()
 
 # 获取页面内容（格式化JSON）
-pretty_page_response = requests.get('http://localhost:3000/api/page/钻石',
+pretty_page_response = requests.get('https:mcwiki.rice-awa.top/api/page/钻石',
                                    params={'format': 'markdown', 'pretty': 'true'})
 pretty_page_data = pretty_page_response.json()
 
 # 批量获取
-batch_response = requests.post('http://localhost:3000/api/pages',
+batch_response = requests.post('https:mcwiki.rice-awa.top/api/pages',
                              json={'pages': ['钻石', '金锭'], 'format': 'markdown'})
 batch_data = batch_response.json()
 ```

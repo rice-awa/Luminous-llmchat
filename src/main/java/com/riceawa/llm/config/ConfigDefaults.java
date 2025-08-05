@@ -198,6 +198,9 @@ public class ConfigDefaults {
             case "maxContextCharacters": return DEFAULT_MAX_CONTEXT_CHARACTERS;
             case "enableHistory": return DEFAULT_ENABLE_HISTORY;
             case "enableFunctionCalling": return DEFAULT_ENABLE_FUNCTION_CALLING;
+            case "enableRecursiveFunctionCalls": return DEFAULT_ENABLE_RECURSIVE_FUNCTION_CALLS;
+            case "maxFunctionCallDepth": return DEFAULT_MAX_FUNCTION_CALL_DEPTH;
+            case "functionCallTimeoutMs": return DEFAULT_FUNCTION_CALL_TIMEOUT_MS;
             case "enableBroadcast": return DEFAULT_ENABLE_BROADCAST;
             case "historyRetentionDays": return DEFAULT_HISTORY_RETENTION_DAYS;
             case "compressionModel": return DEFAULT_COMPRESSION_MODEL;
@@ -207,9 +210,6 @@ public class ConfigDefaults {
             case "enableTitleGeneration": return DEFAULT_ENABLE_TITLE_GENERATION;
             case "titleGenerationModel": return DEFAULT_TITLE_GENERATION_MODEL;
             case "wikiApiUrl": return DEFAULT_WIKI_API_URL;
-            case "enableRecursiveFunctionCalls": return DEFAULT_ENABLE_RECURSIVE_FUNCTION_CALLS;
-            case "maxFunctionCallDepth": return DEFAULT_MAX_FUNCTION_CALL_DEPTH;
-            case "functionCallTimeoutMs": return DEFAULT_FUNCTION_CALL_TIMEOUT_MS;
             case "currentProvider": return EMPTY_STRING;
             case "currentModel": return EMPTY_STRING;
             default: return null;

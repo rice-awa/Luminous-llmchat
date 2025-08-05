@@ -323,6 +323,11 @@ public class LLMChatConfig {
         // 处理Wiki API配置
         this.wikiApiUrl = data.wikiApiUrl != null ? data.wikiApiUrl : (String) ConfigDefaults.getDefaultValue("wikiApiUrl");
 
+        // 处理多轮函数调用配置
+        this.enableRecursiveFunctionCalls = data.enableRecursiveFunctionCalls != null ? data.enableRecursiveFunctionCalls : (Boolean) ConfigDefaults.getDefaultValue("enableRecursiveFunctionCalls");
+        this.maxFunctionCallDepth = data.maxFunctionCallDepth != null ? data.maxFunctionCallDepth : (Integer) ConfigDefaults.getDefaultValue("maxFunctionCallDepth");
+        this.functionCallTimeoutMs = data.functionCallTimeoutMs != null ? data.functionCallTimeoutMs : (Integer) ConfigDefaults.getDefaultValue("functionCallTimeoutMs");
+
         // 处理并发配置
         this.concurrencySettings = data.concurrencySettings != null ? data.concurrencySettings : ConcurrencySettings.createDefault();
 
@@ -426,6 +431,11 @@ public class LLMChatConfig {
 
         // Wiki API 配置
         data.wikiApiUrl = this.wikiApiUrl;
+        
+        // 多轮函数调用配置
+        data.enableRecursiveFunctionCalls = this.enableRecursiveFunctionCalls;
+        data.maxFunctionCallDepth = this.maxFunctionCallDepth;
+        data.functionCallTimeoutMs = this.functionCallTimeoutMs;
 
         // 系统配置
         data.concurrencySettings = this.concurrencySettings;
@@ -1205,6 +1215,11 @@ public class LLMChatConfig {
 
         // Wiki API 配置
         String wikiApiUrl;
+        
+        // 多轮函数调用配置
+        Boolean enableRecursiveFunctionCalls;
+        Integer maxFunctionCallDepth;
+        Integer functionCallTimeoutMs;
 
         // 系统配置
         ConcurrencySettings concurrencySettings;

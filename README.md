@@ -80,9 +80,9 @@
 - 📖 [配置指南](docs/CONFIGURATION_GUIDE.md) - 完整的配置选项和多Provider设置
 - 🔌 [MCP配置指南](docs/MCP_CONFIGURATION_GUIDE.md) - Model Context Protocol集成配置详解
 - 💻 [命令指南](docs/COMMANDS_GUIDE.md) - 所有可用命令和详细用法（包含Resume命令扩展功能）
-- 🔧 [热编辑模板系统](docs/TEMPLATE_HOT_EDITING_SYSTEM_SUMMARY.md) - 游戏内模板编辑完整指南
-- 🔧 [内置变量系统](docs/BUILTIN_VARIABLES_SYSTEM_SUMMARY.md) - 15+内置变量详细说明
-- 🔍 [Provider健康检查](docs/PROVIDER_FORCE_CHECK_SYSTEM_SUMMARY.md) - 强制检测和诊断系统
+- 🔧 [热编辑模板系统](docs/TEMPLATE_HOT_EDITING_SYSTEM.md) - 游戏内模板编辑完整指南
+- 🔧 [内置变量系统](docs/BUILTIN_VARIABLES_SYSTEM.md) - 15+内置变量详细说明
+- 🔍 [Provider健康检查](docs/PROVIDER_FORCE_CHECK_SYSTEM.md) - 强制检测和诊断系统
 - 🔧 [Function Calling开发](docs/FUNCTION_CALLING_DEVELOPMENT.md) - Function Calling功能详解
 - 🛡️ [Function Call安全](docs/FUNCTION_CALL_SECURITY.md) - 权限控制和安全机制
 - 🎮 [Function演示](docs/FUNCTION_DEMO.md) - 实际使用示例和效果展示
@@ -99,6 +99,7 @@
 ### 主要功能类别
 - 🌍 **世界信息查询** - 获取世界状态、附近实体、天气时间等
 - 👤 **玩家状态查询** - 查看生命值、背包、位置、状态效果等
+- 🔍 **mcwiki查询** - 根据关键词查询mcwiki的内容，回复结果
 - 🎮 **服务器信息** - 获取服务器状态、在线玩家、性能数据
 - 💬 **交互功能** - 发送消息、广播通知等
 - ⚡ **管理员功能** - 执行指令、设置方块、生成实体、控制环境（需OP权限）

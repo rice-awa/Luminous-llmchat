@@ -113,18 +113,13 @@ public class WikiSearchFunction implements LLMFunction {
                     .build();
             
             try (Response response = httpClient.newCall(request).execute()) {
-                if (!response.isSuccessful()) {
-                    return FunctionResult.error("Wiki API请求失败: HTTP " + response.code());
+                // 使用统一的HTTP响应处理
+                WikiErrorHandler.HttpResponseResult httpResult = WikiErrorHandler.handleHttpResponse(response, query);
+                if (!httpResult.isSuccess()) {
+                    return httpResult.errorResult;
                 }
                 
-                String responseBody = response.body().string();
-                JsonObject jsonResponse = gson.fromJson(responseBody, JsonObject.class);
-                
-                if (!jsonResponse.get("success").getAsBoolean()) {
-                    JsonObject error = jsonResponse.getAsJsonObject("error");
-                    String errorMessage = error.get("message").getAsString();
-                    return FunctionResult.error("Wiki搜索失败: " + errorMessage);
-                }
+                JsonObject jsonResponse = httpResult.jsonResponse;
                 
                 // 解析搜索结果
                 JsonObject data = jsonResponse.getAsJsonObject("data");
