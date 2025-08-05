@@ -2,7 +2,6 @@
   "permissions": {
     "allow": [
       "Bash(./gradlew compileJava:*)",
-<<<<<<< HEAD
       "Bash(find:*)",
       "Bash(./gradlew test:*)",
       "Bash(npx:*)",
@@ -10,10 +9,6 @@
       "mcp__firecrawl-mcp__firecrawl_scrape",
       "mcp__firecrawl-mcp__firecrawl_search",
       "Bash(./gradlew build -x test)"
-=======
-      "Bash(./gradlew build -x test)",
-      "Bash(rm:*)"
->>>>>>> main
     ],
     "deny": []
   }
