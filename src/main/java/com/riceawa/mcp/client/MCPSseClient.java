@@ -32,7 +32,7 @@ public class MCPSseClient implements MCPClient {
     }
 
     @Override
-    @SuppressWarnings("removal") // HttpClientSseClientTransport构造函数已过时但仍可用
+    @SuppressWarnings("removal")
     public CompletableFuture<Boolean> connect() {
         return CompletableFuture.supplyAsync(() -> {
             try {
@@ -44,8 +44,17 @@ public class MCPSseClient implements MCPClient {
                     return false;
                 }
                 
-                // 创建 SSE 传输，添加正确的HTTP头配置
-                McpClientTransport transport = new HttpClientSseClientTransport(config.getUrl());
+                // 创建 SSE 传输，使用新的Builder API并添加正确的HTTP头配置
+                McpClientTransport transport = HttpClientSseClientTransport.builder(config.getUrl())
+                    .customizeClient(clientBuilder -> clientBuilder
+                        .version(java.net.http.HttpClient.Version.HTTP_1_1)
+                        .connectTimeout(Duration.ofSeconds(30))
+                        .followRedirects(java.net.http.HttpClient.Redirect.NORMAL))
+                    .customizeRequest(requestBuilder -> requestBuilder
+                        .header("User-Agent", "Luminous-LLMChat-MCP-Client/1.0")
+                        .header("Accept", "text/event-stream")
+                        .header("Cache-Control", "no-cache"))
+                    .build();
                 
                 // 创建客户端，使用更长的超时时间以提高稳定性
                 mcpClient = McpClient.sync(transport)
@@ -77,15 +86,27 @@ public class MCPSseClient implements MCPClient {
                         
                         // 检查特定的错误类型并提供更好的错误信息
                         if (errorMsg != null) {
-                            if (errorMsg.contains("Invalid Content-Type header")) {
-                                logger.error("MCP服务器拒绝请求 - Content-Type头错误: {}", config.getName());
-                                logger.info("建议检查服务器是否正确实现了MCP SSE协议");
-                            } else if (errorMsg.contains("Invalid SSE response")) {
-                                logger.error("MCP服务器返回无效的SSE响应: {}", config.getName());
-                                logger.info("服务器可能没有正确实现SSE格式");
-                            } else if (errorMsg.contains("400")) {
+                            if (errorMsg.contains("Invalid Content-Type header") || errorMsg.contains("content-type")) {
+                                logger.error("MCP服务器Content-Type头错误: {}", config.getName());
+                                logger.info("建议检查服务器是否正确实现了MCP SSE协议，返回 'text/event-stream'");
+                            } else if (errorMsg.contains("SSE") || errorMsg.contains("event-stream")) {
+                                logger.error("MCP服务器SSE响应格式错误: {}", config.getName());
+                                logger.info("服务器可能没有正确实现SSE格式，检查事件格式");
+                            } else if (errorMsg.contains("400") || errorMsg.contains("Bad Request")) {
                                 logger.error("MCP服务器返回HTTP 400错误: {}", config.getName());
-                                logger.info("请检查服务器配置和API端点");
+                                logger.info("请检查服务器配置、API端点和请求头格式");
+                            } else if (errorMsg.contains("404") || errorMsg.contains("Not Found")) {
+                                logger.error("MCP服务器端点不存在 (404): {}", config.getName());
+                                logger.info("请检查URL路径是否正确，通常SSE端点为 /sse");
+                            } else if (errorMsg.contains("401") || errorMsg.contains("403") || errorMsg.contains("Unauthorized") || errorMsg.contains("Forbidden")) {
+                                logger.error("MCP服务器认证失败 ({}): {}", errorMsg.contains("401") ? "401" : "403", config.getName());
+                                logger.info("请检查服务器是否需要认证凭据");
+                            } else if (errorMsg.contains("timeout") || errorMsg.contains("timed out")) {
+                                logger.error("连接MCP服务器超时: {}", config.getName());
+                                logger.info("请检查网络连接和服务器响应时间");
+                            } else if (errorMsg.contains("Connection refused") || errorMsg.contains("ConnectException")) {
+                                logger.error("无法连接到MCP服务器: {}", config.getName());
+                                logger.info("请检查服务器是否正在运行以及端口是否正确");
                             }
                         }
                         
@@ -313,38 +334,74 @@ public class MCPSseClient implements MCPClient {
     
     /**
      * 验证服务器URL的可访问性
+     * 改进版本：检查SSE端点的可用性
      */
     private boolean validateServerUrl() {
         try {
+            logger.debug("开始验证MCP SSE服务器URL: {}", config.getUrl());
+            
             java.net.http.HttpClient httpClient = java.net.http.HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(10))
+                .connectTimeout(Duration.ofSeconds(15))
+                .followRedirects(java.net.http.HttpClient.Redirect.NORMAL)
                 .build();
-                
+            
+            // 构建SSE请求，添加MCP协议头
             java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
                 .uri(java.net.URI.create(config.getUrl()))
-                .timeout(Duration.ofSeconds(10))
+                .timeout(Duration.ofSeconds(15))
                 .header("Accept", "text/event-stream")
                 .header("Cache-Control", "no-cache")
+                .header("MCP-Protocol-Version", "2024-11-05")
+                .header("User-Agent", "Luminous-LLMChat-MCP-Client/1.0")
                 .GET()
                 .build();
                 
             java.net.http.HttpResponse<String> response = httpClient.send(request, 
                 java.net.http.HttpResponse.BodyHandlers.ofString());
                 
-            logger.debug("服务器URL验证 - 状态码: {}, URL: {}", response.statusCode(), config.getUrl());
+            int statusCode = response.statusCode();
+            String contentType = response.headers()
+                .firstValue("content-type")
+                .orElse("unknown");
+                
+            logger.debug("服务器URL验证结果 - 状态码: {}, Content-Type: {}, URL: {}", 
+                statusCode, contentType, config.getUrl());
             
-            if (response.statusCode() == 200) {
-                return true;
-            } else if (response.statusCode() == 400) {
+            // 检查状态码和Content-Type
+            if (statusCode == 200) {
+                // 检查是否返回正确的SSE Content-Type
+                if (contentType.toLowerCase().contains("text/event-stream")) {
+                    logger.debug("服务器返回正确的SSE Content-Type");
+                    return true;
+                } else {
+                    logger.warn("服务器返回了非SSE的Content-Type: {} - {}", contentType, config.getUrl());
+                    // 仍然尝试连接，有些服务器可能没有正确设置Content-Type
+                    return true;
+                }
+            } else if (statusCode == 400) {
                 logger.warn("服务器返回400错误，可能是请求格式问题: {}", config.getUrl());
                 return false;
-            } else {
-                logger.warn("服务器返回非200状态码: {} - {}", response.statusCode(), config.getUrl());
+            } else if (statusCode == 404) {
+                logger.warn("服务器返回404错误，SSE端点可能不存在: {}", config.getUrl());
                 return false;
+            } else if (statusCode == 401 || statusCode == 403) {
+                logger.warn("服务器返回认证错误 ({}): {}", statusCode, config.getUrl());
+                return false;
+            } else {
+                logger.warn("服务器返回状态码: {} - {}", statusCode, config.getUrl());
+                // 对于其他状态码，仍然尝试连接
+                return statusCode < 500; // 服务器错误则跳过
             }
             
+        } catch (java.net.ConnectException e) {
+            logger.warn("无法连接到服务器: {} - {}", config.getUrl(), e.getMessage());
+            return false;
+        } catch (java.net.SocketTimeoutException e) {
+            logger.warn("连接服务器超时: {} - {}", config.getUrl(), e.getMessage());
+            return false;
         } catch (Exception e) {
-            logger.warn("无法验证服务器URL: {} - {}", config.getUrl(), e.getMessage());
+            logger.warn("验证服务器URL时出错: {} - {}", config.getUrl(), e.getMessage());
+            logger.debug("验证服务器URL详细错误信息", e);
             return false;
         }
     }
