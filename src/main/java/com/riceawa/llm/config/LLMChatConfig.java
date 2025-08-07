@@ -64,6 +64,9 @@ public class LLMChatConfig {
     private boolean enableRecursiveFunctionCalls = ConfigDefaults.DEFAULT_ENABLE_RECURSIVE_FUNCTION_CALLS;
     private int maxFunctionCallDepth = ConfigDefaults.DEFAULT_MAX_FUNCTION_CALL_DEPTH;
     private int functionCallTimeoutMs = ConfigDefaults.DEFAULT_FUNCTION_CALL_TIMEOUT_MS;
+    
+    // 联网搜索配置
+    private boolean enableWebSearch = ConfigDefaults.DEFAULT_ENABLE_WEB_SEARCH;
 
     // 并发配置
     private ConcurrencySettings concurrencySettings = ConcurrencySettings.createDefault();
@@ -303,6 +306,9 @@ public class LLMChatConfig {
         this.enableRecursiveFunctionCalls = data.enableRecursiveFunctionCalls != null ? data.enableRecursiveFunctionCalls : (Boolean) ConfigDefaults.getDefaultValue("enableRecursiveFunctionCalls");
         this.maxFunctionCallDepth = data.maxFunctionCallDepth != null ? data.maxFunctionCallDepth : (Integer) ConfigDefaults.getDefaultValue("maxFunctionCallDepth");
         this.functionCallTimeoutMs = data.functionCallTimeoutMs != null ? data.functionCallTimeoutMs : (Integer) ConfigDefaults.getDefaultValue("functionCallTimeoutMs");
+        
+        // 处理联网搜索配置
+        this.enableWebSearch = data.enableWebSearch != null ? data.enableWebSearch : (Boolean) ConfigDefaults.getDefaultValue("enableWebSearch");
 
         // 处理并发配置
         this.concurrencySettings = data.concurrencySettings != null ? data.concurrencySettings : ConcurrencySettings.createDefault();
@@ -409,6 +415,9 @@ public class LLMChatConfig {
         data.enableRecursiveFunctionCalls = this.enableRecursiveFunctionCalls;
         data.maxFunctionCallDepth = this.maxFunctionCallDepth;
         data.functionCallTimeoutMs = this.functionCallTimeoutMs;
+        
+        // 联网搜索配置
+        data.enableWebSearch = this.enableWebSearch;
 
         // 系统配置
         data.concurrencySettings = this.concurrencySettings;
@@ -1016,6 +1025,21 @@ public class LLMChatConfig {
     }
 
     /**
+     * 获取是否启用联网搜索
+     */
+    public boolean isEnableWebSearch() {
+        return enableWebSearch;
+    }
+
+    /**
+     * 设置是否启用联网搜索
+     */
+    public void setEnableWebSearch(boolean enableWebSearch) {
+        this.enableWebSearch = enableWebSearch;
+        saveConfig();
+    }
+
+    /**
      * 配置数据类
      */
     private static class ConfigData {
@@ -1049,6 +1073,9 @@ public class LLMChatConfig {
         Boolean enableRecursiveFunctionCalls;
         Integer maxFunctionCallDepth;
         Integer functionCallTimeoutMs;
+        
+        // 联网搜索配置
+        Boolean enableWebSearch;
 
         // 系统配置
         ConcurrencySettings concurrencySettings;

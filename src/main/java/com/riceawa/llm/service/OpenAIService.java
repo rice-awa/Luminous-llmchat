@@ -412,10 +412,47 @@ public class OpenAIService implements LLMService {
                 toolObj.add("function", functionObj);
                 toolsArray.add(toolObj);
             }
+            
+            // 检查是否启用联网搜索且当前模型是Gemini模型
+            String model = config.getModel() != null ? config.getModel() : "gpt-3.5-turbo";
+            boolean isGeminiModel = model.toLowerCase().startsWith("gemini");
+            boolean webSearchEnabled = LLMChatConfig.getInstance().isEnableWebSearch();
+            
+            if (webSearchEnabled && isGeminiModel) {
+                // 添加 googleSearch 工具
+                JsonObject googleSearchTool = new JsonObject();
+                googleSearchTool.addProperty("type", "function");
+                
+                JsonObject googleSearchFunction = new JsonObject();
+                googleSearchFunction.addProperty("name", "googleSearch");
+                googleSearchTool.add("function", googleSearchFunction);
+                
+                toolsArray.add(googleSearchTool);
+            }
+            
             requestBody.add("tools", toolsArray);
 
             if (config.getToolChoice() != null) {
                 requestBody.addProperty("tool_choice", config.getToolChoice());
+            }
+        }
+        // 如果没有其他工具但启用了联网搜索且是Gemini模型，单独添加googleSearch工具
+        else {
+            String model = config.getModel() != null ? config.getModel() : "gpt-3.5-turbo";
+            boolean isGeminiModel = model.toLowerCase().startsWith("gemini");
+            boolean webSearchEnabled = LLMChatConfig.getInstance().isEnableWebSearch();
+            
+            if (webSearchEnabled && isGeminiModel) {
+                JsonArray toolsArray = new JsonArray();
+                JsonObject googleSearchTool = new JsonObject();
+                googleSearchTool.addProperty("type", "function");
+                
+                JsonObject googleSearchFunction = new JsonObject();
+                googleSearchFunction.addProperty("name", "googleSearch");
+                googleSearchTool.add("function", googleSearchFunction);
+                
+                toolsArray.add(googleSearchTool);
+                requestBody.add("tools", toolsArray);
             }
         }
 
