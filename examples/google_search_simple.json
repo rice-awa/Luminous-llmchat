@@ -1,0 +1,35 @@
+{
+  "description": "简化版Google搜索工具集成示例",
+  "request": {
+    "url": "https://x666.me/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+      "authorization": "Bearer your-api-key",
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "messages": [
+        {
+          "role": "user",
+          "content": "关于openai和超级碗相关的新闻有什么"
+        }
+      ],
+      "model": "gemini-2.5-flash-preview-05-20",
+      "stream": false,
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "googleSearch"
+          }
+        }
+      ]
+    }
+  },
+  "notes": [
+    "工具定义已简化，只包含必要的name字段",
+    "避免了复杂的参数定义导致的API兼容性问题",
+    "只有Gemini模型且启用联网搜索时才会添加此工具",
+    "系统会自动检测模型类型并决定是否添加工具"
+  ]
+}

@@ -40,7 +40,7 @@ public class InventoryFunction implements LLMFunction {
         // 可选参数：目标玩家名称（需要OP权限）
         JsonObject playerName = new JsonObject();
         playerName.addProperty("type", "string");
-        playerName.addProperty("description", "要查询的玩家名称，不填则查询自己（查询他人需要OP权限）");
+        playerName.addProperty("description", "要查询的玩家名称，不填则查询自己");
         properties.add("player_name", playerName);
         
         schema.add("properties", properties);

@@ -319,6 +319,42 @@ public class OpenAIService implements LLMService {
     }
 
     /**
+     * 检查是否为Gemini模型
+     */
+    private boolean isGeminiModel(String model) {
+        if (model == null) return false;
+        String lowerModel = model.toLowerCase();
+        // 支持多种Gemini模型命名格式
+        return lowerModel.startsWith("gemini") || 
+               lowerModel.contains("google/gemini") || 
+               lowerModel.contains("gemini-");
+    }
+    
+    /**
+     * 检查是否需要添加Google搜索工具
+     */
+    private boolean shouldAddGoogleSearchTool(LLMConfig config) {
+        String model = config.getModel() != null ? config.getModel() : "gpt-3.5-turbo";
+        boolean isGeminiModel = isGeminiModel(model);
+        boolean webSearchEnabled = LLMChatConfig.getInstance().isEnableWebSearch();
+        return webSearchEnabled && isGeminiModel;
+    }
+    
+    /**
+     * 创建Google搜索工具对象
+     */
+    private JsonObject createGoogleSearchTool() {
+        JsonObject googleSearchTool = new JsonObject();
+        googleSearchTool.addProperty("type", "function");
+        
+        JsonObject googleSearchFunction = new JsonObject();
+        googleSearchFunction.addProperty("name", "googleSearch");
+        googleSearchTool.add("function", googleSearchFunction);
+        
+        return googleSearchTool;
+    }
+
+    /**
      * 构建请求体
      */
     private JsonObject buildRequestBody(List<LLMMessage> messages, LLMConfig config) {
@@ -413,21 +449,9 @@ public class OpenAIService implements LLMService {
                 toolsArray.add(toolObj);
             }
             
-            // 检查是否启用联网搜索且当前模型是Gemini模型
-            String model = config.getModel() != null ? config.getModel() : "gpt-3.5-turbo";
-            boolean isGeminiModel = model.toLowerCase().startsWith("gemini");
-            boolean webSearchEnabled = LLMChatConfig.getInstance().isEnableWebSearch();
-            
-            if (webSearchEnabled && isGeminiModel) {
-                // 添加 googleSearch 工具
-                JsonObject googleSearchTool = new JsonObject();
-                googleSearchTool.addProperty("type", "function");
-                
-                JsonObject googleSearchFunction = new JsonObject();
-                googleSearchFunction.addProperty("name", "googleSearch");
-                googleSearchTool.add("function", googleSearchFunction);
-                
-                toolsArray.add(googleSearchTool);
+            // 检查是否需要添加Google搜索工具
+            if (shouldAddGoogleSearchTool(config)) {
+                toolsArray.add(createGoogleSearchTool());
             }
             
             requestBody.add("tools", toolsArray);
@@ -436,24 +460,11 @@ public class OpenAIService implements LLMService {
                 requestBody.addProperty("tool_choice", config.getToolChoice());
             }
         }
-        // 如果没有其他工具但启用了联网搜索且是Gemini模型，单独添加googleSearch工具
-        else {
-            String model = config.getModel() != null ? config.getModel() : "gpt-3.5-turbo";
-            boolean isGeminiModel = model.toLowerCase().startsWith("gemini");
-            boolean webSearchEnabled = LLMChatConfig.getInstance().isEnableWebSearch();
-            
-            if (webSearchEnabled && isGeminiModel) {
-                JsonArray toolsArray = new JsonArray();
-                JsonObject googleSearchTool = new JsonObject();
-                googleSearchTool.addProperty("type", "function");
-                
-                JsonObject googleSearchFunction = new JsonObject();
-                googleSearchFunction.addProperty("name", "googleSearch");
-                googleSearchTool.add("function", googleSearchFunction);
-                
-                toolsArray.add(googleSearchTool);
-                requestBody.add("tools", toolsArray);
-            }
+        // 如果没有其他工具但需要添加Google搜索工具，单独添加
+        else if (shouldAddGoogleSearchTool(config)) {
+            JsonArray toolsArray = new JsonArray();
+            toolsArray.add(createGoogleSearchTool());
+            requestBody.add("tools", toolsArray);
         }
 
         return requestBody;

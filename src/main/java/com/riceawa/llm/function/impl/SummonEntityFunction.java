@@ -29,7 +29,7 @@ public class SummonEntityFunction implements LLMFunction {
     
     @Override
     public String getDescription() {
-        return "在指定位置生成实体";
+        return "在指定位置生成实体，使用前需确定位置再召唤";
     }
     
     @Override

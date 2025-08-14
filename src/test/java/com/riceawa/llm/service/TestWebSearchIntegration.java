@@ -21,11 +21,13 @@ public class TestWebSearchIntegration {
             "gemini-1.5-pro",
             "gemini-2.5-flash",
             "GEMINI-2.0-FLASH",
-            "Gemini-Pro"
+            "Gemini-Pro",
+            "google/gemini-2.5-pro-preview",
+            "gemini-2.5-flash-preview-05-20"
         };
         
         for (String model : geminiModels) {
-            assertTrue(model.toLowerCase().startsWith("gemini"), 
+            assertTrue(isGeminiModelTest(model), 
                 "模型 " + model + " 应该被识别为Gemini模型");
         }
         
@@ -33,28 +35,33 @@ public class TestWebSearchIntegration {
         String[] nonGeminiModels = {
             "gpt-4o",
             "claude-3.5-sonnet",
-            "deepseek-chat"
+            "deepseek-chat",
+            "anthropic/claude-3.5-sonnet"
         };
         
         for (String model : nonGeminiModels) {
-            assertFalse(model.toLowerCase().startsWith("gemini"), 
+            assertFalse(isGeminiModelTest(model), 
                 "模型 " + model + " 不应该被识别为Gemini模型");
         }
     }
     
+    /**
+     * 测试用的Gemini模型识别方法（复制主代码逻辑）
+     */
+    private boolean isGeminiModelTest(String model) {
+        if (model == null) return false;
+        String lowerModel = model.toLowerCase();
+        return lowerModel.startsWith("gemini") || 
+               lowerModel.contains("google/gemini") || 
+               lowerModel.contains("gemini-");
+    }
+    
     @Test
     void testGoogleSearchToolStructure() {
-        // 测试 googleSearch 工具的JSON结构
-        Gson gson = new Gson();
+        // 测试 googleSearch 工具的JSON结构（简化版本）
+        JsonObject googleSearchTool = createGoogleSearchToolTest();
         
-        JsonObject googleSearchTool = new JsonObject();
-        googleSearchTool.addProperty("type", "function");
-        
-        JsonObject googleSearchFunction = new JsonObject();
-        googleSearchFunction.addProperty("name", "googleSearch");
-        googleSearchTool.add("function", googleSearchFunction);
-        
-        // 验证结构
+        // 验证基本结构
         assertTrue(googleSearchTool.has("type"));
         assertEquals("function", googleSearchTool.get("type").getAsString());
         
@@ -62,6 +69,24 @@ public class TestWebSearchIntegration {
         JsonObject functionObj = googleSearchTool.getAsJsonObject("function");
         assertTrue(functionObj.has("name"));
         assertEquals("googleSearch", functionObj.get("name").getAsString());
+        
+        // 简化版本不包含description和parameters
+        assertFalse(functionObj.has("description"));
+        assertFalse(functionObj.has("parameters"));
+    }
+    
+    /**
+     * 测试用的Google搜索工具创建方法（简化版本，复制主代码逻辑）
+     */
+    private JsonObject createGoogleSearchToolTest() {
+        JsonObject googleSearchTool = new JsonObject();
+        googleSearchTool.addProperty("type", "function");
+        
+        JsonObject googleSearchFunction = new JsonObject();
+        googleSearchFunction.addProperty("name", "googleSearch");
+        googleSearchTool.add("function", googleSearchFunction);
+        
+        return googleSearchTool;
     }
     
     @Test
@@ -78,11 +103,7 @@ public class TestWebSearchIntegration {
         toolsArray.add(sampleTool);
         
         // 添加googleSearch工具
-        JsonObject googleSearchTool = new JsonObject();
-        googleSearchTool.addProperty("type", "function");
-        JsonObject googleSearchFunction = new JsonObject();
-        googleSearchFunction.addProperty("name", "googleSearch");
-        googleSearchTool.add("function", googleSearchFunction);
+        JsonObject googleSearchTool = createGoogleSearchToolTest();
         toolsArray.add(googleSearchTool);
         
         // 验证数组包含两个工具
@@ -102,5 +123,34 @@ public class TestWebSearchIntegration {
         }
         
         assertTrue(hasGoogleSearch, "tools数组应该包含googleSearch工具");
+    }
+    
+    @Test
+    void testWebSearchConfigurationLogic() {
+        // 测试配置逻辑：只有当启用联网搜索且是Gemini模型时才添加工具
+        
+        // 情况1：Gemini模型 + 启用搜索 = 应该添加工具
+        assertTrue(shouldAddGoogleSearchToolTest("gemini-1.5-pro", true),
+            "Gemini模型且启用搜索时应该添加Google搜索工具");
+        
+        // 情况2：非Gemini模型 + 启用搜索 = 不应该添加工具
+        assertFalse(shouldAddGoogleSearchToolTest("gpt-4o", true),
+            "非Gemini模型即使启用搜索也不应该添加Google搜索工具");
+        
+        // 情况3：Gemini模型 + 未启用搜索 = 不应该添加工具
+        assertFalse(shouldAddGoogleSearchToolTest("gemini-1.5-pro", false),
+            "Gemini模型但未启用搜索时不应该添加Google搜索工具");
+        
+        // 情况4：非Gemini模型 + 未启用搜索 = 不应该添加工具
+        assertFalse(shouldAddGoogleSearchToolTest("gpt-4o", false),
+            "非Gemini模型且未启用搜索时不应该添加Google搜索工具");
+    }
+    
+    /**
+     * 测试用的配置逻辑方法（复制主代码逻辑）
+     */
+    private boolean shouldAddGoogleSearchToolTest(String model, boolean webSearchEnabled) {
+        boolean isGeminiModel = isGeminiModelTest(model);
+        return webSearchEnabled && isGeminiModel;
     }
 }
