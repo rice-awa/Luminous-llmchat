@@ -68,6 +68,9 @@ public class LLMChatConfig {
     // 联网搜索配置
     private boolean enableWebSearch = ConfigDefaults.DEFAULT_ENABLE_WEB_SEARCH;
 
+    // 子代理框架配置
+    private SubAgentFrameworkConfig subAgentFrameworkConfig = SubAgentFrameworkConfig.createDefault();
+
     // 并发配置
     private ConcurrencySettings concurrencySettings = ConcurrencySettings.createDefault();
 
@@ -310,6 +313,9 @@ public class LLMChatConfig {
         // 处理联网搜索配置
         this.enableWebSearch = data.enableWebSearch != null ? data.enableWebSearch : (Boolean) ConfigDefaults.getDefaultValue("enableWebSearch");
 
+        // 处理子代理框架配置
+        this.subAgentFrameworkConfig = data.subAgentFrameworkConfig != null ? data.subAgentFrameworkConfig : SubAgentFrameworkConfig.createDefault();
+
         // 处理并发配置
         this.concurrencySettings = data.concurrencySettings != null ? data.concurrencySettings : ConcurrencySettings.createDefault();
 
@@ -418,6 +424,9 @@ public class LLMChatConfig {
         
         // 联网搜索配置
         data.enableWebSearch = this.enableWebSearch;
+
+        // 子代理框架配置
+        data.subAgentFrameworkConfig = this.subAgentFrameworkConfig;
 
         // 系统配置
         data.concurrencySettings = this.concurrencySettings;
@@ -919,6 +928,11 @@ public class LLMChatConfig {
             updated = true;
         }
 
+        if (subAgentFrameworkConfig == null) {
+            subAgentFrameworkConfig = SubAgentFrameworkConfig.createDefault();
+            updated = true;
+        }
+
         if (providers == null || providers.isEmpty()) {
             providers = ConfigDefaults.createDefaultProviders();
             updated = true;
@@ -1040,6 +1054,40 @@ public class LLMChatConfig {
     }
 
     /**
+     * 获取子代理框架配置
+     */
+    public SubAgentFrameworkConfig getSubAgentFrameworkConfig() {
+        return subAgentFrameworkConfig;
+    }
+
+    /**
+     * 设置子代理框架配置
+     */
+    public void setSubAgentFrameworkConfig(SubAgentFrameworkConfig subAgentFrameworkConfig) {
+        this.subAgentFrameworkConfig = subAgentFrameworkConfig != null ? 
+            subAgentFrameworkConfig : SubAgentFrameworkConfig.createDefault();
+        saveConfig();
+    }
+
+    /**
+     * 获取是否启用子代理框架
+     */
+    public boolean isEnableSubAgentFramework() {
+        return subAgentFrameworkConfig != null && subAgentFrameworkConfig.isEnableSubAgentFramework();
+    }
+
+    /**
+     * 设置是否启用子代理框架
+     */
+    public void setEnableSubAgentFramework(boolean enableSubAgentFramework) {
+        if (subAgentFrameworkConfig == null) {
+            subAgentFrameworkConfig = SubAgentFrameworkConfig.createDefault();
+        }
+        subAgentFrameworkConfig.setEnableSubAgentFramework(enableSubAgentFramework);
+        saveConfig();
+    }
+
+    /**
      * 配置数据类
      */
     private static class ConfigData {
@@ -1076,6 +1124,9 @@ public class LLMChatConfig {
         
         // 联网搜索配置
         Boolean enableWebSearch;
+
+        // 子代理框架配置
+        SubAgentFrameworkConfig subAgentFrameworkConfig;
 
         // 系统配置
         ConcurrencySettings concurrencySettings;

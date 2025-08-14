@@ -7,19 +7,29 @@ import java.util.Map;
 
 /**
  * 子代理上下文
- * 扩展LLMContext，提供子代理特定的上下文信息
+ * 包含LLMContext和子代理特定的上下文信息
  */
-public class SubAgentContext extends LLMContext {
+public class SubAgentContext {
     
+    private final LLMContext llmContext;
     private final String subAgentType;
     private final String subAgentId;
     private final Map<String, Object> subAgentMetadata;
     
     private SubAgentContext(Builder builder) {
-        super(builder.llmContextBuilder);
+        this.llmContext = builder.llmContextBuilder.build();
         this.subAgentType = builder.subAgentType;
         this.subAgentId = builder.subAgentId;
         this.subAgentMetadata = new HashMap<>(builder.subAgentMetadata);
+    }
+    
+    /**
+     * 获取LLM上下文
+     * 
+     * @return LLM上下文
+     */
+    public LLMContext getLlmContext() {
+        return llmContext;
     }
     
     /**
@@ -38,6 +48,27 @@ public class SubAgentContext extends LLMContext {
      */
     public String getSubAgentId() {
         return subAgentId;
+    }
+    
+    // 代理LLMContext的方法
+    public String getPlayerName() {
+        return llmContext.getPlayerName();
+    }
+    
+    public String getPlayerUuid() {
+        return llmContext.getPlayerUuid();
+    }
+    
+    public String getSessionId() {
+        return llmContext.getSessionId();
+    }
+    
+    public Map<String, Object> getMetadata() {
+        return llmContext.getMetadata();
+    }
+    
+    public Object getMetadata(String key) {
+        return llmContext.getMetadata(key);
     }
     
     /**
