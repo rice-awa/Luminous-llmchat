@@ -17,10 +17,18 @@ public class SubAgentFrameworkConfig {
     private long taskTimeoutMs = 120000; // 2分钟默认超时
     private int maxRetries = 3;
     
+    // 错误处理配置
+    private long baseRetryDelayMs = 1000; // 基础重试延迟1秒
+    private double retryBackoffMultiplier = 2.0; // 指数退避倍数
+    private long maxRetryDelayMs = 30000; // 最大重试延迟30秒
+    
     // 子代理管理配置
     private int maxConcurrentSubAgents = 5;
+    private int maxAgentsPerType = 3; // 每种类型最大代理数
     private long subAgentIdleTimeoutMs = 300000; // 5分钟空闲超时
+    private long agentIdleTimeoutMs = 300000; // 代理空闲超时
     private long healthCheckIntervalMs = 60000; // 1分钟健康检查间隔
+    private long cleanupIntervalMs = 120000; // 2分钟清理间隔
     
     // 子代理类型特定配置映射
     private Map<String, SubAgentTypeConfig> typeConfigs = new HashMap<>();
@@ -179,5 +187,65 @@ public class SubAgentFrameworkConfig {
     
     public void setTypeConfigs(Map<String, SubAgentTypeConfig> typeConfigs) {
         this.typeConfigs = typeConfigs != null ? new HashMap<>(typeConfigs) : new HashMap<>();
+    }
+    
+    public long getBaseRetryDelayMs() {
+        return baseRetryDelayMs;
+    }
+    
+    public void setBaseRetryDelayMs(long baseRetryDelayMs) {
+        if (baseRetryDelayMs > 0 && baseRetryDelayMs <= 10000) {
+            this.baseRetryDelayMs = baseRetryDelayMs;
+        }
+    }
+    
+    public double getRetryBackoffMultiplier() {
+        return retryBackoffMultiplier;
+    }
+    
+    public void setRetryBackoffMultiplier(double retryBackoffMultiplier) {
+        if (retryBackoffMultiplier >= 1.0 && retryBackoffMultiplier <= 5.0) {
+            this.retryBackoffMultiplier = retryBackoffMultiplier;
+        }
+    }
+    
+    public long getMaxRetryDelayMs() {
+        return maxRetryDelayMs;
+    }
+    
+    public void setMaxRetryDelayMs(long maxRetryDelayMs) {
+        if (maxRetryDelayMs > 0 && maxRetryDelayMs <= 300000) {
+            this.maxRetryDelayMs = maxRetryDelayMs;
+        }
+    }
+    
+    public int getMaxAgentsPerType() {
+        return maxAgentsPerType;
+    }
+    
+    public void setMaxAgentsPerType(int maxAgentsPerType) {
+        if (maxAgentsPerType > 0 && maxAgentsPerType <= 10) {
+            this.maxAgentsPerType = maxAgentsPerType;
+        }
+    }
+    
+    public long getAgentIdleTimeoutMs() {
+        return agentIdleTimeoutMs;
+    }
+    
+    public void setAgentIdleTimeoutMs(long agentIdleTimeoutMs) {
+        if (agentIdleTimeoutMs > 0 && agentIdleTimeoutMs <= 3600000) {
+            this.agentIdleTimeoutMs = agentIdleTimeoutMs;
+        }
+    }
+    
+    public long getCleanupIntervalMs() {
+        return cleanupIntervalMs;
+    }
+    
+    public void setCleanupIntervalMs(long cleanupIntervalMs) {
+        if (cleanupIntervalMs > 0 && cleanupIntervalMs <= 600000) {
+            this.cleanupIntervalMs = cleanupIntervalMs;
+        }
     }
 }

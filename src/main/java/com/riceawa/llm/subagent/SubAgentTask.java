@@ -1,5 +1,7 @@
 package com.riceawa.llm.subagent;
 
+import com.riceawa.llm.core.LLMContext;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -17,6 +19,7 @@ public abstract class SubAgentTask<R extends SubAgentResult> {
     private final long createdTime;
     private final long timeoutMs;
     private final Map<String, Object> parameters;
+    private final LLMContext llmContext;
     
     private SubAgentTaskStatus status;
     private int retryCount;
@@ -34,11 +37,24 @@ public abstract class SubAgentTask<R extends SubAgentResult> {
      * @param parameters 任务参数
      */
     protected SubAgentTask(String requesterId, long timeoutMs, Map<String, Object> parameters) {
+        this(requesterId, timeoutMs, parameters, null);
+    }
+    
+    /**
+     * 构造函数（带LLMContext）
+     * 
+     * @param requesterId 请求者ID
+     * @param timeoutMs 超时时间（毫秒）
+     * @param parameters 任务参数
+     * @param llmContext LLM上下文
+     */
+    protected SubAgentTask(String requesterId, long timeoutMs, Map<String, Object> parameters, LLMContext llmContext) {
         this.taskId = UUID.randomUUID().toString();
         this.requesterId = requesterId;
         this.createdTime = System.currentTimeMillis();
         this.timeoutMs = timeoutMs;
         this.parameters = parameters != null ? new HashMap<>(parameters) : new HashMap<>();
+        this.llmContext = llmContext;
         this.status = SubAgentTaskStatus.PENDING;
         this.retryCount = 0;
     }
@@ -56,6 +72,16 @@ public abstract class SubAgentTask<R extends SubAgentResult> {
      * @return 任务特定数据
      */
     public abstract Map<String, Object> getTaskSpecificData();
+    
+    /**
+     * 获取任务优先级，由子类实现
+     * 默认返回0（普通优先级）
+     * 
+     * @return 任务优先级（数值越大优先级越高）
+     */
+    public int getPriority() {
+        return 0;
+    }
     
     /**
      * 检查任务是否超时
@@ -214,5 +240,9 @@ public abstract class SubAgentTask<R extends SubAgentResult> {
     
     public long getEndTime() {
         return endTime;
+    }
+    
+    public LLMContext getLlmContext() {
+        return llmContext;
     }
 }
