@@ -1,7 +1,7 @@
 package com.riceawa.llm.subagent;
 
-import com.riceawa.llm.logging.LLMLogUtils;
-import com.riceawa.llm.logging.LogLevel;
+
+import com.riceawa.llm.logging.LogManager;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -49,7 +49,7 @@ public class IntegratedTaskQueueSystem {
         
         this.isRunning = true;
         
-        LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 集成任务队列系统已初始化");
+        LogManager.getInstance().system( LOG_PREFIX + " 集成任务队列系统已初始化");
     }
     
     /**
@@ -97,12 +97,12 @@ public class IntegratedTaskQueueSystem {
                 return failedFuture;
             }
             
-            LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 任务已提交: " + task.getTaskId());
+            LogManager.getInstance().system( LOG_PREFIX + " 任务已提交: " + task.getTaskId());
             
             return future;
             
         } catch (Exception e) {
-            LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 提交任务失败: " + e.getMessage());
+            LogManager.getInstance().system( LOG_PREFIX + " 提交任务失败: " + e.getMessage());
             
             CompletableFuture<R> failedFuture = new CompletableFuture<>();
             failedFuture.completeExceptionally(e);
@@ -158,12 +158,12 @@ public class IntegratedTaskQueueSystem {
                 return failedFuture;
             }
             
-            LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 任务已提交: " + task.getTaskId());
+            LogManager.getInstance().system( LOG_PREFIX + " 任务已提交: " + task.getTaskId());
             
             return future;
             
         } catch (Exception e) {
-            LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 提交任务失败: " + e.getMessage());
+            LogManager.getInstance().system( LOG_PREFIX + " 提交任务失败: " + e.getMessage());
             
             CompletableFuture<R> failedFuture = new CompletableFuture<>();
             failedFuture.completeExceptionally(e);
@@ -243,10 +243,10 @@ public class IntegratedTaskQueueSystem {
             // 停止生命周期跟踪
             lifecycleManager.stopTracking(taskId);
             
-            LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 任务已完成: " + taskId);
+            LogManager.getInstance().system( LOG_PREFIX + " 任务已完成: " + taskId);
             
         } catch (Exception e) {
-            LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 完成任务失败: " + taskId + ", 错误: " + e.getMessage());
+            LogManager.getInstance().system( LOG_PREFIX + " 完成任务失败: " + taskId + ", 错误: " + e.getMessage());
         }
     }
     
@@ -274,10 +274,10 @@ public class IntegratedTaskQueueSystem {
             // 停止生命周期跟踪
             lifecycleManager.stopTracking(taskId);
             
-            LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 任务失败: " + taskId + ", 错误: " + error);
+            LogManager.getInstance().system( LOG_PREFIX + " 任务失败: " + taskId + ", 错误: " + error);
             
         } catch (Exception e) {
-            LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 标记任务失败时出错: " + taskId + ", 错误: " + e.getMessage());
+            LogManager.getInstance().system( LOG_PREFIX + " 标记任务失败时出错: " + taskId + ", 错误: " + e.getMessage());
         }
     }
     
@@ -304,12 +304,12 @@ public class IntegratedTaskQueueSystem {
             // 停止生命周期跟踪
             lifecycleManager.stopTracking(taskId);
             
-            LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 任务已取消: " + taskId);
+            LogManager.getInstance().system( LOG_PREFIX + " 任务已取消: " + taskId);
             
             return cancelled;
             
         } catch (Exception e) {
-            LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 取消任务失败: " + taskId + ", 错误: " + e.getMessage());
+            LogManager.getInstance().system( LOG_PREFIX + " 取消任务失败: " + taskId + ", 错误: " + e.getMessage());
             return false;
         }
     }
@@ -453,7 +453,7 @@ public class IntegratedTaskQueueSystem {
             return;
         }
         
-        LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 正在关闭集成任务队列系统...");
+        LogManager.getInstance().system( LOG_PREFIX + " 正在关闭集成任务队列系统...");
         
         isRunning = false;
         
@@ -461,22 +461,22 @@ public class IntegratedTaskQueueSystem {
         try {
             taskQueue.shutdown();
         } catch (Exception e) {
-            LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 关闭任务队列失败: " + e.getMessage());
+            LogManager.getInstance().system( LOG_PREFIX + " 关闭任务队列失败: " + e.getMessage());
         }
         
         try {
             callbackManager.shutdown();
         } catch (Exception e) {
-            LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 关闭回调管理器失败: " + e.getMessage());
+            LogManager.getInstance().system( LOG_PREFIX + " 关闭回调管理器失败: " + e.getMessage());
         }
         
         try {
             taskMonitor.shutdown();
         } catch (Exception e) {
-            LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 关闭任务监控器失败: " + e.getMessage());
+            LogManager.getInstance().system( LOG_PREFIX + " 关闭任务监控器失败: " + e.getMessage());
         }
         
-        LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 集成任务队列系统已关闭");
+        LogManager.getInstance().system( LOG_PREFIX + " 集成任务队列系统已关闭");
     }
     
     /**
@@ -486,7 +486,7 @@ public class IntegratedTaskQueueSystem {
         // 将任务监控器注册为生命周期监听器
         lifecycleManager.addStatusListener(taskMonitor);
         
-        LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 组件集成完成");
+        LogManager.getInstance().system( LOG_PREFIX + " 组件集成完成");
     }
     
     /**

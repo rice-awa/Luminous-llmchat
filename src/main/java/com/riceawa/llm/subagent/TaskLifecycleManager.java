@@ -1,7 +1,7 @@
 package com.riceawa.llm.subagent;
 
-import com.riceawa.llm.logging.LLMLogUtils;
-import com.riceawa.llm.logging.LogLevel;
+
+import com.riceawa.llm.logging.LogManager;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -94,7 +94,7 @@ public class TaskLifecycleManager {
             statusCounters.put(status, new AtomicLong(0));
         }
         
-        LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 任务生命周期管理器已初始化");
+        LogManager.getInstance().system( LOG_PREFIX + " 任务生命周期管理器已初始化");
     }
     
     /**
@@ -105,7 +105,7 @@ public class TaskLifecycleManager {
      */
     public void registerTaskRouter(String taskType, TaskRouter router) {
         taskRouters.put(taskType, router);
-        LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 已注册任务路由器: " + taskType);
+        LogManager.getInstance().system( LOG_PREFIX + " 已注册任务路由器: " + taskType);
     }
     
     /**
@@ -115,7 +115,7 @@ public class TaskLifecycleManager {
      */
     public void unregisterTaskRouter(String taskType) {
         taskRouters.remove(taskType);
-        LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 已注销任务路由器: " + taskType);
+        LogManager.getInstance().system( LOG_PREFIX + " 已注销任务路由器: " + taskType);
     }
     
     /**
@@ -127,7 +127,7 @@ public class TaskLifecycleManager {
         synchronized (statusListeners) {
             statusListeners.add(listener);
         }
-        LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 已添加状态监听器");
+        LogManager.getInstance().system( LOG_PREFIX + " 已添加状态监听器");
     }
     
     /**
@@ -139,7 +139,7 @@ public class TaskLifecycleManager {
         synchronized (statusListeners) {
             statusListeners.remove(listener);
         }
-        LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 已移除状态监听器");
+        LogManager.getInstance().system( LOG_PREFIX + " 已移除状态监听器");
     }
     
     /**
@@ -157,7 +157,7 @@ public class TaskLifecycleManager {
             statusCounters.get(task.getStatus()).incrementAndGet();
             taskTypeCounters.computeIfAbsent(task.getTaskType(), k -> new AtomicLong(0)).incrementAndGet();
             
-            LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 开始跟踪任务: " + task.getTaskId());
+            LogManager.getInstance().system( LOG_PREFIX + " 开始跟踪任务: " + task.getTaskId());
             
             // 通知监听器
             notifyStatusChange(task.getTaskId(), null, task.getStatus());
@@ -177,7 +177,7 @@ public class TaskLifecycleManager {
         try {
             TaskLifecycle lifecycle = taskLifecycles.remove(taskId);
             if (lifecycle != null) {
-                LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 停止跟踪任务: " + taskId);
+                LogManager.getInstance().system( LOG_PREFIX + " 停止跟踪任务: " + taskId);
             }
         } finally {
             lifecycleLock.writeLock().unlock();
@@ -196,7 +196,7 @@ public class TaskLifecycleManager {
         try {
             TaskLifecycle lifecycle = taskLifecycles.get(taskId);
             if (lifecycle == null) {
-                LLMLogUtils.log(LogLevel.WARN, LOG_PREFIX + " 任务不存在: " + taskId);
+                LogManager.getInstance().system( LOG_PREFIX + " 任务不存在: " + taskId);
                 return false;
             }
             
@@ -205,7 +205,7 @@ public class TaskLifecycleManager {
             
             // 验证状态转换是否有效
             if (!isValidTransition(oldStatus, newStatus)) {
-                LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 无效的状态转换: " + 
+                LogManager.getInstance().system( LOG_PREFIX + " 无效的状态转换: " + 
                     oldStatus + " -> " + newStatus + ", 任务: " + taskId);
                 return false;
             }
@@ -218,7 +218,7 @@ public class TaskLifecycleManager {
             statusCounters.get(oldStatus).decrementAndGet();
             statusCounters.get(newStatus).incrementAndGet();
             
-            LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 任务状态已更新: " + taskId + 
+            LogManager.getInstance().system( LOG_PREFIX + " 任务状态已更新: " + taskId + 
                 " [" + oldStatus + " -> " + newStatus + "]");
             
             // 通知监听器
@@ -344,7 +344,7 @@ public class TaskLifecycleManager {
             }
             
             if (!toRemove.isEmpty()) {
-                LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 清理了 " + toRemove.size() + " 个已完成任务的生命周期记录");
+                LogManager.getInstance().system( LOG_PREFIX + " 清理了 " + toRemove.size() + " 个已完成任务的生命周期记录");
             }
             
             return toRemove.size();
@@ -392,7 +392,7 @@ public class TaskLifecycleManager {
                 try {
                     listener.onStatusChanged(taskId, oldStatus, newStatus);
                 } catch (Exception e) {
-                    LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 状态监听器执行失败: " + e.getMessage());
+                    LogManager.getInstance().system( LOG_PREFIX + " 状态监听器执行失败: " + e.getMessage());
                 }
             }
         }
@@ -411,7 +411,7 @@ public class TaskLifecycleManager {
             try {
                 router.onStatusChanged(task, oldStatus, newStatus);
             } catch (Exception e) {
-                LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 任务路由执行失败: " + e.getMessage());
+                LogManager.getInstance().system( LOG_PREFIX + " 任务路由执行失败: " + e.getMessage());
             }
         }
     }

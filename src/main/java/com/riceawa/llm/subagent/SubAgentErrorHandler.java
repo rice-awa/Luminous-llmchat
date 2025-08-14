@@ -1,7 +1,7 @@
 package com.riceawa.llm.subagent;
 
-import com.riceawa.llm.logging.LLMLogUtils;
-import com.riceawa.llm.logging.LogLevel;
+
+import com.riceawa.llm.logging.LogManager;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
@@ -42,7 +42,7 @@ public class SubAgentErrorHandler {
         this.errorCounts = new ConcurrentHashMap<>();
         this.lastErrorTimes = new ConcurrentHashMap<>();
         
-        LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 错误处理器已初始化");
+        LogManager.getInstance().system( LOG_PREFIX + " 错误处理器已初始化");
     }
     
     /**
@@ -57,7 +57,7 @@ public class SubAgentErrorHandler {
         // 记录错误统计
         recordError(taskId, errorType);
         
-        LLMLogUtils.log(LogLevel.WARN, LOG_PREFIX + " 任务执行错误: " + taskId + 
+        LogManager.getInstance().system( LOG_PREFIX + " 任务执行错误: " + taskId + 
             ", 错误类型: " + errorType + ", 重试次数: " + currentRetry, error);
         
         // 检查是否可以重试
@@ -76,7 +76,7 @@ public class SubAgentErrorHandler {
         String errorType = classifyError(error);
         recordError("creation_" + agentType, errorType);
         
-        LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 代理创建错误: " + agentType + 
+        LogManager.getInstance().system( LOG_PREFIX + " 代理创建错误: " + agentType + 
             ", 错误类型: " + errorType, error);
         
         // 根据错误类型提供不同的错误信息
@@ -91,7 +91,7 @@ public class SubAgentErrorHandler {
         String errorType = classifyError(error);
         recordError("pool_" + poolType + "_" + operation, errorType);
         
-        LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 代理池错误: " + poolType + 
+        LogManager.getInstance().system( LOG_PREFIX + " 代理池错误: " + poolType + 
             ", 操作: " + operation + ", 错误类型: " + errorType, error);
     }
     
@@ -145,7 +145,7 @@ public class SubAgentErrorHandler {
         
         long delayMs = calculateRetryDelay(retryCount);
         
-        LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 安排重试任务: " + task.getTaskId() + 
+        LogManager.getInstance().system( LOG_PREFIX + " 安排重试任务: " + task.getTaskId() + 
             ", 重试次数: " + retryCount + ", 延迟: " + delayMs + "ms");
         
         CompletableFuture<R> future = new CompletableFuture<>();
@@ -219,15 +219,12 @@ public class SubAgentErrorHandler {
     private <R extends SubAgentResult> R createFailureResult(SubAgentTask<R> task, Throwable error) {
         // 这里需要根据具体的结果类型创建失败结果
         // 由于泛型限制，这里使用一个通用的实现
-        return (R) new SubAgentResult() {
-            {
-                setSuccess(false);
-                setError("Task execution failed: " + error.getMessage());
-                setTotalProcessingTimeMs(System.currentTimeMillis() - task.getCreatedTime());
-                getMetadata().put("error_type", classifyError(error));
-                getMetadata().put("retry_count", task.getRetryCount());
-            }
-        };
+        Map<String, Object> metadata = new java.util.HashMap<>();
+        metadata.put("error_type", classifyError(error));
+        metadata.put("retry_count", task.getRetryCount());
+        
+        return (R) new GenericSubAgentResult(false, "Task execution failed: " + error.getMessage(), 
+                                           System.currentTimeMillis() - task.getCreatedTime(), metadata);
     }
     
     /**
@@ -235,15 +232,12 @@ public class SubAgentErrorHandler {
      */
     @SuppressWarnings("unchecked")
     private <R extends SubAgentResult> R createRetryResult(SubAgentTask<R> task, int retryCount) {
-        return (R) new SubAgentResult() {
-            {
-                setSuccess(false);
-                setError("Task scheduled for retry #" + retryCount);
-                setTotalProcessingTimeMs(0);
-                getMetadata().put("retry_scheduled", true);
-                getMetadata().put("retry_count", retryCount);
-            }
-        };
+        Map<String, Object> metadata = new java.util.HashMap<>();
+        metadata.put("retry_scheduled", true);
+        metadata.put("retry_count", retryCount);
+        metadata.put("original_task_id", task.getTaskId());
+        
+        return (R) new GenericSubAgentResult(false, "Task scheduled for retry #" + retryCount, 0, metadata);
     }
     
     /**
@@ -276,7 +270,7 @@ public class SubAgentErrorHandler {
     public void resetStatistics() {
         errorCounts.clear();
         lastErrorTimes.clear();
-        LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 错误统计已重置");
+        LogManager.getInstance().system( LOG_PREFIX + " 错误统计已重置");
     }
     
     /**

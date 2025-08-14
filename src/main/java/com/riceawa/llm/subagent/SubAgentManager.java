@@ -3,8 +3,6 @@ package com.riceawa.llm.subagent;
 import com.riceawa.llm.core.ConcurrencyManager;
 import com.riceawa.llm.core.LLMContext;
 import com.riceawa.llm.core.LLMService;
-import com.riceawa.llm.logging.LLMLogUtils;
-import com.riceawa.llm.logging.LogLevel;
 import com.riceawa.llm.logging.LogManager;
 import com.riceawa.llm.config.SubAgentFrameworkConfig;
 
@@ -102,7 +100,7 @@ public class SubAgentManager {
         this.isRunning = false;
         this.isShuttingDown = false;
         
-        LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 子代理管理器已初始化");
+        LogManager.getInstance().system( LOG_PREFIX + " 子代理管理器已初始化");
     }
     
     /**
@@ -151,7 +149,7 @@ public class SubAgentManager {
             
             isRunning = true;
             
-            LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 子代理管理器已启动");
+            LogManager.getInstance().system( LOG_PREFIX + " 子代理管理器已启动");
             
         } finally {
             managerLock.writeLock().unlock();
@@ -172,12 +170,12 @@ public class SubAgentManager {
         String taskType = task.getTaskType();
         totalTasksRouted.incrementAndGet();
         
-        LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 路由任务: " + task.getTaskId() + 
+        LogManager.getInstance().system( LOG_PREFIX + " 路由任务: " + task.getTaskId() + 
             ", 类型: " + taskType);
         
         // 检查是否支持该任务类型
         if (!agentFactory.isTypeSupported(taskType)) {
-            LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 不支持的任务类型: " + taskType);
+            LogManager.getInstance().error( LOG_PREFIX + " 不支持的任务类型: " + taskType);
             totalTasksFailed.incrementAndGet();
             return CompletableFuture.completedFuture(
                 (R) createErrorResult("Unsupported task type: " + taskType, 0)
@@ -206,7 +204,7 @@ public class SubAgentManager {
                     
                     if (throwable != null) {
                         totalTasksFailed.incrementAndGet();
-                        LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 任务执行失败: " + 
+                        LogManager.getInstance().error( LOG_PREFIX + " 任务执行失败: " + 
                             task.getTaskId(), throwable);
                         
                         // 使用错误处理器处理错误
@@ -214,7 +212,7 @@ public class SubAgentManager {
                             .join(); // 同步等待错误处理结果
                     } else {
                         totalTasksCompleted.incrementAndGet();
-                        LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 任务执行完成: " + 
+                        LogManager.getInstance().system( LOG_PREFIX + " 任务执行完成: " + 
                             task.getTaskId());
                         return result;
                     }
@@ -238,14 +236,14 @@ public class SubAgentManager {
             try {
                 SubAgentPool pool = agentPools.get(agentType);
                 if (pool == null) {
-                    LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 未找到代理池: " + agentType);
+                    LogManager.getInstance().error( LOG_PREFIX + " 未找到代理池: " + agentType);
                     return null;
                 }
                 
                 // 尝试从池中获取可用代理
                 SubAgent<T, R> agent = (SubAgent<T, R>) pool.borrowAgent();
                 if (agent != null) {
-                    LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 从池中获取代理: " + 
+                    LogManager.getInstance().system( LOG_PREFIX + " 从池中获取代理: " + 
                         agent.getAgentId());
                     return agent;
                 }
@@ -285,7 +283,7 @@ public class SubAgentManager {
             activeAgents.put(agent.getAgentId(), agent);
             totalAgentsCreated.incrementAndGet();
             
-            LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 创建新代理: " + agent.getAgentId() + 
+            LogManager.getInstance().system( LOG_PREFIX + " 创建新代理: " + agent.getAgentId() + 
                 ", 类型: " + agentType);
             
             return agent;
@@ -293,7 +291,7 @@ public class SubAgentManager {
         } catch (Exception e) {
             // 使用错误处理器处理创建错误
             SubAgentCreationException handledException = errorHandler.handleCreationError(agentType, e);
-            LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 创建代理失败: " + agentType, handledException);
+            LogManager.getInstance().error( LOG_PREFIX + " 创建代理失败: " + agentType, handledException);
             return null;
         }
     }
@@ -354,7 +352,7 @@ public class SubAgentManager {
             SubAgentPool pool = agentPools.get(agent.getAgentType());
             if (pool != null && agent.isAvailable()) {
                 pool.returnAgent(agent);
-                LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 代理已返回池中: " + 
+                LogManager.getInstance().system( LOG_PREFIX + " 代理已返回池中: " + 
                     agent.getAgentId());
             } else {
                 // 代理不可用或池不存在，销毁代理
@@ -378,10 +376,10 @@ public class SubAgentManager {
             agent.shutdown();
             totalAgentsDestroyed.incrementAndGet();
             
-            LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 代理已销毁: " + agent.getAgentId());
+            LogManager.getInstance().system( LOG_PREFIX + " 代理已销毁: " + agent.getAgentId());
             
         } catch (Exception e) {
-            LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 销毁代理失败: " + 
+            LogManager.getInstance().error( LOG_PREFIX + " 销毁代理失败: " + 
                 agent.getAgentId(), e);
         }
     }
@@ -400,7 +398,7 @@ public class SubAgentManager {
             );
             agentPools.put(agentType, pool);
             
-            LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 初始化代理池: " + agentType);
+            LogManager.getInstance().system( LOG_PREFIX + " 初始化代理池: " + agentType);
         }
     }
     
@@ -415,7 +413,7 @@ public class SubAgentManager {
             TimeUnit.MILLISECONDS
         );
         
-        LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 健康检查已启动，间隔: " + 
+        LogManager.getInstance().system( LOG_PREFIX + " 健康检查已启动，间隔: " + 
             config.getHealthCheckIntervalMs() + "ms");
     }
     
@@ -430,7 +428,7 @@ public class SubAgentManager {
             TimeUnit.MILLISECONDS
         );
         
-        LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 清理任务已启动，间隔: " + 
+        LogManager.getInstance().system( LOG_PREFIX + " 清理任务已启动，间隔: " + 
             config.getCleanupIntervalMs() + "ms");
     }
     
@@ -454,14 +452,14 @@ public class SubAgentManager {
                     healthyAgents += stats.getAvailableAgents();
                 }
                 
-                LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 健康检查完成 - 总代理数: " + 
+                LogManager.getInstance().system( LOG_PREFIX + " 健康检查完成 - 总代理数: " + 
                     totalAgents + ", 健康代理数: " + healthyAgents);
                 
             } finally {
                 managerLock.readLock().unlock();
             }
         } catch (Exception e) {
-            LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 健康检查失败", e);
+            LogManager.getInstance().error( LOG_PREFIX + " 健康检查失败", e);
         }
     }
     
@@ -484,7 +482,7 @@ public class SubAgentManager {
                 }
                 
                 if (cleanedAgents > 0) {
-                    LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 清理了 " + cleanedAgents + 
+                    LogManager.getInstance().system( LOG_PREFIX + " 清理了 " + cleanedAgents + 
                         " 个空闲超时代理");
                 }
                 
@@ -492,7 +490,7 @@ public class SubAgentManager {
                 managerLock.writeLock().unlock();
             }
         } catch (Exception e) {
-            LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 清理任务失败", e);
+            LogManager.getInstance().error( LOG_PREFIX + " 清理任务失败", e);
         }
     }
     
@@ -572,7 +570,7 @@ public class SubAgentManager {
             return;
         }
         
-        LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 正在关闭子代理管理器...");
+        LogManager.getInstance().system( LOG_PREFIX + " 正在关闭子代理管理器...");
         
         managerLock.writeLock().lock();
         try {
@@ -587,9 +585,9 @@ public class SubAgentManager {
             for (Map.Entry<String, SubAgentPool> entry : agentPools.entrySet()) {
                 try {
                     entry.getValue().shutdown();
-                    LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 代理池已关闭: " + entry.getKey());
+                    LogManager.getInstance().system( LOG_PREFIX + " 代理池已关闭: " + entry.getKey());
                 } catch (Exception e) {
-                    LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 关闭代理池失败: " + 
+                    LogManager.getInstance().error( LOG_PREFIX + " 关闭代理池失败: " + 
                         entry.getKey(), e);
                 }
             }
@@ -604,7 +602,7 @@ public class SubAgentManager {
             activeAgents.clear();
             taskRouting.clear();
             
-            LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 子代理管理器已关闭");
+            LogManager.getInstance().system( LOG_PREFIX + " 子代理管理器已关闭");
             
         } finally {
             managerLock.writeLock().unlock();
@@ -619,12 +617,12 @@ public class SubAgentManager {
         try {
             if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
                 scheduler.shutdownNow();
-                LLMLogUtils.log(LogLevel.WARN, LOG_PREFIX + " 强制关闭调度器: " + name);
+                LogManager.getInstance().system( LOG_PREFIX + " 强制关闭调度器: " + name);
             }
         } catch (InterruptedException e) {
             scheduler.shutdownNow();
             Thread.currentThread().interrupt();
-            LLMLogUtils.log(LogLevel.WARN, LOG_PREFIX + " 关闭调度器被中断: " + name);
+            LogManager.getInstance().system( LOG_PREFIX + " 关闭调度器被中断: " + name);
         }
     }
     
@@ -632,13 +630,8 @@ public class SubAgentManager {
      * 创建错误结果
      */
     private SubAgentResult createErrorResult(String error, long processingTime) {
-        return new SubAgentResult() {
-            {
-                setSuccess(false);
-                setError(error);
-                setTotalProcessingTimeMs(processingTime);
-            }
-        };
+        Map<String, Object> metadata = new java.util.HashMap<>();
+        return new GenericSubAgentResult(false, error, processingTime, metadata);
     }
     
     // Getters

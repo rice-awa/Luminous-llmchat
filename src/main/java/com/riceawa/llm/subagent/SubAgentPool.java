@@ -1,7 +1,7 @@
 package com.riceawa.llm.subagent;
 
-import com.riceawa.llm.logging.LLMLogUtils;
-import com.riceawa.llm.logging.LogLevel;
+
+import com.riceawa.llm.logging.LogManager;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -61,7 +61,7 @@ public class SubAgentPool {
         
         this.isShutdown = false;
         
-        LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 创建代理池: " + agentType + 
+        LogManager.getInstance().system( LOG_PREFIX + " 创建代理池: " + agentType + 
             ", 最大大小: " + maxPoolSize);
     }
     
@@ -85,7 +85,7 @@ public class SubAgentPool {
                     availableCount.decrementAndGet();
                     borrowedCount.incrementAndGet();
                     
-                    LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 借用代理: " + 
+                    LogManager.getInstance().system( LOG_PREFIX + " 借用代理: " + 
                         agent.getAgentId() + " from pool: " + agentType);
                     
                     return agent;
@@ -119,7 +119,7 @@ public class SubAgentPool {
         
         // 验证代理类型
         if (!agentType.equals(agent.getAgentType())) {
-            LLMLogUtils.log(LogLevel.WARN, LOG_PREFIX + " 代理类型不匹配: 期望 " + 
+            LogManager.getInstance().system( LOG_PREFIX + " 代理类型不匹配: 期望 " + 
                 agentType + ", 实际 " + agent.getAgentType());
             return false;
         }
@@ -128,7 +128,7 @@ public class SubAgentPool {
         try {
             // 检查代理是否仍然可用
             if (!agent.isAvailable()) {
-                LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 代理不可用，不返回池中: " + 
+                LogManager.getInstance().system( LOG_PREFIX + " 代理不可用，不返回池中: " + 
                     agent.getAgentId());
                 removeAgentFromPool(agent);
                 destroyAgent(agent);
@@ -137,7 +137,7 @@ public class SubAgentPool {
             
             // 检查池是否已满
             if (availableAgents.size() >= maxPoolSize) {
-                LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 池已满，销毁多余代理: " + 
+                LogManager.getInstance().system( LOG_PREFIX + " 池已满，销毁多余代理: " + 
                     agent.getAgentId());
                 removeAgentFromPool(agent);
                 destroyAgent(agent);
@@ -149,12 +149,12 @@ public class SubAgentPool {
                 availableCount.incrementAndGet();
                 borrowedCount.decrementAndGet();
                 
-                LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 代理已返回池中: " + 
+                LogManager.getInstance().system( LOG_PREFIX + " 代理已返回池中: " + 
                     agent.getAgentId() + " to pool: " + agentType);
                 
                 return true;
             } else {
-                LLMLogUtils.log(LogLevel.WARN, LOG_PREFIX + " 无法将代理返回池中: " + 
+                LogManager.getInstance().system( LOG_PREFIX + " 无法将代理返回池中: " + 
                     agent.getAgentId());
                 return false;
             }
@@ -177,7 +177,7 @@ public class SubAgentPool {
         
         // 验证代理类型
         if (!agentType.equals(agent.getAgentType())) {
-            LLMLogUtils.log(LogLevel.WARN, LOG_PREFIX + " 代理类型不匹配: 期望 " + 
+            LogManager.getInstance().system( LOG_PREFIX + " 代理类型不匹配: 期望 " + 
                 agentType + ", 实际 " + agent.getAgentType());
             return false;
         }
@@ -186,7 +186,7 @@ public class SubAgentPool {
         try {
             // 检查是否超过最大池大小
             if (totalAgents.get() >= maxPoolSize) {
-                LLMLogUtils.log(LogLevel.WARN, LOG_PREFIX + " 池已达到最大大小，拒绝添加代理: " + 
+                LogManager.getInstance().system( LOG_PREFIX + " 池已达到最大大小，拒绝添加代理: " + 
                     agent.getAgentId());
                 return false;
             }
@@ -200,7 +200,7 @@ public class SubAgentPool {
                 if (availableAgents.offer(agent)) {
                     availableCount.incrementAndGet();
                     
-                    LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 新代理已添加到池中: " + 
+                    LogManager.getInstance().system( LOG_PREFIX + " 新代理已添加到池中: " + 
                         agent.getAgentId() + " in pool: " + agentType);
                     
                     return true;
@@ -211,7 +211,7 @@ public class SubAgentPool {
                     return false;
                 }
             } else {
-                LLMLogUtils.log(LogLevel.WARN, LOG_PREFIX + " 代理不可用，仅添加到管理列表: " + 
+                LogManager.getInstance().system( LOG_PREFIX + " 代理不可用，仅添加到管理列表: " + 
                     agent.getAgentId());
                 return true;
             }
@@ -249,7 +249,7 @@ public class SubAgentPool {
                     availableCount.decrementAndGet();
                     cleanedCount++;
                     
-                    LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 清理空闲超时代理: " + 
+                    LogManager.getInstance().system( LOG_PREFIX + " 清理空闲超时代理: " + 
                         agent.getAgentId());
                 }
                 
@@ -290,9 +290,9 @@ public class SubAgentPool {
     private void destroyAgent(SubAgent<?, ?> agent) {
         try {
             agent.shutdown();
-            LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 代理已销毁: " + agent.getAgentId());
+            LogManager.getInstance().system( LOG_PREFIX + " 代理已销毁: " + agent.getAgentId());
         } catch (Exception e) {
-            LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 销毁代理失败: " + 
+            LogManager.getInstance().system( LOG_PREFIX + " 销毁代理失败: " + 
                 agent.getAgentId(), e);
         }
     }
@@ -332,7 +332,7 @@ public class SubAgentPool {
             return;
         }
         
-        LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 正在关闭代理池: " + agentType);
+        LogManager.getInstance().system( LOG_PREFIX + " 正在关闭代理池: " + agentType);
         
         poolLock.writeLock().lock();
         try {
@@ -352,7 +352,7 @@ public class SubAgentPool {
             availableCount.set(0);
             borrowedCount.set(0);
             
-            LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 代理池已关闭: " + agentType);
+            LogManager.getInstance().system( LOG_PREFIX + " 代理池已关闭: " + agentType);
             
         } finally {
             poolLock.writeLock().unlock();

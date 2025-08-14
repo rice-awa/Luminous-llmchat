@@ -1,7 +1,7 @@
 package com.riceawa.llm.subagent;
 
-import com.riceawa.llm.logging.LLMLogUtils;
-import com.riceawa.llm.logging.LogLevel;
+
+import com.riceawa.llm.logging.LogManager;
 
 import java.util.*;
 import java.util.concurrent.*;
@@ -73,7 +73,7 @@ public class UniversalTaskQueue {
         
         startTimeoutChecker();
         
-        LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 通用任务队列已初始化，最大队列大小: " + maxQueueSize);
+        LogManager.getInstance().system( LOG_PREFIX + " 通用任务队列已初始化，最大队列大小: " + maxQueueSize);
     }
     
     /**
@@ -85,7 +85,7 @@ public class UniversalTaskQueue {
      */
     public <R extends SubAgentResult> boolean submitTask(SubAgentTask<R> task, int priority) {
         if (task == null) {
-            LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 尝试提交空任务");
+            LogManager.getInstance().system( LOG_PREFIX + " 尝试提交空任务");
             return false;
         }
         
@@ -93,13 +93,13 @@ public class UniversalTaskQueue {
         try {
             // 检查队列大小限制
             if (taskQueue.size() >= maxQueueSize) {
-                LLMLogUtils.log(LogLevel.WARN, LOG_PREFIX + " 队列已满，拒绝任务: " + task.getTaskId());
+                LogManager.getInstance().system( LOG_PREFIX + " 队列已满，拒绝任务: " + task.getTaskId());
                 return false;
             }
             
             // 检查任务是否已存在
             if (taskRegistry.containsKey(task.getTaskId())) {
-                LLMLogUtils.log(LogLevel.WARN, LOG_PREFIX + " 任务已存在: " + task.getTaskId());
+                LogManager.getInstance().system( LOG_PREFIX + " 任务已存在: " + task.getTaskId());
                 return false;
             }
             
@@ -114,7 +114,7 @@ public class UniversalTaskQueue {
             totalTasksSubmitted.incrementAndGet();
             taskTypeCounters.computeIfAbsent(task.getTaskType(), k -> new AtomicLong(0)).incrementAndGet();
             
-            LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 任务已提交: " + task.getTaskId() + 
+            LogManager.getInstance().system( LOG_PREFIX + " 任务已提交: " + task.getTaskId() + 
                 ", 类型: " + task.getTaskType() + ", 优先级: " + priority);
             
             return true;
@@ -147,7 +147,7 @@ public class UniversalTaskQueue {
                 SubAgentTask<?> task = wrapper.getTask();
                 task.setStatus(SubAgentTaskStatus.PROCESSING);
                 
-                LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 任务已出队: " + task.getTaskId());
+                LogManager.getInstance().system( LOG_PREFIX + " 任务已出队: " + task.getTaskId());
                 return task;
             }
             return null;
@@ -170,7 +170,7 @@ public class UniversalTaskQueue {
                 SubAgentTask<?> task = wrapper.getTask();
                 task.setStatus(SubAgentTaskStatus.PROCESSING);
                 
-                LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 任务已出队: " + task.getTaskId());
+                LogManager.getInstance().system( LOG_PREFIX + " 任务已出队: " + task.getTaskId());
                 return task;
             }
             return null;
@@ -227,7 +227,7 @@ public class UniversalTaskQueue {
                 
                 totalTasksCompleted.incrementAndGet();
                 
-                LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 任务已完成: " + taskId);
+                LogManager.getInstance().system( LOG_PREFIX + " 任务已完成: " + taskId);
                 
                 // 执行回调
                 executeCallback(task, result, null);
@@ -255,7 +255,7 @@ public class UniversalTaskQueue {
                 
                 totalTasksFailed.incrementAndGet();
                 
-                LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 任务失败: " + taskId + ", 错误: " + error);
+                LogManager.getInstance().system( LOG_PREFIX + " 任务失败: " + taskId + ", 错误: " + error);
                 
                 // 执行回调
                 executeCallback(task, null, exception);
@@ -280,7 +280,7 @@ public class UniversalTaskQueue {
                 taskRegistry.remove(taskId);
                 wrapper.getTask().setStatus(SubAgentTaskStatus.CANCELLED);
                 
-                LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 任务已取消: " + taskId);
+                LogManager.getInstance().system( LOG_PREFIX + " 任务已取消: " + taskId);
                 
                 // 执行取消回调
                 SubAgentCallback<?> callback = wrapper.getTask().getCallback();
@@ -288,7 +288,7 @@ public class UniversalTaskQueue {
                     try {
                         callback.onCancelled(taskId);
                     } catch (Exception e) {
-                        LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 执行取消回调失败: " + e.getMessage());
+                        LogManager.getInstance().system( LOG_PREFIX + " 执行取消回调失败: " + e.getMessage());
                     }
                 }
                 
@@ -404,7 +404,7 @@ public class UniversalTaskQueue {
                     
                     totalTasksTimeout.incrementAndGet();
                     
-                    LLMLogUtils.log(LogLevel.WARN, LOG_PREFIX + " 任务超时被清理: " + taskId);
+                    LogManager.getInstance().system( LOG_PREFIX + " 任务超时被清理: " + taskId);
                     
                     // 执行超时回调
                     SubAgentCallback<?> callback = task.getCallback();
@@ -412,14 +412,14 @@ public class UniversalTaskQueue {
                         try {
                             callback.onTimeout(taskId);
                         } catch (Exception e) {
-                            LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 执行超时回调失败: " + e.getMessage());
+                            LogManager.getInstance().system( LOG_PREFIX + " 执行超时回调失败: " + e.getMessage());
                         }
                     }
                 }
             }
             
             if (!expiredTaskIds.isEmpty()) {
-                LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 清理了 " + expiredTaskIds.size() + " 个过期任务");
+                LogManager.getInstance().system( LOG_PREFIX + " 清理了 " + expiredTaskIds.size() + " 个过期任务");
             }
             
             return expiredTaskIds.size();
@@ -432,7 +432,7 @@ public class UniversalTaskQueue {
      * 关闭队列
      */
     public void shutdown() {
-        LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 正在关闭任务队列...");
+        LogManager.getInstance().system( LOG_PREFIX + " 正在关闭任务队列...");
         
         // 关闭超时检测调度器
         timeoutScheduler.shutdown();
@@ -459,7 +459,7 @@ public class UniversalTaskQueue {
                         try {
                             callback.onCancelled(task.getTaskId());
                         } catch (Exception e) {
-                            LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 执行关闭回调失败: " + e.getMessage());
+                            LogManager.getInstance().system( LOG_PREFIX + " 执行关闭回调失败: " + e.getMessage());
                         }
                     }
                 }
@@ -472,7 +472,7 @@ public class UniversalTaskQueue {
             queueLock.writeLock().unlock();
         }
         
-        LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 任务队列已关闭");
+        LogManager.getInstance().system( LOG_PREFIX + " 任务队列已关闭");
     }
     
     /**
@@ -486,7 +486,7 @@ public class UniversalTaskQueue {
             TimeUnit.MILLISECONDS
         );
         
-        LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 超时检测器已启动，检测间隔: " + cleanupIntervalMs + "ms");
+        LogManager.getInstance().system( LOG_PREFIX + " 超时检测器已启动，检测间隔: " + cleanupIntervalMs + "ms");
     }
     
     /**
@@ -505,7 +505,7 @@ public class UniversalTaskQueue {
                     callback.onFailure(task.getTaskId(), error, exception);
                 }
             } catch (Exception e) {
-                LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 执行回调失败: " + e.getMessage());
+                LogManager.getInstance().system( LOG_PREFIX + " 执行回调失败: " + e.getMessage());
             }
         }
     }

@@ -1,7 +1,7 @@
 package com.riceawa.llm.subagent;
 
-import com.riceawa.llm.logging.LLMLogUtils;
-import com.riceawa.llm.logging.LogLevel;
+
+import com.riceawa.llm.logging.LogManager;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -71,7 +71,7 @@ public class TaskMonitor implements TaskLifecycleManager.TaskStatusListener {
         
         startMonitoring();
         
-        LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 任务监控器已启动，监控间隔: " + monitoringIntervalMs + "ms");
+        LogManager.getInstance().system( LOG_PREFIX + " 任务监控器已启动，监控间隔: " + monitoringIntervalMs + "ms");
     }
     
     /**
@@ -131,7 +131,7 @@ public class TaskMonitor implements TaskLifecycleManager.TaskStatusListener {
             metrics.setTaskType(taskType);
             metrics.setStartTime(System.currentTimeMillis());
             
-            LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 记录任务开始: " + taskId + ", 类型: " + taskType);
+            LogManager.getInstance().system( LOG_PREFIX + " 记录任务开始: " + taskId + ", 类型: " + taskType);
         } finally {
             metricsLock.writeLock().unlock();
         }
@@ -163,7 +163,7 @@ public class TaskMonitor implements TaskLifecycleManager.TaskStatusListener {
                     totalFailedTasks.incrementAndGet();
                 }
                 
-                LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 记录任务完成: " + taskId + 
+                LogManager.getInstance().system( LOG_PREFIX + " 记录任务完成: " + taskId + 
                     ", 成功: " + success + ", 处理时间: " + processingTime + "ms");
             }
         } finally {
@@ -302,7 +302,7 @@ public class TaskMonitor implements TaskLifecycleManager.TaskStatusListener {
             }
             
             if (!expiredTaskIds.isEmpty()) {
-                LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 清理了 " + expiredTaskIds.size() + " 个过期任务指标");
+                LogManager.getInstance().system( LOG_PREFIX + " 清理了 " + expiredTaskIds.size() + " 个过期任务指标");
             }
             
             return expiredTaskIds.size();
@@ -315,7 +315,7 @@ public class TaskMonitor implements TaskLifecycleManager.TaskStatusListener {
      * 关闭监控器
      */
     public void shutdown() {
-        LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 正在关闭任务监控器...");
+        LogManager.getInstance().system( LOG_PREFIX + " 正在关闭任务监控器...");
         
         monitorScheduler.shutdown();
         try {
@@ -327,7 +327,7 @@ public class TaskMonitor implements TaskLifecycleManager.TaskStatusListener {
             Thread.currentThread().interrupt();
         }
         
-        LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 任务监控器已关闭");
+        LogManager.getInstance().system( LOG_PREFIX + " 任务监控器已关闭");
     }
     
     /**
@@ -360,7 +360,7 @@ public class TaskMonitor implements TaskLifecycleManager.TaskStatusListener {
             checkPerformanceAnomalies(report);
             
         } catch (Exception e) {
-            LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 监控检查失败: " + e.getMessage());
+            LogManager.getInstance().system( LOG_PREFIX + " 监控检查失败: " + e.getMessage());
         }
     }
     
@@ -375,7 +375,7 @@ public class TaskMonitor implements TaskLifecycleManager.TaskStatusListener {
                 try {
                     listener.onPerformanceReport(report);
                 } catch (Exception e) {
-                    LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 监控监听器执行失败: " + e.getMessage());
+                    LogManager.getInstance().system( LOG_PREFIX + " 监控监听器执行失败: " + e.getMessage());
                 }
             }
         }
@@ -391,13 +391,13 @@ public class TaskMonitor implements TaskLifecycleManager.TaskStatusListener {
         
         // 检查成功率
         if (stats.getSuccessRate() < 0.8 && stats.getTotalTasks() > 10) {
-            LLMLogUtils.log(LogLevel.WARN, LOG_PREFIX + " 检测到低成功率: " + 
+            LogManager.getInstance().system( LOG_PREFIX + " 检测到低成功率: " + 
                 String.format("%.2f%%", stats.getSuccessRate() * 100));
         }
         
         // 检查平均处理时间
         if (stats.getAverageProcessingTime() > 60000) { // 超过1分钟
-            LLMLogUtils.log(LogLevel.WARN, LOG_PREFIX + " 检测到高平均处理时间: " + 
+            LogManager.getInstance().system( LOG_PREFIX + " 检测到高平均处理时间: " + 
                 stats.getAverageProcessingTime() + "ms");
         }
         
@@ -405,7 +405,7 @@ public class TaskMonitor implements TaskLifecycleManager.TaskStatusListener {
         for (Map.Entry<String, TaskTypePerformance> entry : report.getTaskTypePerformance().entrySet()) {
             TaskTypePerformance perf = entry.getValue();
             if (perf.getSuccessRate() < 0.7 && perf.getTotalTasks() > 5) {
-                LLMLogUtils.log(LogLevel.WARN, LOG_PREFIX + " 任务类型 " + entry.getKey() + 
+                LogManager.getInstance().system( LOG_PREFIX + " 任务类型 " + entry.getKey() + 
                     " 成功率较低: " + String.format("%.2f%%", perf.getSuccessRate() * 100));
             }
         }

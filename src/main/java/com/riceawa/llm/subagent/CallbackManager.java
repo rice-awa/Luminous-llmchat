@@ -1,7 +1,6 @@
 package com.riceawa.llm.subagent;
 
-import com.riceawa.llm.logging.LLMLogUtils;
-import com.riceawa.llm.logging.LogLevel;
+import com.riceawa.llm.logging.LogManager;
 
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
@@ -79,7 +78,7 @@ public class CallbackManager {
         this.totalCallbacksFailed = new AtomicLong(0);
         this.totalCallbacksTimeout = new AtomicLong(0);
         
-        LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 回调管理器已初始化，最大并发回调数: " + maxConcurrentCallbacks);
+        LogManager.getInstance().system(LOG_PREFIX + " 回调管理器已初始化，最大并发回调数: " + maxConcurrentCallbacks);
     }
     
     /**
@@ -117,7 +116,7 @@ public class CallbackManager {
         
         totalCallbacksRegistered.incrementAndGet();
         
-        LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 已注册回调: " + taskId + 
+        LogManager.getInstance().system( LOG_PREFIX + " 已注册回调: " + taskId + 
             ", 超时时间: " + registration.getTimeoutMs() + "ms");
         
         return future;
@@ -161,7 +160,7 @@ public class CallbackManager {
         
         totalCallbacksRegistered.incrementAndGet();
         
-        LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 已创建Future: " + taskId);
+        LogManager.getInstance().system( LOG_PREFIX + " 已创建Future: " + taskId);
         
         return future;
     }
@@ -203,11 +202,11 @@ public class CallbackManager {
                     
                     totalCallbacksExecuted.incrementAndGet();
                     
-                    LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 成功回调已执行: " + taskId);
+                    LogManager.getInstance().system( LOG_PREFIX + " 成功回调已执行: " + taskId);
                     
                 } catch (Exception e) {
                     totalCallbacksFailed.incrementAndGet();
-                    LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 成功回调执行失败: " + taskId + 
+                    LogManager.getInstance().error( LOG_PREFIX + " 成功回调执行失败: " + taskId + 
                         ", 错误: " + e.getMessage());
                     
                     // 如果Future还未完成，则设置异常
@@ -217,7 +216,7 @@ public class CallbackManager {
                 }
             });
         } else {
-            LLMLogUtils.log(LogLevel.WARN, LOG_PREFIX + " 未找到回调注册: " + taskId);
+            LogManager.getInstance().system( LOG_PREFIX + " 未找到回调注册: " + taskId);
         }
     }
     
@@ -253,16 +252,16 @@ public class CallbackManager {
                     
                     totalCallbacksExecuted.incrementAndGet();
                     
-                    LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 失败回调已执行: " + taskId);
+                    LogManager.getInstance().system( LOG_PREFIX + " 失败回调已执行: " + taskId);
                     
                 } catch (Exception e) {
                     totalCallbacksFailed.incrementAndGet();
-                    LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 失败回调执行失败: " + taskId + 
+                    LogManager.getInstance().error( LOG_PREFIX + " 失败回调执行失败: " + taskId + 
                         ", 错误: " + e.getMessage());
                 }
             });
         } else {
-            LLMLogUtils.log(LogLevel.WARN, LOG_PREFIX + " 未找到回调注册: " + taskId);
+            LogManager.getInstance().system( LOG_PREFIX + " 未找到回调注册: " + taskId);
         }
     }
     
@@ -292,16 +291,16 @@ public class CallbackManager {
                     
                     totalCallbacksTimeout.incrementAndGet();
                     
-                    LLMLogUtils.log(LogLevel.WARN, LOG_PREFIX + " 超时回调已执行: " + taskId);
+                    LogManager.getInstance().system( LOG_PREFIX + " 超时回调已执行: " + taskId);
                     
                 } catch (Exception e) {
                     totalCallbacksFailed.incrementAndGet();
-                    LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 超时回调执行失败: " + taskId + 
+                    LogManager.getInstance().error( LOG_PREFIX + " 超时回调执行失败: " + taskId + 
                         ", 错误: " + e.getMessage());
                 }
             });
         } else {
-            LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 超时回调未找到注册（可能已完成）: " + taskId);
+            LogManager.getInstance().system( LOG_PREFIX + " 超时回调未找到注册（可能已完成）: " + taskId);
         }
     }
     
@@ -331,16 +330,16 @@ public class CallbackManager {
                     
                     totalCallbacksExecuted.incrementAndGet();
                     
-                    LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 取消回调已执行: " + taskId);
+                    LogManager.getInstance().system( LOG_PREFIX + " 取消回调已执行: " + taskId);
                     
                 } catch (Exception e) {
                     totalCallbacksFailed.incrementAndGet();
-                    LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 取消回调执行失败: " + taskId + 
+                    LogManager.getInstance().error( LOG_PREFIX + " 取消回调执行失败: " + taskId + 
                         ", 错误: " + e.getMessage());
                 }
             });
         } else {
-            LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 取消回调未找到注册: " + taskId);
+            LogManager.getInstance().system( LOG_PREFIX + " 取消回调未找到注册: " + taskId);
         }
     }
     
@@ -362,11 +361,11 @@ public class CallbackManager {
                         callback.onProgress(taskId, progress);
                     }
                     
-                    LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 进度回调已执行: " + taskId + 
+                    LogManager.getInstance().system( LOG_PREFIX + " 进度回调已执行: " + taskId + 
                         ", 进度: " + progress);
                     
                 } catch (Exception e) {
-                    LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 进度回调执行失败: " + taskId + 
+                    LogManager.getInstance().error( LOG_PREFIX + " 进度回调执行失败: " + taskId + 
                         ", 错误: " + e.getMessage());
                 }
             });
@@ -409,7 +408,7 @@ public class CallbackManager {
                 future.cancel(true);
             }
             
-            LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 已取消回调注册: " + taskId);
+            LogManager.getInstance().system( LOG_PREFIX + " 已取消回调注册: " + taskId);
             return true;
         }
         
@@ -464,7 +463,7 @@ public class CallbackManager {
         }
         
         if (!expiredTaskIds.isEmpty()) {
-            LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 清理了 " + expiredTaskIds.size() + " 个过期回调");
+            LogManager.getInstance().system( LOG_PREFIX + " 清理了 " + expiredTaskIds.size() + " 个过期回调");
         }
         
         return expiredTaskIds.size();
@@ -474,7 +473,7 @@ public class CallbackManager {
      * 关闭回调管理器
      */
     public void shutdown() {
-        LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 正在关闭回调管理器...");
+        LogManager.getInstance().system( LOG_PREFIX + " 正在关闭回调管理器...");
         
         // 取消所有未完成的回调
         for (String taskId : new ArrayList<>(callbackRegistry.keySet())) {
@@ -503,7 +502,7 @@ public class CallbackManager {
             Thread.currentThread().interrupt();
         }
         
-        LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 回调管理器已关闭");
+        LogManager.getInstance().system( LOG_PREFIX + " 回调管理器已关闭");
     }
     
     /**

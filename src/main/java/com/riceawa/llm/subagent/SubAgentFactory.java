@@ -2,8 +2,8 @@ package com.riceawa.llm.subagent;
 
 import com.riceawa.llm.core.LLMService;
 import com.riceawa.llm.logging.LogManager;
-import com.riceawa.llm.logging.LLMLogUtils;
-import com.riceawa.llm.logging.LogLevel;
+
+import com.riceawa.llm.logging.LogManager;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -48,7 +48,7 @@ public class SubAgentFactory {
         this.typeRegistry = SubAgentTypeRegistry.getInstance();
         this.compatibilityCheckers = new ConcurrentHashMap<>();
         
-        LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 子代理工厂已初始化");
+        LogManager.getInstance().system( LOG_PREFIX + " 子代理工厂已初始化");
     }
     
     /**
@@ -110,7 +110,7 @@ public class SubAgentFactory {
         // 更新类型注册表状态
         typeRegistry.setTypeLoadStatus(agentType, SubAgentTypeRegistry.TypeLoadStatus.LOADED);
         
-        LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 注册子代理类型: " + agentType);
+        LogManager.getInstance().system( LOG_PREFIX + " 注册子代理类型: " + agentType);
     }
     
     /**
@@ -150,7 +150,7 @@ public class SubAgentFactory {
             // 更新类型注册表状态
             typeRegistry.setTypeLoadStatus(agentType, SubAgentTypeRegistry.TypeLoadStatus.UNKNOWN);
             
-            LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 取消注册子代理类型: " + agentType);
+            LogManager.getInstance().system( LOG_PREFIX + " 取消注册子代理类型: " + agentType);
         }
     }
     
@@ -179,7 +179,7 @@ public class SubAgentFactory {
             throw new SubAgentCreationException("Sub-agent context cannot be null");
         }
         
-        LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 开始创建子代理: " + agentType);
+        LogManager.getInstance().system( LOG_PREFIX + " 开始创建子代理: " + agentType);
         
         // 检查是否支持该类型
         if (!isTypeSupported(agentType)) {
@@ -216,12 +216,12 @@ public class SubAgentFactory {
                 initializer.initialize(agent, context);
             }
             
-            LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 创建子代理成功: " + agentType + 
+            LogManager.getInstance().system( LOG_PREFIX + " 创建子代理成功: " + agentType + 
                 " ID: " + agent.getAgentId());
             return agent;
             
         } catch (Exception e) {
-            LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 创建子代理失败: " + agentType, e);
+            LogManager.getInstance().system( LOG_PREFIX + " 创建子代理失败: " + agentType, e);
             throw new SubAgentCreationException("Failed to create agent: " + e.getMessage(), e);
         }
     }
@@ -278,7 +278,7 @@ public class SubAgentFactory {
      * 发现并注册可用的子代理类型
      */
     public void discoverAndRegisterTypes() {
-        LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 开始发现子代理类型...");
+        LogManager.getInstance().system( LOG_PREFIX + " 开始发现子代理类型...");
         
         // 触发类型注册表的发现机制
         typeRegistry.discoverAndRegisterTypes();
@@ -304,12 +304,12 @@ public class SubAgentFactory {
                     loadedCount++;
                 }
             } catch (Exception e) {
-                LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 加载代理类型失败: " + typeName, e);
+                LogManager.getInstance().system( LOG_PREFIX + " 加载代理类型失败: " + typeName, e);
                 typeRegistry.setTypeLoadStatus(typeName, SubAgentTypeRegistry.TypeLoadStatus.FAILED);
             }
         }
         
-        LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 类型发现完成，成功加载 " + loadedCount + 
+        LogManager.getInstance().system( LOG_PREFIX + " 类型发现完成，成功加载 " + loadedCount + 
             " 个类型，总共 " + typeInfos.size() + " 个类型");
     }
     
@@ -324,14 +324,14 @@ public class SubAgentFactory {
         
         // 检查依赖关系
         if (!typeRegistry.areDependenciesSatisfied(typeName)) {
-            LLMLogUtils.log(LogLevel.WARN, LOG_PREFIX + " 类型依赖不满足: " + typeName);
+            LogManager.getInstance().system( LOG_PREFIX + " 类型依赖不满足: " + typeName);
             return false;
         }
         
         // 这里应该根据类型信息动态加载创建器、验证器等
         // 目前先跳过，等待具体类型实现
         
-        LLMLogUtils.log(LogLevel.DEBUG, LOG_PREFIX + " 类型加载成功: " + typeName);
+        LogManager.getInstance().system( LOG_PREFIX + " 类型加载成功: " + typeName);
         return true;
     }
     
@@ -354,7 +354,7 @@ public class SubAgentFactory {
         try {
             return checker.isCompatible(context);
         } catch (Exception e) {
-            LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 兼容性检查失败: " + agentType, e);
+            LogManager.getInstance().system( LOG_PREFIX + " 兼容性检查失败: " + agentType, e);
             return false;
         }
     }
@@ -396,7 +396,7 @@ public class SubAgentFactory {
             return loadAgentType(agentType);
             
         } catch (Exception e) {
-            LLMLogUtils.log(LogLevel.ERROR, LOG_PREFIX + " 重新加载类型失败: " + agentType, e);
+            LogManager.getInstance().system( LOG_PREFIX + " 重新加载类型失败: " + agentType, e);
             return false;
         }
     }
@@ -411,7 +411,7 @@ public class SubAgentFactory {
         compatibilityCheckers.clear();
         supportedTypes.clear();
         
-        LLMLogUtils.log(LogLevel.INFO, LOG_PREFIX + " 清空所有注册的子代理类型");
+        LogManager.getInstance().system( LOG_PREFIX + " 清空所有注册的子代理类型");
     }
     
     /**
