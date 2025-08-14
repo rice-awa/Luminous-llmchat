@@ -659,8 +659,8 @@ public class GeminiIntelligentSearchSubAgent extends BaseSubAgent<IntelligentSea
         
         // 搜索轮次数据
         for (SearchRound round : searchRounds) {
-            if (round.getContent() != null) {
-                memory += round.getContent().length() * 2; // 估算字符串内存使用
+            if (round.getRawResult() != null) {
+                memory += round.getRawResult().length() * 2; // 估算字符串内存使用
             }
         }
         
