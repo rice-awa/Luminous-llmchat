@@ -5,6 +5,7 @@ import com.riceawa.llm.config.PromptGeneratorManager;
 import com.riceawa.llm.core.*;
 import com.riceawa.llm.logging.LogManager;
 import com.riceawa.llm.subagent.*;
+import com.riceawa.llm.subagent.search.analysis.SearchResultAnalyzer;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -30,6 +31,9 @@ public class GeminiIntelligentSearchSubAgent extends BaseSubAgent<IntelligentSea
     private IntelligentSearchConfig searchConfig;
     private LLMConfig llmConfig;
     private PromptGeneratorManager promptManager;
+    
+    // 搜索结果分析器
+    private SearchResultAnalyzer searchResultAnalyzer;
     
     // 搜索状态管理
     private volatile boolean isSearching = false;
@@ -233,52 +237,32 @@ public class GeminiIntelligentSearchSubAgent extends BaseSubAgent<IntelligentSea
         try {
             LogManager.getInstance().system("Analyzing search results for " + searchRounds.size() + " rounds");
             
-            // 收集所有成功的搜索结果
-            StringBuilder allResults = new StringBuilder();
-            for (SearchRound round : searchRounds) {
-                if (round.isSuccessful()) {
-                    allResults.append("=== 第").append(round.getRoundNumber()).append("轮搜索结果 ===\n");
-                    allResults.append("查询: ").append(round.getQuery()).append("\n");
-                    allResults.append(round.getRawResult()).append("\n\n");
-                }
-            }
-            
-            // 生成分析提示词
-            String analysisPrompt = generateAnalysisPrompt(task, allResults.toString());
-            
-            // 创建分析消息
-            List<LLMMessage> analysisMessages = new ArrayList<>();
-            analysisMessages.add(new LLMMessage(LLMMessage.MessageRole.SYSTEM, analysisPrompt));
-            analysisMessages.add(new LLMMessage(LLMMessage.MessageRole.USER, 
-                "请对以上搜索结果进行综合分析，提供结构化的洞察和建议。"));
-            
-            // 执行分析
-            CompletableFuture<LLMResponse> future = llmService.chat(analysisMessages, llmConfig);
-            LLMResponse analysisResponse = future.get(searchConfig.getEffectiveRoundTimeoutMs(), TimeUnit.MILLISECONDS);
+            // 使用新的搜索结果分析器
+            com.riceawa.llm.subagent.search.analysis.SearchResultAnalysis analysisResult = 
+                searchResultAnalyzer.analyzeSearchResults(task, searchRounds);
             
             long analysisTime = System.currentTimeMillis() - analysisStartTime;
             task.completeAnalysis();
             
-            if (analysisResponse.isSuccess()) {
-                String finalAnalysis = analysisResponse.getContent();
-                
-                // 提取洞察信息
-                SearchInsights insights = extractInsights(finalAnalysis, analysisTime);
+            if (analysisResult.isSuccess()) {
+                // 提取分析结果
+                SearchInsights insights = analysisResult.getInsights();
+                String finalReport = analysisResult.getFinalReport();
                 
                 // 生成结构化摘要
-                String structuredSummary = generateStructuredSummary(task, searchRounds, finalAnalysis);
+                String structuredSummary = generateStructuredSummaryFromAnalysis(task, searchRounds, analysisResult);
                 
                 long totalTime = System.currentTimeMillis() - task.getStartTime();
                 
                 return IntelligentSearchResult.success(
-                    finalAnalysis,
+                    finalReport,
                     structuredSummary,
                     searchRounds,
                     insights,
                     task.getOriginalQuery(),
                     task.getStrategy(),
                     totalTime,
-                    createResultMetadata(task, searchRounds)
+                    createEnhancedResultMetadata(task, searchRounds, analysisResult)
                 );
             } else {
                 // 分析失败，但搜索成功
@@ -286,7 +270,7 @@ public class GeminiIntelligentSearchSubAgent extends BaseSubAgent<IntelligentSea
                 long totalTime = System.currentTimeMillis() - task.getStartTime();
                 
                 return IntelligentSearchResult.success(
-                    "分析阶段失败，但搜索数据已收集完成。",
+                    "深度分析阶段失败，但基础搜索数据已收集完成: " + analysisResult.getError(),
                     basicSummary,
                     searchRounds,
                     null,
@@ -356,8 +340,14 @@ public class GeminiIntelligentSearchSubAgent extends BaseSubAgent<IntelligentSea
         // 配置LLM
         configureLLMConfig();
         
+        // 初始化搜索结果分析器
+        if (searchConfig.isEnableDeepAnalysis()) {
+            this.searchResultAnalyzer = new SearchResultAnalyzer(searchConfig, llmService);
+        }
+        
         LogManager.getInstance().system("Configured search agent with model: " + searchConfig.getModel() + 
-                                      ", max rounds: " + searchConfig.getMaxSearchRounds());
+                                      ", max rounds: " + searchConfig.getMaxSearchRounds() +
+                                      ", deep analysis: " + searchConfig.isEnableDeepAnalysis());
     }
     
     /**
@@ -519,9 +509,10 @@ public class GeminiIntelligentSearchSubAgent extends BaseSubAgent<IntelligentSea
     }
     
     /**
-     * 生成结构化摘要
+     * 生成结构化摘要（从分析结果）
      */
-    private String generateStructuredSummary(IntelligentSearchTask task, List<SearchRound> rounds, String analysis) {
+    private String generateStructuredSummaryFromAnalysis(IntelligentSearchTask task, List<SearchRound> rounds, 
+                                                        com.riceawa.llm.subagent.search.analysis.SearchResultAnalysis analysis) {
         StringBuilder summary = new StringBuilder();
         
         summary.append("智能搜索摘要\n");
@@ -529,10 +520,30 @@ public class GeminiIntelligentSearchSubAgent extends BaseSubAgent<IntelligentSea
         summary.append("策略: ").append(task.getStrategy().getDisplayName()).append("\n");
         summary.append("搜索轮数: ").append(rounds.size()).append("/").append(task.getMaxSearchRounds()).append("\n");
         summary.append("成功轮数: ").append(task.getSuccessfulRounds()).append("\n");
-        summary.append("总耗时: ").append(task.getExecutionTime()).append("ms\n\n");
+        summary.append("总耗时: ").append(task.getExecutionTime()).append("ms\n");
         
-        if (analysis != null && !analysis.trim().isEmpty()) {
-            summary.append("分析结果:\n").append(analysis);
+        if (analysis.getExtractedInformation() != null) {
+            com.riceawa.llm.subagent.search.analysis.SearchStatistics stats = 
+                analysis.getExtractedInformation().getSearchStatistics();
+            summary.append(String.format("信息丰富度: %.2f\n", stats.getInformationRichness()));
+        }
+        
+        summary.append("分析耗时: ").append(analysis.getAnalysisTimeMs()).append("ms\n\n");
+        
+        if (analysis.getInsights() != null) {
+            SearchInsights insights = analysis.getInsights();
+            summary.append("洞察摘要:\n");
+            
+            if (insights.hasKeyFindings()) {
+                summary.append("• 关键发现: ").append(insights.getKeyFindings().size()).append("项\n");
+            }
+            if (insights.hasTrends()) {
+                summary.append("• 趋势分析: ").append(insights.getTrends().size()).append("项\n");
+            }
+            if (insights.hasRecommendations()) {
+                summary.append("• 建议: ").append(insights.getRecommendations().size()).append("项\n");
+            }
+            summary.append("• 置信度: ").append(insights.getConfidenceLevel()).append("\n");
         }
         
         return summary.toString();
@@ -577,6 +588,33 @@ public class GeminiIntelligentSearchSubAgent extends BaseSubAgent<IntelligentSea
         return metadata;
     }
     
+    /**
+     * 创建增强的结果元数据（包含分析结果）
+     */
+    private Map<String, Object> createEnhancedResultMetadata(IntelligentSearchTask task, List<SearchRound> rounds, 
+                                                              com.riceawa.llm.subagent.search.analysis.SearchResultAnalysis analysis) {
+        Map<String, Object> metadata = createResultMetadata(task, rounds);
+        
+        // 添加分析相关的元数据
+        metadata.put("analysisTimeMs", analysis.getAnalysisTimeMs());
+        metadata.put("analysisSuccess", analysis.isSuccess());
+        metadata.put("hasDeepAnalysis", analysis.hasDeepAnalysis());
+        metadata.put("hasInsights", analysis.hasInsights());
+        
+        // 添加关键词和来源信息
+        metadata.put("keywordCount", analysis.getKeywords().size());
+        metadata.put("sourceCount", analysis.getSources().size());
+        
+        // 添加分析方法的元数据
+        metadata.put("analysisMethod", "SearchResultAnalyzer");
+        metadata.put("enableDeepAnalysis", searchConfig.isEnableDeepAnalysis());
+        
+        // 合并分析器的元数据
+        metadata.putAll(analysis.getMetadata());
+        
+        return metadata;
+    }
+    
     @Override
     protected void performCleanup() {
         LogManager.getInstance().system("Cleaning up GeminiIntelligentSearchSubAgent: " + getAgentId());
@@ -585,6 +623,7 @@ public class GeminiIntelligentSearchSubAgent extends BaseSubAgent<IntelligentSea
         currentSessionId = null;
         searchConfig = null;
         llmConfig = null;
+        searchResultAnalyzer = null;
         
         super.performCleanup();
     }
