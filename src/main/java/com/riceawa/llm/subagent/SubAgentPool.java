@@ -36,6 +36,9 @@ public class SubAgentPool {
     private final AtomicInteger availableCount;
     private final AtomicInteger borrowedCount;
     
+    // 资源管理
+    private final SubAgentResourceManager resourceManager;
+    
     // 状态
     private volatile boolean isShutdown;
     
@@ -61,7 +64,16 @@ public class SubAgentPool {
         
         this.isShutdown = false;
         
-        LogManager.getInstance().system( LOG_PREFIX + " 创建代理池: " + agentType + 
+        // 获取资源管理器实例
+        SubAgentResourceManager manager = null;
+        try {
+            manager = SubAgentResourceManager.getInstance();
+        } catch (IllegalStateException e) {
+            // 资源管理器未初始化
+        }
+        this.resourceManager = manager;
+        
+        LogManager.getInstance().system( LOG_PREFIX + " 创建代理池: " + agentType +
             ", 最大大小: " + maxPoolSize);
     }
     

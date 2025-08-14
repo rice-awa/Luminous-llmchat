@@ -42,6 +42,12 @@ public class SubAgentManager {
     // 错误处理
     private final SubAgentErrorHandler errorHandler;
     
+    // 资源管理
+    private final SubAgentResourceManager resourceManager;
+    
+    // 并发控制
+    private final SubAgentConcurrencyController concurrencyController;
+    
     // 健康监控和清理
     private final ScheduledExecutorService healthCheckScheduler;
     private final ScheduledExecutorService cleanupScheduler;
@@ -62,6 +68,12 @@ public class SubAgentManager {
         this.taskQueue = taskQueue;
         this.agentFactory = SubAgentFactory.getInstance();
         this.concurrencyManager = ConcurrencyManager.getInstance();
+        
+        // 初始化资源管理器
+        this.resourceManager = SubAgentResourceManager.getInstance();
+        
+        // 初始化并发控制器
+        this.concurrencyController = SubAgentConcurrencyController.getInstance();
         
         // 初始化错误处理器
         this.errorHandler = new SubAgentErrorHandler(
@@ -110,6 +122,13 @@ public class SubAgentManager {
         if (instance != null) {
             instance.shutdown();
         }
+        
+        // 初始化资源管理器
+        SubAgentResourceManager.initialize(config);
+        
+        // 初始化并发控制器
+        SubAgentConcurrencyController.initialize(config);
+        
         instance = new SubAgentManager(config, taskQueue);
         instance.start();
     }
@@ -170,8 +189,33 @@ public class SubAgentManager {
         String taskType = task.getTaskType();
         totalTasksRouted.incrementAndGet();
         
-        LogManager.getInstance().system( LOG_PREFIX + " 路由任务: " + task.getTaskId() + 
+        LogManager.getInstance().system( LOG_PREFIX + " 路由任务: " + task.getTaskId() +
             ", 类型: " + taskType);
+        
+        // 检查并发限制
+        if (!concurrencyController.canExecuteTask(taskType)) {
+            LogManager.getInstance().system( LOG_PREFIX + " 任务类型并发限制已达到: " + taskType);
+            
+            // 检查队列是否已满
+            if (concurrencyController.isQueueFull(taskType)) {
+                SubAgentConcurrencyController.QueueFullStrategy strategy =
+                    concurrencyController.getQueueFullStrategy();
+                
+                switch (strategy) {
+                    case REJECT:
+                        totalTasksFailed.incrementAndGet();
+                        return CompletableFuture.completedFuture(
+                            (R) createErrorResult("Task queue is full for type: " + taskType, 0)
+                        );
+                    case WAIT:
+                        // 可以实现等待逻辑
+                        break;
+                    case DOWNGRADE:
+                        // 可以实现降级处理逻辑
+                        break;
+                }
+            }
+        }
         
         // 检查是否支持该任务类型
         if (!agentFactory.isTypeSupported(taskType)) {
@@ -182,11 +226,16 @@ public class SubAgentManager {
             );
         }
         
+        // 开始任务执行（更新并发统计）
+        concurrencyController.startTaskExecution(taskType);
+        long startTime = System.currentTimeMillis();
+        
         // 获取或创建子代理
         CompletableFuture<SubAgent<T, R>> agentFuture = getOrCreateAgent(taskType, task);
         
         return agentFuture.thenCompose(agent -> {
             if (agent == null) {
+                concurrencyController.finishTaskExecution(taskType, System.currentTimeMillis() - startTime);
                 totalTasksFailed.incrementAndGet();
                 return CompletableFuture.completedFuture(
                     (R) createErrorResult("Failed to get agent for task type: " + taskType, 0)
@@ -202,9 +251,13 @@ public class SubAgentManager {
                     // 清理路由记录
                     taskRouting.remove(task.getTaskId());
                     
+                    // 完成任务执行（更新并发统计）
+                    long processingTime = System.currentTimeMillis() - startTime;
+                    concurrencyController.finishTaskExecution(taskType, processingTime);
+                    
                     if (throwable != null) {
                         totalTasksFailed.incrementAndGet();
-                        LogManager.getInstance().error( LOG_PREFIX + " 任务执行失败: " + 
+                        LogManager.getInstance().error( LOG_PREFIX + " 任务执行失败: " +
                             task.getTaskId(), throwable);
                         
                         // 使用错误处理器处理错误
@@ -212,8 +265,8 @@ public class SubAgentManager {
                             .join(); // 同步等待错误处理结果
                     } else {
                         totalTasksCompleted.incrementAndGet();
-                        LogManager.getInstance().system( LOG_PREFIX + " 任务执行完成: " + 
-                            task.getTaskId());
+                        LogManager.getInstance().system( LOG_PREFIX + " 任务执行完成: " +
+                            task.getTaskId() + " in " + processingTime + "ms");
                         return result;
                     }
                 })
@@ -400,6 +453,13 @@ public class SubAgentManager {
             
             LogManager.getInstance().system( LOG_PREFIX + " 初始化代理池: " + agentType);
         }
+    }
+    
+    /**
+     * 获取并发控制器
+     */
+    public SubAgentConcurrencyController getConcurrencyController() {
+        return concurrencyController;
     }
     
     /**
@@ -632,6 +692,13 @@ public class SubAgentManager {
     private SubAgentResult createErrorResult(String error, long processingTime) {
         Map<String, Object> metadata = new java.util.HashMap<>();
         return new GenericSubAgentResult(false, error, processingTime, metadata);
+    }
+    
+    /**
+     * 获取资源管理器
+     */
+    public SubAgentResourceManager getResourceManager() {
+        return resourceManager;
     }
     
     // Getters

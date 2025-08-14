@@ -328,8 +328,28 @@ public class SubAgentFactory {
             return false;
         }
         
-        // 这里应该根据类型信息动态加载创建器、验证器等
-        // 目前先跳过，等待具体类型实现
+        // 根据类型信息动态加载创建器、验证器等
+        switch (typeName) {
+            case "INTELLIGENT_SEARCH":
+                registerAgentType(typeName, new SubAgentCreator() {
+                    @Override
+                    public <T extends SubAgentTask<R>, R extends SubAgentResult> SubAgent<T, R> create(
+                            LLMService llmService, SubAgentContext context) throws Exception {
+                        try {
+                            // 使用反射创建智能搜索子代理实例
+                            Class<?> searchAgentClass = Class.forName("com.riceawa.llm.subagent.search.GeminiIntelligentSearchSubAgent");
+                            Object agent = searchAgentClass.newInstance();
+                            return (SubAgent<T, R>) agent;
+                        } catch (Exception e) {
+                            throw new RuntimeException("Failed to create GeminiIntelligentSearchSubAgent", e);
+                        }
+                    }
+                });
+                break;
+            default:
+                LogManager.getInstance().system( LOG_PREFIX + " 未知的代理类型: " + typeName);
+                return false;
+        }
         
         LogManager.getInstance().system( LOG_PREFIX + " 类型加载成功: " + typeName);
         return true;

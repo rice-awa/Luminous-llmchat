@@ -39,6 +39,10 @@ public class GeminiIntelligentSearchSubAgent extends BaseSubAgent<IntelligentSea
     private volatile boolean isSearching = false;
     private volatile String currentSessionId;
     
+    // 资源使用统计
+    private long httpConnectionCount = 0;
+    private long memoryUsageBytes = 0;
+    
     /**
      * 构造函数
      */
@@ -58,6 +62,9 @@ public class GeminiIntelligentSearchSubAgent extends BaseSubAgent<IntelligentSea
             try {
                 // 配置代理
                 configureAgent(task);
+                
+                // 更新资源使用统计
+                updateResourceUsage(memoryUsageBytes, (int) httpConnectionCount);
                 
                 // 执行智能搜索
                 return executeIntelligentSearch(task);
@@ -173,6 +180,10 @@ public class GeminiIntelligentSearchSubAgent extends BaseSubAgent<IntelligentSea
         long roundStartTime = System.currentTimeMillis();
         
         try {
+            // 增加连接计数
+            httpConnectionCount++;
+            updateResourceUsage(memoryUsageBytes, (int) httpConnectionCount);
+            
             // 发送搜索请求
             CompletableFuture<LLMResponse> future = llmService.chat(messages, llmConfig);
             
@@ -237,8 +248,13 @@ public class GeminiIntelligentSearchSubAgent extends BaseSubAgent<IntelligentSea
         try {
             LogManager.getInstance().system("Analyzing search results for " + searchRounds.size() + " rounds");
             
+            // 估算内存使用
+            long estimatedMemory = estimateMemoryUsage(searchRounds);
+            memoryUsageBytes = estimatedMemory;
+            updateResourceUsage(memoryUsageBytes, (int) httpConnectionCount);
+            
             // 使用新的搜索结果分析器
-            com.riceawa.llm.subagent.search.analysis.SearchResultAnalysis analysisResult = 
+            com.riceawa.llm.subagent.search.analysis.SearchResultAnalysis analysisResult =
                 searchResultAnalyzer.analyzeSearchResults(task, searchRounds);
             
             long analysisTime = System.currentTimeMillis() - analysisStartTime;
@@ -625,7 +641,39 @@ public class GeminiIntelligentSearchSubAgent extends BaseSubAgent<IntelligentSea
         llmConfig = null;
         searchResultAnalyzer = null;
         
+        // 重置资源统计
+        httpConnectionCount = 0;
+        memoryUsageBytes = 0;
+        
         super.performCleanup();
+    }
+    
+    /**
+     * 估算内存使用量
+     */
+    private long estimateMemoryUsage(List<SearchRound> searchRounds) {
+        long memory = 0;
+        
+        // 基础内存开销
+        memory += 1024 * 1024; // 1MB基础开销
+        
+        // 搜索轮次数据
+        for (SearchRound round : searchRounds) {
+            if (round.getContent() != null) {
+                memory += round.getContent().length() * 2; // 估算字符串内存使用
+            }
+        }
+        
+        // 配置对象
+        if (searchConfig != null) {
+            memory += 1024; // 估算配置对象内存
+        }
+        
+        if (llmConfig != null) {
+            memory += 1024; // 估算LLM配置对象内存
+        }
+        
+        return memory;
     }
     
     @Override

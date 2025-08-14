@@ -27,6 +27,11 @@ public abstract class BaseSubAgent<T extends SubAgentTask<R>, R extends SubAgent
     protected LLMService llmService;
     protected SubAgentContext context;
     
+    // 资源管理
+    protected SubAgentResourceManager resourceManager;
+    protected long allocatedMemoryBytes = 0;
+    protected int allocatedConnections = 0;
+    
     /**
      * 构造函数
      * 
@@ -38,6 +43,14 @@ public abstract class BaseSubAgent<T extends SubAgentTask<R>, R extends SubAgent
         this.createdTime = System.currentTimeMillis();
         this.lastActivityTime = new AtomicLong(System.currentTimeMillis());
         this.status = SubAgentStatus.INITIALIZING;
+        
+        // 获取资源管理器实例
+        try {
+            this.resourceManager = SubAgentResourceManager.getInstance();
+        } catch (IllegalStateException e) {
+            // 资源管理器未初始化，使用null
+            this.resourceManager = null;
+        }
         
         // 记录代理创建日志
         LogManager.getInstance().system("Created sub-agent: " + agentType + " with ID: " + agentId);
@@ -144,6 +157,11 @@ public abstract class BaseSubAgent<T extends SubAgentTask<R>, R extends SubAgent
         this.context = context;
         this.status = SubAgentStatus.IDLE;
         
+        // 注册资源使用
+        if (resourceManager != null) {
+            resourceManager.registerResourceUsage(agentId, agentType, allocatedMemoryBytes, allocatedConnections);
+        }
+        
         LogManager.getInstance().system("Sub-agent " + agentId + " initialized successfully");
     }
     
@@ -164,6 +182,11 @@ public abstract class BaseSubAgent<T extends SubAgentTask<R>, R extends SubAgent
         } catch (Exception e) {
             LogManager.getInstance().error("Error during sub-agent cleanup: " + agentId, e);
         } finally {
+            // 释放资源
+            if (resourceManager != null) {
+                resourceManager.releaseResources(agentId);
+            }
+            
             status = SubAgentStatus.SHUTDOWN;
             LogManager.getInstance().system("Sub-agent shutdown completed: " + agentId);
         }
@@ -181,6 +204,32 @@ public abstract class BaseSubAgent<T extends SubAgentTask<R>, R extends SubAgent
      */
     protected void updateLastActivity() {
         lastActivityTime.set(System.currentTimeMillis());
+    }
+    
+    /**
+     * 更新资源使用情况
+     */
+    protected void updateResourceUsage(long memoryBytes, int connections) {
+        this.allocatedMemoryBytes = memoryBytes;
+        this.allocatedConnections = connections;
+        
+        if (resourceManager != null) {
+            resourceManager.updateResourceUsage(agentId, memoryBytes, connections);
+        }
+    }
+    
+    /**
+     * 获取已分配的内存字节数
+     */
+    public long getAllocatedMemoryBytes() {
+        return allocatedMemoryBytes;
+    }
+    
+    /**
+     * 获取已分配的连接数
+     */
+    public int getAllocatedConnections() {
+        return allocatedConnections;
     }
     
     /**

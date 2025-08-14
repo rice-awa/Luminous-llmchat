@@ -29,6 +29,9 @@ public class UniversalTaskQueue {
     private final ScheduledExecutorService timeoutScheduler;
     private final ReentrantReadWriteLock queueLock;
     
+    // 并发控制
+    private final SubAgentConcurrencyController concurrencyController;
+    
     // 配置参数
     private final int maxQueueSize;
     private final long defaultTimeoutMs;
@@ -70,6 +73,15 @@ public class UniversalTaskQueue {
             t.setDaemon(true);
             return t;
         });
+        
+        // 获取并发控制器实例
+        SubAgentConcurrencyController controller = null;
+        try {
+            controller = SubAgentConcurrencyController.getInstance();
+        } catch (IllegalStateException e) {
+            // 并发控制器未初始化
+        }
+        this.concurrencyController = controller;
         
         startTimeoutChecker();
         
@@ -114,7 +126,12 @@ public class UniversalTaskQueue {
             totalTasksSubmitted.incrementAndGet();
             taskTypeCounters.computeIfAbsent(task.getTaskType(), k -> new AtomicLong(0)).incrementAndGet();
             
-            LogManager.getInstance().system( LOG_PREFIX + " 任务已提交: " + task.getTaskId() + 
+            // 更新并发控制器的队列大小
+            if (concurrencyController != null) {
+                concurrencyController.updateQueueSize(task.getTaskType(), taskQueue.size());
+            }
+            
+            LogManager.getInstance().system( LOG_PREFIX + " 任务已提交: " + task.getTaskId() +
                 ", 类型: " + task.getTaskType() + ", 优先级: " + priority);
             
             return true;
@@ -420,6 +437,14 @@ public class UniversalTaskQueue {
             
             if (!expiredTaskIds.isEmpty()) {
                 LogManager.getInstance().system( LOG_PREFIX + " 清理了 " + expiredTaskIds.size() + " 个过期任务");
+            }
+            
+            // 更新并发控制器的队列大小
+            if (concurrencyController != null) {
+                // 这里可以按类型分别更新队列大小
+                for (String taskType : taskTypeCounters.keySet()) {
+                    concurrencyController.updateQueueSize(taskType, taskQueue.size());
+                }
             }
             
             return expiredTaskIds.size();

@@ -221,6 +221,9 @@ public class FunctionRegistry {
         registerFunction(new com.riceawa.llm.function.impl.WikiSearchFunction());
         registerFunction(new com.riceawa.llm.function.impl.WikiPageFunction());
         registerFunction(new com.riceawa.llm.function.impl.WikiBatchPagesFunction());
+        
+        // 注册子代理工具函数
+        registerFunction(new com.riceawa.llm.function.impl.IntelligentSearchToolFunction());
     }
 
     /**

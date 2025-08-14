@@ -198,8 +198,21 @@ public class SubAgentTypeRegistry {
      * 注册内置的子代理类型
      */
     private void registerBuiltinTypes() {
-        // 这里会在后续任务中添加具体的类型注册
-        // 例如：智能搜索子代理类型
+        // 注册智能搜索子代理类型
+        SubAgentTypeInfo searchTypeInfo = SubAgentTypeInfo.builder("INTELLIGENT_SEARCH")
+            .displayName("智能搜索代理")
+            .description("基于Gemini的智能搜索子代理，支持多轮搜索和深度分析")
+            .version("1.0.0")
+            .author("Luminous-LLMChat")
+            .enabled(true)
+            .property("maxConcurrentInstances", 3)
+            .property("defaultTimeoutMs", 120000L)
+            .property("supportsDeepAnalysis", true)
+            .build();
+        
+        registerTypeInfo(searchTypeInfo);
+        
+        LogManager.getInstance().system("Registered built-in sub-agent types");
     }
     
     /**
