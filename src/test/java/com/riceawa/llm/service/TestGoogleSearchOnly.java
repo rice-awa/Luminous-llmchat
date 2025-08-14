@@ -275,8 +275,8 @@ public class TestGoogleSearchOnly {
         System.out.println("=== 测试真实API请求 ===\n");
         
         // 测试配置
-        String baseUrl = "https://x666.me/v1";
-        String apiKey = "sk-HIbXWijXIDuZ0vS1UhLqzfJy934LRBRmgWlaneBRCcCXeZoF";
+        String baseUrl = "https://test.com/v1";
+        String apiKey = "xxx";
         String model = "gemini-2.5-flash-preview-05-20";
         
         // 创建配置
