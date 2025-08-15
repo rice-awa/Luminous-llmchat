@@ -373,7 +373,7 @@ public class GeminiIntelligentSearchSubAgent extends BaseSubAgent<IntelligentSea
         this.llmConfig = new LLMConfig();
         this.llmConfig.setModel(searchConfig.getModel());
         this.llmConfig.setTemperature(0.7);
-        this.llmConfig.setMaxTokens(4096);
+        this.llmConfig.setMaxTokens(200000);
         this.llmConfig.setStream(false);
         
         // 配置仅包含googleSearch工具
