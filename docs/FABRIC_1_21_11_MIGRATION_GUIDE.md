@@ -329,49 +329,53 @@ import net.minecraft.world.GameRules;
 
 ### 按文件分类
 
-#### 1. HistoryCommand.java
-- [ ] 第28行: `hasPermissionLevel(2)` → `CommandManager.requirePermissionLevel(CommandManager.GAMEMASTERS_CHECK)`
+#### 1. HistoryCommand.java ✅
+- [x] 第28行: `hasPermissionLevel(2)` → `CommandManager.requirePermissionLevel(CommandManager.GAMEMASTERS_CHECK)`
 
-#### 2. LogCommand.java
-- [ ] 第23行: `hasPermissionLevel(2)` → `CommandManager.requirePermissionLevel(CommandManager.GAMEMASTERS_CHECK)`
+#### 2. LogCommand.java ✅
+- [x] 第23行: `hasPermissionLevel(2)` → `CommandManager.requirePermissionLevel(CommandManager.GAMEMASTERS_CHECK)`
 
-#### 3. LLMChatCommand.java
-- [ ] 第988, 1924, 2205, 2243, 2273, 2414, 2441, 2495行: 权限检查修改
-- [ ] 第1342, 1358, 1372, 1437, 1597, 1648, 1763, 1776行: `getServer()` 替换为 `getEntityWorld().getServer()`
+#### 3. LLMChatCommand.java ✅
+- [x] 第988, 1924, 2205, 2243, 2273, 2414, 2441, 2495行: 权限检查修改
+- [x] 第1342, 1358, 1372, 1437, 1597, 1648, 1763, 1776行: `getServer()` 替换为 `getEntityWorld().getServer()`
 
-#### 4. FunctionRegistry.java
-- [ ] 第186行: `getServer()` 替换
-- [ ] 第250行: `getWorld()` → `getEntityWorld()`
-- [ ] 第347, 348行: `getWorld()` → `getEntityWorld()`
+#### 4. FunctionRegistry.java ✅
+- [x] 第186行: `getServer()` 替换
+- [x] 第250行: `getWorld()` → `getEntityWorld()`
+- [x] 第347, 348行: `getWorld()` → `getEntityWorld()`
 
-#### 5. NearbyEntitiesFunction.java
-- [ ] 第69行: `getPos()` 替换
-- [ ] 第75行: `getWorld()` → `getEntityWorld()`
+#### 5. NearbyEntitiesFunction.java ✅
+- [x] 第69行: `getPos()` 替换
+- [x] 第75行: `getWorld()` → `getEntityWorld()`
 
-#### 6. PlayerStatsFunction.java
-- [ ] 第86行: `getWorld()` → `getEntityWorld()`
+#### 6. PlayerStatsFunction.java ✅
+- [x] 第86行: `getWorld()` → `getEntityWorld()`
 
-#### 7. ServerInfoFunction.java
-- [ ] 第59行: `isPvpEnabled()` 替换
+#### 7. ServerInfoFunction.java ✅
+- [x] 第59行: `isPvpEnabled()` 替换（GameRules API 重构，移除 PvP 显示）
+- [x] GameRules 包路径更新为 `net.minecraft.world.rule.GameRules`
 
-#### 8. SetBlockFunction.java
-- [ ] 第125行: `getWorld()` → `getEntityWorld()`
+#### 8. SetBlockFunction.java ✅
+- [x] 第125行: `getWorld()` → `getEntityWorld()`
 
-#### 9. SummonEntityFunction.java
-- [ ] 第110行: `getPos()` 替换
-- [ ] 第131行: `getWorld()` → `getEntityWorld()`
+#### 9. SummonEntityFunction.java ✅
+- [x] 第110行: `getPos()` 替换
+- [x] 第131行: `getWorld()` → `getEntityWorld()`
 
-#### 10. TeleportPlayerFunction.java
-- [ ] 第116行: `getPos()` 替换
-- [ ] 第117, 143行: `getWorld()` → `getEntityWorld()`
+#### 10. TeleportPlayerFunction.java ✅
+- [x] 第116行: `getPos()` 替换
+- [x] 第117, 143行: `getWorld()` → `getEntityWorld()`
 
-#### 11. WorldInfoFunction.java
-- [ ] 第48行: `getWorld()` → `getEntityWorld()`
-- [ ] 第94, 95行: `getSpawnPos()` 替换
+#### 11. WorldInfoFunction.java ✅
+- [x] 第48行: `getWorld()` → `getEntityWorld()`
+- [x] 第94, 95行: `getSpawnPos()` 替换为 `getSpawnPoint().getPos()`
 
-#### 12. ExecuteCommandFunction.java
-- [ ] 第112-122行: `ServerCommandSource` 构造函数重构
-- [ ] 第140行: `executeWithPrefix` 替换
+#### 12. ExecuteCommandFunction.java ✅
+- [x] 第112-122行: `ServerCommandSource` 构造函数重构 → 使用 `withOutput()` 方法
+- [x] 第140行: `executeWithPrefix` 替换为 `parseAndExecute()`
+
+#### 13. TemplateEditor.java ✅ (新增修复)
+- [x] player.getWorld() → EntityHelper.getWorld(player)
 
 ---
 
@@ -406,7 +410,84 @@ import net.minecraft.world.GameRules;
 
 ---
 
-## 十三、注意事项
+## 十三、额外发现的问题和修复（2026-02-20 补充）
+
+### 问题十：ServerCommandSource 构造函数权限参数类型不兼容
+
+**问题描述：**
+在 ExecuteCommandFunction.java 中，使用 `CommandManager.requirePermissionLevel(CommandManager.OWNERS_CHECK)` 作为构造函数参数会导致类型不兼容错误。
+
+**错误信息：**
+```
+错误: 不兼容的类型: 不存在类型变量T的实例, 以使PermissionSourcePredicate<T>与PermissionPredicate一致
+```
+
+**修复方案：**
+使用 `ServerCommandSource.withOutput()` 方法替代手动创建新的 ServerCommandSource：
+
+```java
+// 旧代码（不兼容）
+ServerCommandSource captureSource = new ServerCommandSource(
+    outputCapture,
+    consoleSource.getPosition(),
+    consoleSource.getRotation(),
+    consoleSource.getWorld(),
+    CommandManager.requirePermissionLevel(CommandManager.OWNERS_CHECK), // 类型不兼容
+    consoleSource.getName(),
+    consoleSource.getDisplayName(),
+    consoleSource.getServer(),
+    consoleSource.getEntity()
+);
+
+// 新代码（推荐）
+ServerCommandSource captureSource = consoleSource.withOutput(outputCapture);
+```
+
+### 问题十一：GameRules 包路径变更
+
+**问题描述：**
+`net.minecraft.world.GameRules` 已在 1.21.11 中移动到 `net.minecraft.world.rule.GameRules`。
+
+**修复方案：**
+```java
+// 旧导入
+import net.minecraft.world.GameRules;
+
+// 新导入
+import net.minecraft.world.rule.GameRules;
+```
+
+### 问题十二：GameRules API 重构
+
+**问题描述：**
+GameRules 在 1.21.11 中发生了重大重构，从静态字段变为使用 Registry 系统。`GameRules.PVP` 字段不再存在，`getBoolean(GameRules.PVP)` 方法也无法使用。
+
+**影响：**
+- ServerInfoFunction.java 中获取 PvP 状态的代码需要暂时移除或使用新 API 重写
+- 新 API 需要使用 Registry 系统来访问 game rules
+
+**修复方案：**
+暂时移除 PvP 状态获取功能，或等待后续使用新的 GameRuleRegistry API 重写。
+
+### 问题十三：PlayerEntity.getWorld() 方法移除
+
+**问题描述：**
+`PlayerEntity.getWorld()` 方法已被移除，需要使用其他方式获取世界。
+
+**修复方案：**
+使用 EntityHelper 工具类：
+
+```java
+// 旧代码
+World world = player.getWorld();
+
+// 新代码
+World world = EntityHelper.getWorld(player);
+```
+
+---
+
+## 十四、注意事项
 
 1. **备份代码**: 在进行修改前，请确保已备份当前代码
 
