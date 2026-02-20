@@ -1,5 +1,6 @@
 package com.riceawa.llm.template;
 
+import com.riceawa.llm.util.EntityHelper;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
@@ -202,7 +203,7 @@ public class TemplateEditor {
             java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) + " (当前时间)").formatted(Formatting.GREEN), false);
         player.sendMessage(Text.literal("  {{date}} = " + java.time.LocalDate.now().format(
             java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")) + " (当前日期)").formatted(Formatting.GREEN), false);
-        player.sendMessage(Text.literal("  {{world}} = " + player.getWorld().getRegistryKey().getValue().toString() + " (世界)").formatted(Formatting.GREEN), false);
+        player.sendMessage(Text.literal("  {{world}} = " + EntityHelper.getWorld(player).getRegistryKey().getValue().toString() + " (世界)").formatted(Formatting.GREEN), false);
         player.sendMessage(Text.literal("  {{x}}, {{y}}, {{z}} = " + (int)player.getX() + ", " + (int)player.getY() + ", " + (int)player.getZ() + " (坐标)").formatted(Formatting.GREEN), false);
         player.sendMessage(Text.literal("  {{health}}, {{level}} = " + (int)player.getHealth() + ", " + player.experienceLevel + " (生命值, 等级)").formatted(Formatting.GREEN), false);
         player.sendMessage(Text.literal("  更多内置变量: {{hour}}, {{minute}}, {{dimension}}, {{gamemode}}, {{weather}}, {{server}}").formatted(Formatting.GREEN), false);

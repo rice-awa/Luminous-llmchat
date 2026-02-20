@@ -5,7 +5,6 @@ import com.riceawa.llm.function.LLMFunction;
 import com.riceawa.llm.function.PermissionHelper;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.text.Text;
 import java.time.Instant;
@@ -110,17 +109,8 @@ public class ExecuteCommandFunction implements LLMFunction {
             CommandOutputCapture outputCapture = new CommandOutputCapture(outputMessages);
 
             // 创建自定义的CommandSource来捕获输出
-            ServerCommandSource captureSource = new ServerCommandSource(
-                outputCapture,
-                consoleSource.getPosition(),
-                consoleSource.getRotation(),
-                consoleSource.getWorld(),
-                CommandManager.requirePermissionLevel(CommandManager.OWNERS_CHECK),
-                consoleSource.getName(),
-                consoleSource.getDisplayName(),
-                consoleSource.getServer(),
-                consoleSource.getEntity()
-            );
+            // 使用withOutput方法创建带有自定义输出的命令源
+            ServerCommandSource captureSource = consoleSource.withOutput(outputCapture);
 
             // 执行命令并获取返回值
             int resultCode = 0;
