@@ -3,6 +3,7 @@ package com.riceawa.llm.function.impl;
 import com.google.gson.JsonObject;
 import com.riceawa.llm.function.LLMFunction;
 import com.riceawa.llm.function.PermissionHelper;
+import com.riceawa.llm.util.EntityHelper;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -113,8 +114,11 @@ public class TeleportPlayerFunction implements LLMFunction {
                 }
                 
                 // 传送到目标玩家位置
-                Vec3d targetPos = destinationPlayer.getPos();
-                ServerWorld targetWorld = (ServerWorld) destinationPlayer.getWorld();
+                Vec3d targetPos = EntityHelper.getPos(destinationPlayer);
+                ServerWorld targetWorld = (ServerWorld) EntityHelper.getWorld(destinationPlayer);
+                if (targetWorld == null) {
+                    return FunctionResult.error("无法获取目标玩家所在世界信息");
+                }
 
                 targetPlayer.teleport(targetWorld, targetPos.x, targetPos.y, targetPos.z,
                                     java.util.Set.of(), targetPlayer.getYaw(), targetPlayer.getPitch(), false);
@@ -140,7 +144,10 @@ public class TeleportPlayerFunction implements LLMFunction {
                 }
                 
                 // 确定目标世界
-                ServerWorld targetWorld = (ServerWorld) targetPlayer.getWorld();
+                ServerWorld targetWorld = (ServerWorld) EntityHelper.getWorld(targetPlayer);
+                if (targetWorld == null) {
+                    return FunctionResult.error("无法获取玩家所在世界信息");
+                }
                 
                 if (arguments.has("dimension")) {
                     String dimension = arguments.get("dimension").getAsString().toLowerCase();

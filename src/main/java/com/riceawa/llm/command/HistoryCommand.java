@@ -25,7 +25,7 @@ public class HistoryCommand {
     
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess registryAccess) {
         dispatcher.register(CommandManager.literal("llmhistory")
-                .requires(source -> source.hasPermissionLevel(2)) // 需要管理员权限
+                .requires(CommandManager.requirePermissionLevel(CommandManager.GAMEMASTERS_CHECK)) // 需要管理员权限
                 .then(CommandManager.literal("stats")
                         .executes(context -> showPlayerStats(context, null))
                         .then(CommandManager.argument("player", EntityArgumentType.player())

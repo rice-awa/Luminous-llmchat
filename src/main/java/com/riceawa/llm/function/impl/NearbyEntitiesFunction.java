@@ -2,6 +2,7 @@ package com.riceawa.llm.function.impl;
 
 import com.google.gson.JsonObject;
 import com.riceawa.llm.function.LLMFunction;
+import com.riceawa.llm.util.EntityHelper;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.mob.HostileEntity;
@@ -66,13 +67,17 @@ public class NearbyEntitiesFunction implements LLMFunction {
             // 限制搜索半径
             radius = Math.min(Math.max(radius, 1), 64);
             
-            Vec3d playerPos = player.getPos();
+            var world = EntityHelper.getWorld(player);
+            if (world == null) {
+                return FunctionResult.error("无法获取世界信息");
+            }
+            Vec3d playerPos = EntityHelper.getPos(player);
             Box searchBox = new Box(
                 playerPos.x - radius, playerPos.y - radius, playerPos.z - radius,
                 playerPos.x + radius, playerPos.y + radius, playerPos.z + radius
             );
             
-            List<Entity> entities = player.getWorld().getOtherEntities(player, searchBox);
+            List<Entity> entities = world.getOtherEntities(player, searchBox);
             
             StringBuilder result = new StringBuilder();
             result.append("=== 附近实体信息 ===\n");

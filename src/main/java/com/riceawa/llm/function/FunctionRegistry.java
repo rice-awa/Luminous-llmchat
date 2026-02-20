@@ -2,6 +2,7 @@ package com.riceawa.llm.function;
 
 import com.google.gson.JsonObject;
 import com.riceawa.llm.core.LLMConfig;
+import com.riceawa.llm.util.EntityHelper;
 import net.minecraft.entity.player.PlayerEntity;
 
 import java.util.*;
@@ -183,7 +184,7 @@ public class FunctionRegistry {
         }
         
         try {
-            return function.execute(player, player.getServer(), arguments);
+            return function.execute(player, EntityHelper.getServerSafe(player), arguments);
         } catch (Exception e) {
             return LLMFunction.FunctionResult.error("函数执行失败: " + e.getMessage());
         }
@@ -247,7 +248,11 @@ public class FunctionRegistry {
 
         @Override
         public FunctionResult execute(PlayerEntity player, net.minecraft.server.MinecraftServer server, JsonObject arguments) {
-            long time = player.getWorld().getTimeOfDay();
+            var world = EntityHelper.getWorld(player);
+            if (world == null) {
+                return FunctionResult.error("无法获取世界信息");
+            }
+            long time = world.getTimeOfDay();
             int hours = (int) ((time / 1000 + 6) % 24);
             int minutes = (int) ((time % 1000) * 60 / 1000);
             
@@ -344,8 +349,12 @@ public class FunctionRegistry {
 
         @Override
         public FunctionResult execute(PlayerEntity player, net.minecraft.server.MinecraftServer server, JsonObject arguments) {
-            boolean isRaining = player.getWorld().isRaining();
-            boolean isThundering = player.getWorld().isThundering();
+            var world = EntityHelper.getWorld(player);
+            if (world == null) {
+                return FunctionResult.error("无法获取世界信息");
+            }
+            boolean isRaining = world.isRaining();
+            boolean isThundering = world.isThundering();
             
             String weather;
             if (isThundering) {

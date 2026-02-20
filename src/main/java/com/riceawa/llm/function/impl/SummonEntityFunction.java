@@ -3,6 +3,7 @@ package com.riceawa.llm.function.impl;
 import com.google.gson.JsonObject;
 import com.riceawa.llm.function.LLMFunction;
 import com.riceawa.llm.function.PermissionHelper;
+import com.riceawa.llm.util.EntityHelper;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.player.PlayerEntity;
@@ -107,7 +108,7 @@ public class SummonEntityFunction implements LLMFunction {
             
             // 检查距离限制
             Vec3d targetPos = new Vec3d(x, y, z);
-            Vec3d playerPos = player.getPos();
+            Vec3d playerPos = EntityHelper.getPos(player);
             double distance = playerPos.distanceTo(targetPos);
             
             if (distance > MAX_DISTANCE) {
@@ -128,7 +129,10 @@ public class SummonEntityFunction implements LLMFunction {
                 return FunctionResult.error("未知的实体类型: " + entityType);
             }
             
-            ServerWorld world = (ServerWorld) player.getWorld();
+            ServerWorld world = (ServerWorld) EntityHelper.getWorld(player);
+            if (world == null) {
+                return FunctionResult.error("无法获取世界信息");
+            }
             int successCount = 0;
             
             // 生成实体

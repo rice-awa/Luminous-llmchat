@@ -2,6 +2,7 @@ package com.riceawa.llm.template;
 
 import com.google.gson.annotations.SerializedName;
 import com.riceawa.llm.config.LLMChatConfig;
+import com.riceawa.llm.util.EntityHelper;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.MinecraftServer;
 import net.fabricmc.loader.api.FabricLoader;
@@ -178,18 +179,23 @@ public class PromptTemplate {
             case "minute":
                 return String.valueOf(java.time.LocalTime.now().getMinute());
 
-            case "world":
-                return player != null ? player.getWorld().getRegistryKey().getValue().toString() : "Unknown";
+            case "world": {
+                var world = player != null ? EntityHelper.getWorld(player) : null;
+                return world != null ? world.getRegistryKey().getValue().toString() : "Unknown";
+            }
 
-            case "dimension":
+            case "dimension": {
                 if (player != null) {
-                    String worldKey = player.getWorld().getRegistryKey().getValue().toString();
+                    var world = EntityHelper.getWorld(player);
+                    if (world == null) return "Unknown";
+                    String worldKey = world.getRegistryKey().getValue().toString();
                     if (worldKey.contains("overworld")) return "主世界";
                     if (worldKey.contains("nether")) return "下界";
                     if (worldKey.contains("end")) return "末地";
                     return worldKey;
                 }
                 return "Unknown";
+            }
 
             case "x":
                 return player != null ? String.valueOf((int) player.getX()) : "0";
@@ -218,17 +224,23 @@ public class PromptTemplate {
                 }
                 return "Unknown";
 
-            case "weather":
+            case "weather": {
                 if (player != null) {
-                    if (player.getWorld().isRaining()) {
-                        return player.getWorld().isThundering() ? "雷雨" : "下雨";
+                    var world = EntityHelper.getWorld(player);
+                    if (world != null) {
+                        if (world.isRaining()) {
+                            return world.isThundering() ? "雷雨" : "下雨";
+                        }
+                        return "晴天";
                     }
-                    return "晴天";
                 }
                 return "Unknown";
+            }
 
-            case "server":
-                return player != null ? player.getServer().getName() : "Unknown";
+            case "server": {
+                MinecraftServer server = player != null ? EntityHelper.getServerSafe(player) : null;
+                return server != null ? server.getName() : "Unknown";
+            }
 
             default:
                 return null; // 不是内置变量
@@ -364,7 +376,7 @@ public class PromptTemplate {
         contextVariables.put("current_time", now.format(formatter));
 
         // 服务器和在线玩家信息
-        MinecraftServer server = player.getServer();
+        MinecraftServer server = EntityHelper.getServerSafe(player);
         if (server != null) {
             // 在线玩家信息
             var playerManager = server.getPlayerManager();

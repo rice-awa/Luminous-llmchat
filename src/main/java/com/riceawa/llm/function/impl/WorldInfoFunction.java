@@ -2,6 +2,7 @@ package com.riceawa.llm.function.impl;
 
 import com.google.gson.JsonObject;
 import com.riceawa.llm.function.LLMFunction;
+import com.riceawa.llm.util.EntityHelper;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.world.ServerWorld;
@@ -45,7 +46,10 @@ public class WorldInfoFunction implements LLMFunction {
     @Override
     public FunctionResult execute(PlayerEntity player, MinecraftServer server, JsonObject arguments) {
         try {
-            ServerWorld world = (ServerWorld) player.getWorld();
+            ServerWorld world = (ServerWorld) EntityHelper.getWorld(player);
+            if (world == null) {
+                return FunctionResult.error("无法获取世界信息");
+            }
             boolean includeDetails = arguments.has("include_details") && 
                                    arguments.get("include_details").getAsBoolean();
             
@@ -91,9 +95,10 @@ public class WorldInfoFunction implements LLMFunction {
                 info.append("\n=== 详细信息 ===\n");
                 info.append("世界种子: ").append(world.getSeed()).append("\n");
                 info.append("世界边界大小: ").append((int)world.getWorldBorder().getSize()).append("\n");
-                info.append("出生点: ").append(world.getSpawnPos().getX()).append(", ")
-                    .append(world.getSpawnPos().getY()).append(", ")
-                    .append(world.getSpawnPos().getZ()).append("\n");
+                BlockPos spawnPos = world.getSpawnPoint().getPos();
+                info.append("出生点: ").append(spawnPos.getX()).append(", ")
+                    .append(spawnPos.getY()).append(", ")
+                    .append(spawnPos.getZ()).append("\n");
                 info.append("海平面高度: ").append(world.getSeaLevel()).append("\n");
                 info.append("最低建筑高度: ").append(world.getBottomY()).append("\n");
                 info.append("最高建筑高度: ").append(world.getTopY(null, pos)).append("\n");

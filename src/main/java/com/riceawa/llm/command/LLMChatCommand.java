@@ -21,6 +21,7 @@ import com.riceawa.llm.service.LLMServiceManager;
 import com.riceawa.llm.template.PromptTemplate;
 import com.riceawa.llm.template.PromptTemplateManager;
 import com.riceawa.llm.template.TemplateEditor;
+import com.riceawa.llm.util.EntityHelper;
 import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.command.CommandManager;
@@ -985,7 +986,7 @@ public class LLMChatCommand {
         }
 
         // 检查OP权限
-        if (!source.hasPermissionLevel(2)) {
+        if (!EntityHelper.hasPermissionLevel(source, 2)) {
             player.sendMessage(Text.literal("只有OP可以重载配置").formatted(Formatting.RED), false);
             return 0;
         }
@@ -1339,7 +1340,7 @@ public class LLMChatCommand {
 
         // 广播用户消息（如果开启了广播且玩家在广播列表中）
         if (shouldBroadcast(config, serverPlayer.getName().getString())) {
-            serverPlayer.getServer().getPlayerManager().broadcast(
+            EntityHelper.getServer(serverPlayer).getPlayerManager().broadcast(
                 Text.literal("[" + serverPlayer.getName().getString() + " 问AI] " + message)
                     .formatted(Formatting.LIGHT_PURPLE),
                 false
@@ -1355,7 +1356,7 @@ public class LLMChatCommand {
 
         // 发送请求
         if (shouldBroadcast(config, serverPlayer.getName().getString())) {
-            serverPlayer.getServer().getPlayerManager().broadcast(
+            EntityHelper.getServer(serverPlayer).getPlayerManager().broadcast(
                 Text.literal("[AI正在为 " + serverPlayer.getName().getString() + " 思考...]")
                     .formatted(Formatting.GRAY),
                 false
@@ -1369,7 +1370,7 @@ public class LLMChatCommand {
                 .playerName(serverPlayer.getName().getString())
                 .playerUuid(serverPlayer.getUuidAsString())
                 .sessionId(chatContext.getSessionId())
-                .metadata("server", serverPlayer.getServer().getName())
+                .metadata("server", EntityHelper.getServer(serverPlayer).getName())
                 .build();
 
         llmService.chat(chatContext.getMessages(), llmConfig, llmContext)
@@ -1434,7 +1435,7 @@ public class LLMChatCommand {
         if (hasContent) {
             // 显示LLM的提示信息
             if (shouldBroadcast(config, player.getName().getString())) {
-                player.getServer().getPlayerManager().broadcast(
+                EntityHelper.getServer(player).getPlayerManager().broadcast(
                     Text.literal("[AI回复给 " + player.getName().getString() + "] " + content)
                         .formatted(Formatting.AQUA),
                     false
@@ -1594,7 +1595,7 @@ public class LLMChatCommand {
                     .playerName(player.getName().getString())
                     .playerUuid(player.getUuidAsString())
                     .sessionId(chatContext.getSessionId())
-                    .metadata("server", player.getServer().getName())
+                    .metadata("server", EntityHelper.getServer(player).getName())
                     .metadata("recursionDepth", String.valueOf(recursionDepth))
                     .build();
 
@@ -1645,7 +1646,7 @@ public class LLMChatCommand {
         if (hasContent) {
             // 显示LLM的提示信息
             if (shouldBroadcast(config, player.getName().getString())) {
-                player.getServer().getPlayerManager().broadcast(
+                EntityHelper.getServer(player).getPlayerManager().broadcast(
                     Text.literal("[AI回复给 " + player.getName().getString() + "] " + content)
                         .formatted(Formatting.AQUA),
                     false
@@ -1760,7 +1761,7 @@ public class LLMChatCommand {
                     .playerName(player.getName().getString())
                     .playerUuid(player.getUuidAsString())
                     .sessionId(chatContext.getSessionId())
-                    .metadata("server", player.getServer().getName())
+                    .metadata("server", EntityHelper.getServer(player).getName())
                     .build();
 
             // 发送请求获取最终响应（仅文本）
@@ -1773,7 +1774,7 @@ public class LLMChatCommand {
 
                                 // 根据广播设置发送AI回复
                                 if (shouldBroadcast(config, player.getName().getString())) {
-                                    player.getServer().getPlayerManager().broadcast(
+                                    EntityHelper.getServer(player).getPlayerManager().broadcast(
                                         Text.literal("[AI回复给 " + player.getName().getString() + "] " + content)
                                             .formatted(Formatting.AQUA),
                                         false
@@ -1921,7 +1922,7 @@ public class LLMChatCommand {
         }
 
         // 检查OP权限
-        if (!source.hasPermissionLevel(2)) {
+        if (!EntityHelper.hasPermissionLevel(source, 2)) {
             player.sendMessage(Text.literal("只有OP可以切换API提供商").formatted(Formatting.RED), false);
             return 0;
         }
@@ -2202,7 +2203,7 @@ public class LLMChatCommand {
         }
 
         // 检查OP权限
-        if (!source.hasPermissionLevel(2)) {
+        if (!EntityHelper.hasPermissionLevel(source, 2)) {
             player.sendMessage(Text.literal("只有OP可以设置模型").formatted(Formatting.RED), false);
             return 0;
         }
@@ -2240,7 +2241,7 @@ public class LLMChatCommand {
         }
 
         // 检查OP权限
-        if (!source.hasPermissionLevel(2)) {
+        if (!EntityHelper.hasPermissionLevel(source, 2)) {
             player.sendMessage(Text.literal("只有OP可以控制广播功能").formatted(Formatting.RED), false);
             return 0;
         }
@@ -2270,7 +2271,7 @@ public class LLMChatCommand {
         }
 
         // 检查OP权限
-        if (!source.hasPermissionLevel(2)) {
+        if (!EntityHelper.hasPermissionLevel(source, 2)) {
             player.sendMessage(Text.literal("只有OP可以控制广播功能").formatted(Formatting.RED), false);
             return 0;
         }
@@ -2411,7 +2412,7 @@ public class LLMChatCommand {
         }
 
         // 检查OP权限
-        if (!source.hasPermissionLevel(2)) {
+        if (!EntityHelper.hasPermissionLevel(source, 2)) {
             player.sendMessage(Text.literal("只有OP可以管理广播玩家列表").formatted(Formatting.RED), false);
             return 0;
         }
@@ -2438,7 +2439,7 @@ public class LLMChatCommand {
         }
 
         // 检查OP权限
-        if (!source.hasPermissionLevel(2)) {
+        if (!EntityHelper.hasPermissionLevel(source, 2)) {
             player.sendMessage(Text.literal("只有OP可以管理广播玩家列表").formatted(Formatting.RED), false);
             return 0;
         }
@@ -2492,7 +2493,7 @@ public class LLMChatCommand {
         }
 
         // 检查OP权限
-        if (!source.hasPermissionLevel(2)) {
+        if (!EntityHelper.hasPermissionLevel(source, 2)) {
             player.sendMessage(Text.literal("只有OP可以管理广播玩家列表").formatted(Formatting.RED), false);
             return 0;
         }

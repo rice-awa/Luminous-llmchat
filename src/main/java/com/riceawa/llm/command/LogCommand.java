@@ -20,7 +20,7 @@ public class LogCommand {
     
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess registryAccess) {
         dispatcher.register(CommandManager.literal("llmlog")
-                .requires(source -> source.hasPermissionLevel(2)) // 需要管理员权限
+                .requires(CommandManager.requirePermissionLevel(CommandManager.GAMEMASTERS_CHECK)) // 需要管理员权限
                 .then(CommandManager.literal("level")
                         .then(CommandManager.argument("level", StringArgumentType.string())
                                 .suggests((context, builder) -> {

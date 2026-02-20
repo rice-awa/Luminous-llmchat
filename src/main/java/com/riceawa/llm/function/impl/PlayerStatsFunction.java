@@ -3,6 +3,7 @@ package com.riceawa.llm.function.impl;
 import com.google.gson.JsonObject;
 import com.riceawa.llm.function.LLMFunction;
 import com.riceawa.llm.function.PermissionHelper;
+import com.riceawa.llm.util.EntityHelper;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -83,7 +84,8 @@ public class PlayerStatsFunction implements LLMFunction {
             BlockPos pos = targetPlayer.getBlockPos();
             stats.append("位置: ").append(pos.getX()).append(", ")
                 .append(pos.getY()).append(", ").append(pos.getZ()).append("\n");
-            stats.append("维度: ").append(getDimensionName(targetPlayer.getWorld().getRegistryKey().getValue().toString())).append("\n");
+            var world = EntityHelper.getWorld(targetPlayer);
+            stats.append("维度: ").append(getDimensionName(world != null ? world.getRegistryKey().getValue().toString() : "Unknown")).append("\n");
             
             // 游戏模式
             stats.append("游戏模式: ").append(targetPlayer.interactionManager.getGameMode().getTranslatableName().getString()).append("\n");

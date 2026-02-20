@@ -1,10 +1,12 @@
 package com.riceawa.llm.function;
 
+import com.riceawa.llm.util.EntityHelper;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
-import net.minecraft.world.World;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -44,30 +46,26 @@ public class PermissionHelper {
      * 检查玩家是否为OP
      */
     public static boolean isOperator(PlayerEntity player) {
-        MinecraftServer server = player.getServer();
-        if (server == null) {
-            return false;
+        if (player instanceof ServerPlayerEntity serverPlayer) {
+            MinecraftServer server = EntityHelper.getServer(serverPlayer);
+            ServerWorld world = server.getOverworld();
+            ServerCommandSource source = player.getCommandSource(world);
+            return EntityHelper.hasPermissionLevel(source, 2);
         }
-        return server.getPlayerManager().isOperator(player.getGameProfile());
+        return false;
     }
     
     /**
      * 检查玩家是否有指定级别的命令权限
      */
     public static boolean hasCommandPermission(PlayerEntity player, int level) {
-        if (player == null) {
-            return false;
+        if (player instanceof ServerPlayerEntity serverPlayer) {
+            MinecraftServer server = EntityHelper.getServer(serverPlayer);
+            ServerWorld world = server.getOverworld();
+            ServerCommandSource source = player.getCommandSource(world);
+            return EntityHelper.hasPermissionLevel(source, level);
         }
-        
-        // 获取玩家所在的世界
-        World world = player.getWorld();
-        if (!(world instanceof ServerWorld)) {
-            return false;
-        }
-        
-        ServerWorld serverWorld = (ServerWorld) world;
-        ServerCommandSource source = player.getCommandSource(serverWorld);
-        return source.hasPermissionLevel(level);
+        return false;
     }
     
     /**

@@ -3,6 +3,7 @@ package com.riceawa.llm.function.impl;
 import com.google.gson.JsonObject;
 import com.riceawa.llm.function.LLMFunction;
 import com.riceawa.llm.function.PermissionHelper;
+import com.riceawa.llm.util.EntityHelper;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.player.PlayerEntity;
@@ -122,7 +123,10 @@ public class SetBlockFunction implements LLMFunction {
             }
             
             BlockState blockState = block.getDefaultState();
-            ServerWorld world = (ServerWorld) player.getWorld();
+            ServerWorld world = (ServerWorld) EntityHelper.getWorld(player);
+            if (world == null) {
+                return FunctionResult.error("无法获取世界信息");
+            }
             
             // 检查是否需要替换
             if (!replace && !world.getBlockState(targetPos).isAir()) {

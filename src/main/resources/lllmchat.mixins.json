@@ -3,7 +3,8 @@
 	"package": "com.riceawa.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
-		"ExampleMixin"
+		"ExampleMixin",
+		"ServerPlayerEntityAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1

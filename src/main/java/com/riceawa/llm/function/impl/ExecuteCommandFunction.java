@@ -5,6 +5,7 @@ import com.riceawa.llm.function.LLMFunction;
 import com.riceawa.llm.function.PermissionHelper;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.text.Text;
 import java.time.Instant;
@@ -114,7 +115,7 @@ public class ExecuteCommandFunction implements LLMFunction {
                 consoleSource.getPosition(),
                 consoleSource.getRotation(),
                 consoleSource.getWorld(),
-                4, // 最高权限级别
+                CommandManager.requirePermissionLevel(CommandManager.OWNERS_CHECK),
                 consoleSource.getName(),
                 consoleSource.getDisplayName(),
                 consoleSource.getServer(),
@@ -135,11 +136,11 @@ public class ExecuteCommandFunction implements LLMFunction {
                     resultCode = server.getCommandManager().getDispatcher().execute(command, captureSource);
                     System.out.println("[ExecuteCommandFunction] 命令执行完成，返回码: " + resultCode + ", 捕获到 " + outputMessages.size() + " 条消息");
                 } catch (Exception e) {
-                    // 如果直接执行失败，尝试使用executeWithPrefix
-                    System.out.println("[ExecuteCommandFunction] 直接执行失败，尝试executeWithPrefix: " + e.getMessage());
-                    server.getCommandManager().executeWithPrefix(captureSource, command);
+                    // 如果直接执行失败，尝试使用parseAndExecute
+                    System.out.println("[ExecuteCommandFunction] 直接执行失败，尝试parseAndExecute: " + e.getMessage());
+                    server.getCommandManager().parseAndExecute(captureSource, command);
                     resultCode = 1; // 如果没有异常，认为成功
-                    System.out.println("[ExecuteCommandFunction] executeWithPrefix完成，捕获到 " + outputMessages.size() + " 条消息");
+                    System.out.println("[ExecuteCommandFunction] parseAndExecute完成，捕获到 " + outputMessages.size() + " 条消息");
                 }
 
                 // 收集输出信息

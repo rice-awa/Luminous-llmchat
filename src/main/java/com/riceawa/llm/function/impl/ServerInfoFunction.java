@@ -7,6 +7,7 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.world.GameRules;
 
 /**
  * 获取服务器信息的函数
@@ -56,7 +57,7 @@ public class ServerInfoFunction implements LLMFunction {
             info.append("是否硬核模式: ").append(server.isHardcore() ? "是" : "否").append("\n");
             info.append("默认游戏模式: ").append(server.getDefaultGameMode().getTranslatableName().getString()).append("\n");
             info.append("难度: ").append(server.getOverworld().getDifficulty().getName()).append("\n");
-            info.append("是否允许PvP: ").append(server.isPvpEnabled() ? "是" : "否").append("\n");
+            info.append("是否允许PvP: ").append(server.getOverworld().getGameRules().getBoolean(GameRules.PVP) ? "是" : "否").append("\n");
             
             // 玩家信息
             info.append("\n=== 玩家信息 ===\n");
