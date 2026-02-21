@@ -457,17 +457,35 @@ import net.minecraft.world.GameRules;
 import net.minecraft.world.rule.GameRules;
 ```
 
-### 问题十二：GameRules API 重构
+### 问题十二：GameRules API 变更（已修复）
 
 **问题描述：**
-GameRules 在 1.21.11 中发生了重大重构，从静态字段变为使用 Registry 系统。`GameRules.PVP` 字段不再存在，`getBoolean(GameRules.PVP)` 方法也无法使用。
+GameRules 在 1.21.11 中 API 发生了变化。`getBoolean(GameRules.PVP)` 方法已被移除，需要使用新的 `getValue(GameRule<T>)` 方法。
 
 **影响：**
-- ServerInfoFunction.java 中获取 PvP 状态的代码需要暂时移除或使用新 API 重写
-- 新 API 需要使用 Registry 系统来访问 game rules
+- ServerInfoFunction.java 中获取 PvP 状态的代码需要更新
 
 **修复方案：**
-暂时移除 PvP 状态获取功能，或等待后续使用新的 GameRuleRegistry API 重写。
+使用新的 `getValue()` 方法替代旧的 `getBoolean()` 方法：
+
+```java
+// 旧代码（已弃用）
+boolean isPvp = server.getOverworld().getGameRules().getBoolean(GameRules.PVP);
+
+// 新代码（1.21.11 兼容）
+boolean isPvp = server.getOverworld().getGameRules().getValue(GameRules.PVP);
+```
+
+**重要说明：**
+- `GameRules.PVP` 静态字段仍然存在，类型为 `GameRule<Boolean>`
+- 只是获取值的方法从 `getBoolean()` 改为 `getValue()`
+- 这个变化适用于所有 GameRules 的布尔值和整数值获取
+
+**涉及文件：**
+
+| 文件 | 行号 | 修改内容 |
+|------|------|----------|
+| `ServerInfoFunction.java` | 60-62 | PvP 状态获取代码修复 |
 
 ### 问题十三：PlayerEntity.getWorld() 方法移除
 

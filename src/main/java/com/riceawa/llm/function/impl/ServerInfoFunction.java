@@ -57,8 +57,9 @@ public class ServerInfoFunction implements LLMFunction {
             info.append("是否硬核模式: ").append(server.isHardcore() ? "是" : "否").append("\n");
             info.append("默认游戏模式: ").append(server.getDefaultGameMode().getTranslatableName().getString()).append("\n");
             info.append("难度: ").append(server.getOverworld().getDifficulty().getName()).append("\n");
-            // PvP状态获取在1.21.11中需要使用新的GameRuleRegistry API，暂时跳过
-            // info.append("是否允许PvP: ...")
+            // PvP状态获取 - 使用新的 getValue API
+            boolean isPvp = server.getOverworld().getGameRules().getValue(GameRules.PVP);
+            info.append("是否允许PvP: ").append(isPvp ? "是" : "否").append("\n");
             
             // 玩家信息
             info.append("\n=== 玩家信息 ===\n");
