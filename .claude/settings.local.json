@@ -3,7 +3,16 @@
     "allow": [
       "Bash(./gradlew compileJava:*)",
       "Bash(./gradlew build -x test)",
-      "Bash(rm:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "WebSearch",
+      "WebFetch(domain:docs.fabricmc.net)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs",
+      "mcp__firecrawl-mcp__firecrawl_search",
+      "mcp__firecrawl-mcp__firecrawl_scrape",
+      "Bash(./gradlew test)",
+      "Bash(./gradlew:*)"
     ],
     "deny": []
   }
